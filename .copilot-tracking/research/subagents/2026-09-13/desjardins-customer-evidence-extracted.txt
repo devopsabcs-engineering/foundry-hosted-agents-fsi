@@ -1,0 +1,324 @@
+Hackathon IA
+
+Rencontre préparatoire des coachs
+
+Équipe Gouvernance et développement de la pratique d’intelligence artificielle et
+valorisation des données
+
+mai 2026
+Mise en contexte                                                                  Objectifs de la rencontre
+
+   À la suite du succès de l’an dernier, nous sommes ravis d’annoncer la              1 Introduction des coachs
+   deuxième édition du Hackathon IA Desjardins, cette fois axée sur la                2 Exécution du Hackathon et les apports des
+   thématique de l’agentique .
+                                                                                                coachs
+   L’objectif : stimuler l’expérimentation interne , développer les talents en
+   IA et accélérer l’adoption des capacités technologiques de Desjardins              3 Questions et échanges
+   (PDM).
+                                                                                                                                                                                          2
+Qu’est - ce qu’un Hackathon en IA générative ?
+
+ C’est un marathon de programmation où des équipes multi -sectorielles
+ composées de scientifiques de données de conseillers et conseillères
+ en ingénierie de données et en ingénierie d’ apprentissag e automatique
+ (MLOps ) et d’analystes de valorisation, accompagnés par des experts
+ métiers de Desjardins résolvent des problématiques d’affaires en
+ capitalisant sur l’IA et en utilisant les outils technologiques de Microsoft
+ Azure.
+
+   Cette initiative soutient la stratégie visant à former et accompagner
+   l’ensemble des employés et gestionnaires dans l’utilisation des données et de
+   l’analytique en permettant :
+   • l’exploration de cas d’usage IA à fort potentiel d’impact
+   • le développement progressif des compétences technologiques
+   • l’accélération de l’adoption des capacités de la PDM
+Hackathon IA 2026
+
+Dates et lieux                           Formations et activités préparatoires                                                Technologie
+                                        • Séance de maillage
+    Montréal                            • Parcours de formation asynchrone ( DataCamp )                           • Utilisation de l’environnement (Azure) du
+       2026                             • Ateliers (2) préparatoires @ EY                                            laboratoire LIDIA
+
+                                         Hackathon (19 et 20 mai – Maison du développement  durable               • Accessible via l’ ordinateur Desjardins
+                                         – Montréal)
+               Compétition              • Présentation du défi                                                                Thématique
+Maison du développement                 • Conception et réalisation de la solution
+                                                                                                                              IA agentique
+           19 et 20 mai 2026  d urable
+
+                                         Évaluation technique (27 ou 28 mai    - virtuel)
+                                        • Rencontre de 30 minutes par équipe
+Évaluation technique                    • Présentation au comité technique
+          Virtuel
+                                         Finale (8 juin – Espace Desjardins    – Montréal)
+  27 et 28 mai 2026                     • Présentation des équipes finalistes
+                                        • Remise des prix
+        Finale
+Espace Desjardins
+
+    8 juin 2026
+
+Participants                            • Jusqu’à 75 employé .es réparti.es en 15 équipes multidisciplinaires et  Période d’inscription
+                                           intersectorielles                                                      11 au 25 mars 2026
+                                                 • Public cible : Métiers de la données et profils affaires
+                                                                                                                                                                3
+                                        • Équipes composées par le comité organisateur , en se basant sur les
+                                           profils et secteurs des candidatures
+En route vers le Hackathon IA 2026
+
+Préparation                                Ateliers préparatoires                                   Programmation et évaluation
+
+Dès le 10 avril                     5 mai                          12 mai  13 et 15 mai             19 et 20 mai 27 et 28 mai 29 mai                     8 juin
+
+    Parcours de formation           Atelier affaires                            Cliniques de        Programmation des                Annonce des         Finale
+    asynchrones                                                                 connectivité        solutions                        équipes finalistes
+                                     q Obligatoire                                                                                                        q Présentiel @
+Deux parcours de formation sur la                                                      q Au besoin  q Présentiel @ Maison du                                   Espace
+plateforme DataCamp sont             q Présentiel @ EY                                                  développement                                          Desjardins
+recommandés pour vous préparer au                                                      q Virtuel        durable
+Hackathon                            q Dîner fourni
+• AI Agent Fundamentals (6 heures)                                 Atelier technique                                          Évaluation technique
+• Microsoft Azure Fundamentals       Thématiques
+                                                                    q Obligatoire pour profils                         q Virtuel
+    (AZ -900) (9 heures)             • Besoin et valeurs                 techniques
+                                          d'affaires                                                                   q 30 minutes par équipe
+                                                                    q Virtuel
+                                     • Processus et                                                 Maison du développement durable
+                                          responsabilité en         Thématiques                     50 Rue Sainte - Catherine Ouest
+                                          agentique IA                                              Montréal QC H2X 3V4
+                                                                    • Agentique IA
+                                     • Pitch et storytelling        • Azure et outils
+                                                                    • Plateforme
+                                        Locaux d’EY
+                                        900, boul. de Maisonneuve
+                                        Ouest, étage 23
+                                        Montréal QC H2A 2Y9
+Un support diversifié et continu aux équipes via la contribution de
+coachs
+
+                   Coachs affaires                                         Coachs techniques                          Coachs encadrement                          Coach pitch
+
+Combien 2                                                                  8                                          4                                           2- 4
+
+             Qui   • Contexte d’affaires (DGAG)                            • IA générative et agentique (Desjardins,  • Gouvernance et éthique de l’IA            • Anciens contributeurs Hackathon 2025
+• Expertises       • Captation des besoins et optimisation de                  EY)                                    • Gouvernance des données                       (Opérations, GDR, BSD)
+                                                                                                                      • Sécurité IA
+                       processus (SAFS)                                    • Azure et plateforme Lidia (Desjardins,                                               • Présentation d’affaires et exécutives
+                                                                               Microsoft)                             ➢ Desjardins                                    (SAFS et EY)
+
+➢ Organisations ➢ Desjardins, EY                                           ➢ Desjardins, EY, Microsoft                                                            ➢ Desjardins, EY
+
+         Rôles et  • Aiguiller la compréhension du défi proposé            • Soutenir la connectivité aux             • Informer des mesures et requis éthique    • Supporter la préparation des pitchs
+responsabilités    • Encourager l’innovation tout en restant centré sur        environnements                             au sein de l’organisation                   affaires (EY)
+
+                       les visées d’affaires                               • Recommander des outils et                • Suggérer des pratiques de                 Plages de consultation durant la semaine
+                   • Poser un regard critique et émettre des                   méthodologies pour orienter les            gouvernance responsable des solutions   du 1er au 5 juin
+                                                                               travaux durant la compétition              IA                                      Soutien dans la préparation des pitchs
+                       recommandations sur les solutions                                                                                                          avant la cérémonie
+                                                                           • Accompagner et conseiller les            • Préparer les participants à la formation  Préparation du jury d’évaluation
+Comment            Consultation minutée auprès des équipes durant la           participants                               affaires                                (questions, critères, conseils)
+                   compétition (15 min par équipe à chaque jour de
+                   compétition)                                            Disponible tout au long de la compétition  Consultation minutée auprès des équipes
+                                                                                                                      durant la compétition (15 min par équipe à
+                   Préparation du jury d’évaluation (questions, critères,  Soutien possible au comité d’évaluation    chaque jour de compétition)
+                   conseils)                                               technique des solutions (à confirmer)
+                                                                                                                      Animation d’un segment à la formation
+                                                                           Préparation du comité d’évaluation         affaires du 5 mai
+                                                                           technique (CET) (questions, critères,
+                                                                           conseils)                                  Préparation du jury d’évaluation
+                                                                                                                      (questions, critères, conseils)
+
+Quand              • Fin avril - Rencontre préparatoire des coachs (45     • Fin avril - Rencontre préparatoire des   • Fin avril - Rencontre préparatoire des    • Semaine du 1 er au 5 juin - (6-12 x 30
+                       min)                                                    coachs (45 min)                            coachs (45 min)                             min)
+
+                   • 19-20 mai (14 heures)                                 • 19-20 mai (14 heures)                    • 5 mai : Formation affaires (@bureau EY)   1,5-6 heures
+                                                                           • Semaine du 25 mai - (Comité                  (3h)
+   Contribution    15-17 heures
+(durée estimée)                                                                évaluation technique) (10 heures)      • 19-20 mai (14 heures)
+
+                                                                           20 -25 heures                              18-20 heures
+Journée 1 : Hackathon (9h -17h)
+
+Atrium       9h00 - 9h45    Accueil
+             9h45 – 10h00
+                            Discours intro Simon – Bienvenue à cette 2 e édition + présentation DDP (3 minutes)
+             10h00 - 10h40  Discours David – Importance de la gestion des talents en IA pour Desjardins (3 minutes) (à distance)
+                            Discours EY – Apport d’un hackathon pour une grande organisation et importance partenariat avec
+Salle Clark  10h40 – 11h15  Desjardins et rôle des consultants (3 minutes)
+et Sainte -  11h15– 12h00   Discours Tarek – Conseil pour bien performer (3 minutes)
+Catherine    12h00 – 13h00  Présentation du défi, critères d’évaluation et processus d’évaluation, règles de remises, outils dont
+(MDD)        13h00 -14h20   ils disposent des règlements, coachs cliniques, livrables et horaire, plateforme + données
+             14h20 -14h35   Début de la programmation en équipe sans accès à l’environnement
+             14h40 -14h55
+             14h20 - 16h55  Accès Lidia
+             16h55 – 17h00
+                            Dîner
+
+                            Clinique coach affaires 1 (10 min par consultation)
+
+                            Debrief première clinique coachs affaires
+
+                            Debrief coachs encadrement
+
+                            Programmation en équipe et préparation des présentations
+
+                            Mot de clôture
+Journée 2 : Hackathon (8h30 à 16h30)
+
+8h30 – 9h00    Programmation en équipe et préparation des présentations
+
+9h00 – 10h20   Clinique coach affaires 2
+10h20 -10h35   Debrief seconde clinique coachs affaires + encadrement
+10h00 – 12h00  Programmation en équipe et préparation des présentations
+12h00 – 13h00  Dîner
+13h- 16h00     Programmation en équipe et préparation des présentations
+16h30          Cocktail
+
+L’horaire sera respecté au maximum, mais restons à l’affût d’un ajustement nécessaire pour maximiser
+                                                   la qualité de la compétition
+J’assure mon véhicule
+       en Ontario
+Le défi !
+
+           Exploiter l’I.A. agentique pour prendre en charge un échange avec un demandeur
+           en vue de lui proposer une soumission d’assurance pour son véhicule en Ontario.
+
+           L’objectif d’affaire est d’explorer des moyens de bonifier l’efficience du processus
+           de soumission soit au niveau des efforts humain mobilisés, soit au niveau de
+           l’amélioration des ventes, soit un amalgame des deux.
+
+           Cet agent automatisé doit prévoir au minimum une interaction avec un employé
+           humain de Desjardins dans le but d’obtenir son approbation quant à la soumission
+           AVANT de la soumettre au demandeur (« humain dans la boucle »).
+                                                                                    Prise de connaissance de l’infra
+
+Les services disponibles durant le Hackathon
+
+ • Infrastructure Azure
+    • Azure OpenAI
+       • LLM: GPT -5-mini et GPT -4.1-mini
+       • Embedding : text-embedding-3-small
+    • AI Search
+    • BD SQL (Données incluses)
+    • Storage account
+    • Functions App (Python et container)
+    • Registre de conteneurs
+    • App service
+
+• SharePoint
+   • Tous les documents Hackathon
+   • Les données + Règles d’affaire
+   • Dossier de dépôt pour les livrables
+
+• DevOps                                               Surtout: Votre créativité !
+
+   • Extraits de code permettant d’interagir avec les
+      ressources Azure
+
+                                                                                    10
+Fiche défi – Hackathon 2026                                                                                                             Défi:
+
+                      État actuel                                    État cible               Enjeux et risques        Nom de l’équipe:
+
+(Description, problématique)                      (Description et processus cible)  (Exemples : conformité, sécurité,                     Besoin d’affaires
+                                                                                    éthique, qualité)
+                                                                                                                            (Dans l’état actuel, [acteur] rencontre
+                                                                                                                            [problème], ce qui entraine [impact]. L’objectif
+                                                                                                                            est d’atteindre [résultat à haut niveau])
+
+                      Exigences                                          Gouvernance                                                            Solution
+
+(Capacités techniques et critères)                (Exemples : données, mécanismes, règles, structures)  Description:
+                                                                                                        (Veuillez introduire brièvement en quoi consiste la solution en IA à mettre en
+Grands  q Date:                      Indicateurs  • ICP: Cible de x    Parties                          place afin de répondre au besoin d’affaires)
+jalons      Desc.:                      clés de       % de           prenantes
+                                                      satisfaction…                                     Architecture:
+        q Date:                     performance                                                         (Veuillez insérer le diagramme d’architecture à haut niveau démontrant
+            Desc.:                       (ICPs)                                                         l’intégration dans le/les systèmes métier)
+
+                                                                                                        Modèle IA:
+                                                                                                        (Veuillez décrire le modèle par rapport à son rôle, ses décisions, ses limites et sa
+                                                                                                        gouvernance)
+
+                                                                                                        Impact:
+                                                                                                        (Veuillez identifier la contribution de la solution à la création de valeurs,
+                                                                                                        notamment en termes d’efficience, de revenus ou de qualité de service)
+
+                                                                                                                                                                                              x
+                                                                                                  Général – Règlements, grilles d’évaluation, etc.
+
+Évaluation – Vue d’ensemble
+
+Lignes directrices                        Remise              Critères techniques                 Critères Affaires
+
+q Capable de rouler                       q Code (DevOps)     • Utilisation pertinente de         • Problème d’affaires et
+                                          q README (DevOps)      l’agentique                          pertinence
+q Temps limité pour                       q Présentation PPT
+   évaluation                                                 • Human -in -the -Loop et contrôle  • Valeur et impact d’affaires
+                                             (SP)                des agents
+     → facile d’utilisation               q One pager (SP)                                        • Faisabilité, passage à
+                                          q Vidéo/Démo (SP)   • Données et règles d’affaires          l’échelle et transférabilité
+q Pas le droit d’utiliser                                        métier
+   Github Copilot                                                                                 • Qualité du pitch et de la
+                                                              • Qualité du prototype et               démonstration
+q Citer vos sources (chatbots ,                                  robustesse
+
+     StackOverflow , votre voisin, etc.)                      • Mesure, observabilité et
+                                                                 contrôle
+q Ludique
+                                                              • IA responsable, données et
+     q Collaboration constructive                                éthique appliquées aux agents
+
+  Pénalités ou                              Pénalités ou      Le top -6 de l’évaluation Technique
+disqualification                          disqualification            passe au round Affaire
+Processus d'évaluation des solutions
+
+20 mai                21 au 26 mai      27 et 28 mai 29 mai              1er au 5 juin                     8 juin
+
+Remises des           Consultation des               Annonce des         Préparation des                   Finale
+solutions (16h)       solutions par le               équipes finalistes
+                      comité                                             équipes finalistes                 q Présentiel @ Espace
+ q Code (DevOps)      d'évaluation      Évaluation technique                                                     Desjardins
+ q README (DevOps)    technique                                           q Accès à un coach pour
+ q Démo (vidéo) (SP)                     q Virtuel                             préparer le pitch (30 min)
+ q PPT (SP)                              q 25 minutes par équipe
+ q One -pager (SP)
+Prochaines étapes
+
+              Recruter et préparer les coachs pitchs
+
+              Finaliser la formation technique et établir la contribution avec
+              les coachs Microsoft
+
+              Tous les coachs (sauf pitch) sont attendus à la MDD le 19 mai
+              au plus tard à 10h am
+
+                                                                                                                                                                                                                              14
+ Avez -vous des questions ?
+
+Un grand merci pour votre contribution au Hackathon IA 2026 !!
+
+                                                                                                                                                                                                      15
+Pourquoi participer ?
+
+Expérimentation                                  Résolution de                                 Formation
+                                                 problématiques d’affaires
+
+Stimuler l ’expérimentation en données et        Identifier des opportunités de valorisation   Développer l’expertise de nos talents en IA
+analytique pour accélérer l’adoption et la       des données internes et explorer des          sur les technologies cibles de Desjardins
+livraison de solutions IA                        applications concrètes d’agents d’IA au sein
+                                                 de l’organisation
+
+Amélioration de la marque                        Engagement des                                Adoption des plateformes
+employeur                                        employés                                      cibles
+
+ Renforcer la notoriété et de l’attractivité en  Engager nos talents en données et renforcer   Permettre aux employé.es de travailler dans
+ démontrant que l’organisation valorise la       le sentiment d’appartenance à Desjardins      un environnement Azure Desjardins pour en
+ créativité et les compétences.                  tout en favorisant la collaboration           accélérer l’adoption
+                                                 interdisciplinaire et intersectorielle
+
+Le hackathon agit comme un catalyseur : il accélère l’adoption de l’IA, développe les talents internes et
+crée des solutions tangibles pour les secteurs d’affaires.
+
+                                                                                                                                                                                                                            16
+
