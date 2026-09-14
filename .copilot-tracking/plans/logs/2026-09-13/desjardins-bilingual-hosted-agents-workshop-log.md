@@ -110,3 +110,29 @@ Items identified during planning that fall outside the current implementation pl
 * WI-07: Reconcile the two gate-numbering schemes (primary research document's G1-G6 versus the platform subagent report's G1-G8) into a single canonical list. (Priority: Low)
   * Source: Planning Log DR-01.
   * Dependency: None; a documentation-only follow-up.
+
+* WI-08: Once network/registry access allows, run `npm install` for `scripts/build-workshop-deck.js` (pptxgenjs) and actually generate the EN/FR decks; only `node --check` syntax validation was possible during implementation. (Priority: Medium)
+  * Source: Phase 6 completion report, Validation Results.
+  * Dependency: None; independent of Phases 1-9's remaining scope.
+
+* WI-09: Obtain a qualified bilingual reviewer's sign-off on the ten French labs' phrasing before any public/pilot delivery, per Gate G5. (Priority: Medium)
+  * Source: Phase 6 completion report, Suggested Additional Steps; Risk Register RR9.
+  * Dependency: Same as WI-05.
+
+* WI-10: Before any hosted deployment, decide whether src/quote-preparation-agent/toolbox.py should switch from in-process MCP tool calls to a real MCP client/streamable-http session against the deployed application-server and rulebook-server. (Priority: Medium)
+  * Source: Phase 5 completion report, Executive Details and Suggested Additional Steps.
+  * Dependency: Depends on WI-02/WI-03 (Gates G2/G3).
+
+* WI-11: Once Gate G2 is cleared, replace the placeholder model name/version/SKU defaults in infra/modules/ai-foundry.bicep and infra/main.bicep with the approved Foundry model selection; once Gate G3 is cleared, pin/verify the Python runtime and MCP/LangGraph package versions referenced by azure.yaml. (Priority: High, gated)
+  * Source: Phase 8 completion report, Suggested Additional Steps.
+  * Dependency: Depends on WI-02 and WI-03.
+
+* WI-12: Run markdownlint-cli2 (or equivalent) in an environment with full npm registry access; this sandbox's registry is restricted (EALLOWREMOTE) and blocked it across Phases 1, 6, and 9. (Priority: Low)
+  * Source: Phase 9 completion report, Validation Results item 3.
+  * Dependency: None; tooling-environment follow-up only.
+
+* WI-13: Decide whether the runtime applicant-facing notice text (data/synthetic/rulebook.json's `notice` field, surfaced via src/quote-preparation-agent/graph.py) should be made byte-identical to the docs disclaimer wording, or whether the shorter equivalent phrasing is acceptable. (Priority: Medium)
+  * Source: Phase 9 completion report, Remaining Blocking Issues item 2.
+  * Dependency: Best resolved alongside WI-06 (Gate G6 regulatory/privacy sign-off).
+
+

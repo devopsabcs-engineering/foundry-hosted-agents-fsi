@@ -54,109 +54,109 @@ Build a bilingual (English/French) hands-on workshop, adapted from the sibling `
 
 Note on `parallelizable`: the marker describes whether a phase's files can be authored alongside sibling phases without shared-file or shared-state conflicts once that phase's own upstream prerequisite phase has completed. It does not imply that steps within a phase are unordered; steps inside a phase may still be sequential (see each step's Dependencies in the details file).
 
-### [ ] Implementation Phase 1: Repository and Bilingual Site Scaffold
+### [x] Implementation Phase 1: Repository and Bilingual Site Scaffold
 
 <!-- parallelizable: true -->
 
-* [ ] Step 1.1: Create the top-level directory structure and expand the root README
+* [x] Step 1.1: Create the top-level directory structure and expand the root README
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 12-42)
-* [ ] Step 1.2: Create the bilingual Jekyll site skeleton (docs/index.md, docs/fr/index.md, shared config)
+* [x] Step 1.2: Create the bilingual Jekyll site skeleton (docs/index.md, docs/fr/index.md, shared config)
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 43-67)
-* [ ] Step 1.3: Validate phase changes
+* [x] Step 1.3: Validate phase changes
   * Run markdown lint on all new Markdown files; confirm docs/ and docs/fr/ are structurally paired (same file names)
   * Skip build/test commands here; no code exists yet in this phase
 
-### [ ] Implementation Phase 2: Synthetic Fixtures, JSON Schema, and Deterministic Calculator
+### [x] Implementation Phase 2: Synthetic Fixtures, JSON Schema, and Deterministic Calculator
 
 <!-- parallelizable: true -->
 
-* [ ] Step 2.1: Author the synthetic fixture set and JSON Schema (draft-07) for the quote-preparation contract
+* [x] Step 2.1: Author the synthetic fixture set and JSON Schema (draft-07) for the quote-preparation contract
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 79-101)
-* [ ] Step 2.2: Implement the pure deterministic calculator and its unit tests
+* [x] Step 2.2: Implement the pure deterministic calculator and its unit tests
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 102-122)
-* [ ] Step 2.3: Validate phase changes
+* [x] Step 2.3: Validate phase changes
   * Run the calculator unit tests (pytest)
   * Validate every fixture against the JSON Schema
 
-### [ ] Implementation Phase 3: Approval Repository and State Machine
+### [x] Implementation Phase 3: Approval Repository and State Machine
 
 <!-- parallelizable: false -->
 
-* [ ] Step 3.1: Implement the SQLite-backed ApprovalRepository with the full state machine
+* [x] Step 3.1: Implement the SQLite-backed ApprovalRepository with the full state machine
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 133-154)
-* [ ] Step 3.2: Implement concurrency, idempotency, and actor-authorization tests
+* [x] Step 3.2: Implement concurrency, idempotency, and actor-authorization tests
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 155-176)
-* [ ] Step 3.3: Validate phase changes
+* [x] Step 3.3: Validate phase changes
   * Run the approval-repository unit and concurrency tests (pytest)
   * Confirm self-approval and forged-actor attempts fail (traces to research V09, V11)
 
-### [ ] Implementation Phase 4: Read-Only MCP Services
+### [x] Implementation Phase 4: Read-Only MCP Services
 
 <!-- parallelizable: true -->
 
-* [ ] Step 4.1: Implement application-server (get_application) as a read-only FastMCP service
+* [x] Step 4.1: Implement application-server (get_application) as a read-only FastMCP service
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 186-207)
-* [ ] Step 4.2: Implement rulebook-server (get_rulebook) as a read-only FastMCP service
+* [x] Step 4.2: Implement rulebook-server (get_rulebook) as a read-only FastMCP service
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 208-228)
-* [ ] Step 4.3: Validate phase changes
+* [x] Step 4.3: Validate phase changes
   * Run MCP server unit/smoke tests locally (no hosted deployment); confirm no write tools are exposed and unknown fixture/rulebook IDs are rejected
 
-### [ ] Implementation Phase 5: Hosted LangGraph Quote-Preparation Agent (local, unhosted)
+### [x] Implementation Phase 5: Hosted LangGraph Quote-Preparation Agent (local, unhosted)
 
 <!-- parallelizable: false -->
 
-* [ ] Step 5.1: Adapt the supervisor/specialist LangGraph topology for intake, reference lookup, and composition
+* [x] Step 5.1: Adapt the supervisor/specialist LangGraph topology for intake, reference lookup, and composition
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 238-262)
-* [ ] Step 5.2: Wire the agent to the Phase 4 MCP tools and the Phase 2/3 calculator and approval repository, with bounded applicant-facing output
+* [x] Step 5.2: Wire the agent to the Phase 4 MCP tools and the Phase 2/3 calculator and approval repository, with bounded applicant-facing output
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 263-282)
-* [ ] Step 5.3: Validate phase changes
+* [x] Step 5.3: Validate phase changes
   * Run the local agent test harness against synthetic fixtures (no Azure calls); do not attempt hosted deployment in this phase (Gate G2/G3/G6 not cleared)
 
-### [ ] Implementation Phase 6: Bilingual Lab Curriculum and Shared Deck
+### [x] Implementation Phase 6: Bilingual Lab Curriculum and Shared Deck
 
 <!-- parallelizable: true -->
 
-* [ ] Step 6.1: Author the ten English labs (00 through 09) adapted from the sibling structure
+* [x] Step 6.1: Author the ten English labs (00 through 09) adapted from the sibling structure
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 292-321)
-* [ ] Step 6.2: Author the ten paired French labs with reviewed, natural French and matching filenames
+* [x] Step 6.2: Author the ten paired French labs with reviewed, natural French and matching filenames
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 322-341)
-* [ ] Step 6.3: Adapt the shared bilingual deck generator script
+* [x] Step 6.3: Adapt the shared bilingual deck generator script
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 342-362)
-* [ ] Step 6.4: Validate phase changes
+* [x] Step 6.4: Validate phase changes
   * Confirm EN/FR lab file-name and exercise-count parity; run markdown lint
 
-### [ ] Implementation Phase 7: Evaluation Suite
+### [x] Implementation Phase 7: Evaluation Suite
 
 <!-- parallelizable: true -->
 
-* [ ] Step 7.1: Author the paired EN/FR golden dataset (minimum six business fixtures plus fault cases)
+* [x] Step 7.1: Author the paired EN/FR golden dataset (minimum six business fixtures plus fault cases)
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 373-391)
-* [ ] Step 7.2: Adapt the deterministic checks and evaluation gate script
+* [x] Step 7.2: Adapt the deterministic checks and evaluation gate script
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 392-411)
-* [ ] Step 7.3: Validate phase changes
+* [x] Step 7.3: Validate phase changes
   * Run the deterministic checks and evaluation gate locally against Phase 2/3/4/5 code
 
-### [ ] Implementation Phase 8: Infrastructure Scaffolding (author only, gated)
+### [x] Implementation Phase 8: Infrastructure Scaffolding (author only, gated)
 
 <!-- parallelizable: false -->
 
-* [ ] Step 8.1: Adapt Bicep modules for the read-only MCP services and hosted agent, without deploying
+* [x] Step 8.1: Adapt Bicep modules for the read-only MCP services and hosted agent, without deploying
   * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 421-443)
-* [ ] Step 8.2: Validate phase changes
+* [x] Step 8.2: Validate phase changes
   * Run `bicep build` (or `az bicep build`) for lint/compile checking only; do not run `azd provision`, `azd deploy`, or any apply command until Gates G2, G3, and G6 are explicitly cleared by their owners
 
-### [ ] Implementation Phase 9: Final Validation
+### [x] Implementation Phase 9: Final Validation
 
 <!-- parallelizable: false -->
 
-* [ ] Step 9.1: Run full project validation
+* [x] Step 9.1: Run full project validation
   * Execute all Python test suites (pytest) across calculator, approval repository, MCP servers, and agent test harness
   * Execute `bicep build` across all modified Bicep modules
   * Execute markdown lint across all new/edited Markdown files
   * Search docs/, docs/fr/, and any applicant/reviewer templates for the required synthetic-only/non-binding/no-regulatory-endorsement disclaimer string in both languages; fail this check if any applicant-facing or reviewer-facing file is missing it
-* [ ] Step 9.2: Fix minor validation issues
+* [x] Step 9.2: Fix minor validation issues
   * Iterate on lint errors, type errors, and test failures directly when corrections are straightforward
-* [ ] Step 9.3: Report blocking issues
+* [x] Step 9.3: Report blocking issues
   * Document any issue requiring additional research or an unresolved gate (G1-G6)
   * Provide next steps and recommended follow-up planning instead of attempting large-scale fixes here
 

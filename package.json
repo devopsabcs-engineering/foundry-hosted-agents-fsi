@@ -1,0 +1,13 @@
+{
+  "name": "foundry-hosted-agents-fsi-deliverables",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build scripts for the Desjardins bilingual hosted agents workshop deliverables",
+  "type": "module",
+  "scripts": {
+    "build-workshop-deck": "node scripts/build-workshop-deck.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

@@ -1,0 +1,147 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "Synthetic quote preparation training fixture",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["contractVersion", "dataClass", "fixtureId", "input", "rulebook", "expectedCalculation", "workflow", "nextCommand", "expectedDisplay"],
+	"properties": {
+		"contractVersion": { "const": "training-1" },
+		"dataClass": { "const": "SYNTHETIC_ONLY" },
+		"fixtureId": { "$ref": "#/definitions/caseId" },
+		"input": { "$ref": "#/definitions/input" },
+		"rulebook": { "$ref": "#/definitions/rulebook" },
+		"expectedCalculation": { "$ref": "#/definitions/calculation" },
+		"workflow": { "$ref": "#/definitions/workflow" },
+		"nextCommand": { "$ref": "#/definitions/command" },
+		"expectedDisplay": { "$ref": "#/definitions/localized" }
+	},
+	"definitions": {
+		"caseId": { "type": "string", "pattern": "^CASE-SYN-[0-9]{3}$" },
+		"revision": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+		"nullableRevision": { "anyOf": [{ "$ref": "#/definitions/revision" }, { "type": "null" }] },
+		"cents": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+		"commandId": { "type": "string", "pattern": "^CMD-[A-Z0-9-]{1,48}$" },
+		"state": { "enum": ["INCOMPLETE", "UNSUPPORTED", "DRAFT", "PENDING_REVIEW", "APPROVED", "REJECTED"] },
+		"localized": {
+			"type": "object", "additionalProperties": false,
+			"required": ["en-CA", "fr-CA"],
+			"properties": {
+				"en-CA": { "type": "string", "minLength": 1, "maxLength": 500 },
+				"fr-CA": { "type": "string", "minLength": 1, "maxLength": 500 }
+			}
+		},
+		"input": {
+			"type": "object", "additionalProperties": false,
+			"required": ["locale", "jurisdiction", "vehicleClass", "plan"],
+			"properties": {
+				"locale": { "enum": ["en-CA", "fr-CA"] },
+				"jurisdiction": { "type": ["string", "null"], "pattern": "^[A-Z]{2}$" },
+				"vehicleClass": { "enum": ["COMPACT", "SEDAN", "UNKNOWN", null] },
+				"plan": { "enum": ["TRAINING_BASIC", "TRAINING_EXTENDED", "UNKNOWN", null] }
+			}
+		},
+		"rulebook": {
+			"type": "object", "additionalProperties": false,
+			"required": ["id", "version", "authority", "notice", "currency", "period", "baseCents", "planAddOnCents", "rules"],
+			"properties": {
+				"id": { "const": "RULEBOOK-SYN-ON" },
+				"version": { "type": "string", "pattern": "^training-[1-9][0-9]*$" },
+				"authority": { "const": "WORKSHOP_AUTHORS_ONLY" },
+				"notice": { "$ref": "#/definitions/localized" },
+				"currency": { "const": "CAD" },
+				"period": { "const": "TRAINING_YEAR" },
+				"baseCents": {
+					"type": "object", "additionalProperties": false,
+					"required": ["COMPACT", "SEDAN"],
+					"properties": { "COMPACT": { "$ref": "#/definitions/cents" }, "SEDAN": { "$ref": "#/definitions/cents" } }
+				},
+				"planAddOnCents": {
+					"type": "object", "additionalProperties": false,
+					"required": ["TRAINING_BASIC", "TRAINING_EXTENDED"],
+					"properties": { "TRAINING_BASIC": { "$ref": "#/definitions/cents" }, "TRAINING_EXTENDED": { "$ref": "#/definitions/cents" } }
+				},
+				"rules": {
+					"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+					"items": {
+						"type": "object", "additionalProperties": false,
+						"required": ["id", "kind"],
+						"properties": {
+							"id": { "enum": ["RULE-SYN-BASE", "RULE-SYN-PLAN", "RULE-SYN-REVIEW"] },
+							"kind": { "enum": ["BASE_LOOKUP", "PLAN_LOOKUP", "EMPLOYEE_GATE"] }
+						}
+					}
+				}
+			}
+		},
+		"calculation": {
+			"type": "object", "additionalProperties": false,
+			"required": ["status", "amountCents", "currency", "period", "ruleIds", "issues"],
+			"properties": {
+				"status": { "enum": ["READY", "INCOMPLETE", "UNSUPPORTED", "EVIDENCE_UNAVAILABLE"] },
+				"amountCents": { "anyOf": [{ "$ref": "#/definitions/cents" }, { "type": "null" }] },
+				"currency": { "const": "CAD" },
+				"period": { "const": "TRAINING_YEAR" },
+				"ruleIds": {
+					"type": "array", "uniqueItems": true, "maxItems": 3,
+					"items": { "enum": ["RULE-SYN-BASE", "RULE-SYN-PLAN", "RULE-SYN-REVIEW"] }
+				},
+				"issues": {
+					"type": "array", "uniqueItems": true, "maxItems": 6,
+					"items": { "enum": ["MISSING_JURISDICTION", "MISSING_VEHICLE_CLASS", "MISSING_PLAN", "UNSUPPORTED_INPUT", "EVIDENCE_UNAVAILABLE", "RULE_VERSION_MISMATCH"] }
+				}
+			},
+			"if": { "properties": { "status": { "const": "READY" } } },
+			"then": { "properties": { "amountCents": { "$ref": "#/definitions/cents" }, "ruleIds": { "minItems": 3 }, "issues": { "maxItems": 0 } } },
+			"else": { "properties": { "amountCents": { "type": "null" }, "issues": { "minItems": 1 } } }
+		},
+		"workflow": {
+			"type": "object", "additionalProperties": false,
+			"required": ["caseId", "draftId", "draftRevision", "recordVersion", "state", "approvedRevision", "previewRevision", "audit"],
+			"properties": {
+				"caseId": { "$ref": "#/definitions/caseId" },
+				"draftId": { "type": "string", "pattern": "^DRAFT-SYN-[0-9]{3}$" },
+				"draftRevision": { "$ref": "#/definitions/revision" },
+				"recordVersion": { "$ref": "#/definitions/revision" },
+				"state": { "$ref": "#/definitions/state" },
+				"approvedRevision": { "$ref": "#/definitions/nullableRevision" },
+				"previewRevision": { "$ref": "#/definitions/nullableRevision" },
+				"audit": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/definitions/event" } }
+			},
+			"if": { "properties": { "state": { "const": "APPROVED" } } },
+			"then": { "properties": { "approvedRevision": { "$ref": "#/definitions/revision" } } },
+			"else": { "properties": { "approvedRevision": { "type": "null" }, "previewRevision": { "type": "null" } } }
+		},
+		"event": {
+			"type": "object", "additionalProperties": false,
+			"required": ["sequence", "commandId", "action", "fromState", "toState", "draftRevision", "actorId", "actorRole", "at"],
+			"properties": {
+				"sequence": { "$ref": "#/definitions/revision" },
+				"commandId": { "$ref": "#/definitions/commandId" },
+				"action": { "enum": ["CREATE_DRAFT", "SUBMIT", "APPROVE", "REJECT", "REVISE", "OPEN_PREVIEW", "RULES_CHANGED"] },
+				"fromState": { "$ref": "#/definitions/state" },
+				"toState": { "$ref": "#/definitions/state" },
+				"draftRevision": { "$ref": "#/definitions/revision" },
+				"actorId": { "type": "string", "pattern": "^MOCK-[A-Z0-9-]{1,48}$" },
+				"actorRole": { "enum": ["APPLICATION_CONTROLLER", "EMPLOYEE_SIMULATION"] },
+				"at": { "type": "string", "format": "date-time" }
+			}
+		},
+		"command": {
+			"type": "object", "additionalProperties": false,
+			"required": ["commandId", "caseId", "draftRevision", "expectedRecordVersion", "action", "reasonCode"],
+			"properties": {
+				"commandId": { "$ref": "#/definitions/commandId" },
+				"caseId": { "$ref": "#/definitions/caseId" },
+				"draftRevision": { "$ref": "#/definitions/revision" },
+				"expectedRecordVersion": { "$ref": "#/definitions/revision" },
+				"action": { "enum": ["APPROVE", "REJECT", "OPEN_PREVIEW"] },
+				"reasonCode": { "enum": ["REVIEWED", "REQUIRES_REVISION", "TRAINING_PREVIEW"] }
+			},
+			"oneOf": [
+				{ "properties": { "action": { "const": "APPROVE" }, "reasonCode": { "const": "REVIEWED" } } },
+				{ "properties": { "action": { "const": "REJECT" }, "reasonCode": { "const": "REQUIRES_REVISION" } } },
+				{ "properties": { "action": { "const": "OPEN_PREVIEW" }, "reasonCode": { "const": "TRAINING_PREVIEW" } } }
+			]
+		}
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"id": "RULEBOOK-SYN-ON",
+	"version": "training-1",
+	"authority": "WORKSHOP_AUTHORS_ONLY",
+	"notice": {
+		"en-CA": "Training simulation only. Not an insurance quote. No delivery.",
+		"fr-CA": "Simulation de formation uniquement. Ceci n'est pas une soumission d'assurance. Aucun envoi."
+	},
+	"currency": "CAD",
+	"period": "TRAINING_YEAR",
+	"baseCents": { "COMPACT": 80000, "SEDAN": 90000 },
+	"planAddOnCents": { "TRAINING_BASIC": 0, "TRAINING_EXTENDED": 20000 },
+	"rules": [
+		{ "id": "RULE-SYN-BASE", "kind": "BASE_LOOKUP" },
+		{ "id": "RULE-SYN-PLAN", "kind": "PLAN_LOOKUP" },
+		{ "id": "RULE-SYN-REVIEW", "kind": "EMPLOYEE_GATE" }
+	]
+}

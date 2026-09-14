@@ -1,0 +1,82 @@
+{
+	"contractVersion": "training-1",
+	"dataClass": "SYNTHETIC_ONLY",
+	"fixtureId": "CASE-SYN-002",
+	"input": {
+		"locale": "en-CA",
+		"jurisdiction": "ON",
+		"vehicleClass": "SEDAN",
+		"plan": "TRAINING_BASIC"
+	},
+	"rulebook": {
+		"id": "RULEBOOK-SYN-ON",
+		"version": "training-1",
+		"authority": "WORKSHOP_AUTHORS_ONLY",
+		"notice": {
+			"en-CA": "Training simulation only. Not an insurance quote. No delivery.",
+			"fr-CA": "Simulation de formation uniquement. Ceci n'est pas une soumission d'assurance. Aucun envoi."
+		},
+		"currency": "CAD",
+		"period": "TRAINING_YEAR",
+		"baseCents": { "COMPACT": 80000, "SEDAN": 90000 },
+		"planAddOnCents": { "TRAINING_BASIC": 0, "TRAINING_EXTENDED": 20000 },
+		"rules": [
+			{ "id": "RULE-SYN-BASE", "kind": "BASE_LOOKUP" },
+			{ "id": "RULE-SYN-PLAN", "kind": "PLAN_LOOKUP" },
+			{ "id": "RULE-SYN-REVIEW", "kind": "EMPLOYEE_GATE" }
+		]
+	},
+	"expectedCalculation": {
+		"status": "READY",
+		"amountCents": 90000,
+		"currency": "CAD",
+		"period": "TRAINING_YEAR",
+		"ruleIds": ["RULE-SYN-BASE", "RULE-SYN-PLAN", "RULE-SYN-REVIEW"],
+		"issues": []
+	},
+	"workflow": {
+		"caseId": "CASE-SYN-002",
+		"draftId": "DRAFT-SYN-002",
+		"draftRevision": 1,
+		"recordVersion": 2,
+		"state": "PENDING_REVIEW",
+		"approvedRevision": null,
+		"previewRevision": null,
+		"audit": [
+			{
+				"sequence": 1,
+				"commandId": "CMD-CREATE-002",
+				"action": "CREATE_DRAFT",
+				"fromState": "INCOMPLETE",
+				"toState": "DRAFT",
+				"draftRevision": 1,
+				"actorId": "MOCK-CONTROLLER-001",
+				"actorRole": "APPLICATION_CONTROLLER",
+				"at": "2026-01-02T09:00:00Z"
+			},
+			{
+				"sequence": 2,
+				"commandId": "CMD-SUBMIT-002",
+				"action": "SUBMIT",
+				"fromState": "DRAFT",
+				"toState": "PENDING_REVIEW",
+				"draftRevision": 1,
+				"actorId": "MOCK-CONTROLLER-001",
+				"actorRole": "APPLICATION_CONTROLLER",
+				"at": "2026-01-02T09:01:00Z"
+			}
+		]
+	},
+	"nextCommand": {
+		"commandId": "CMD-REVIEW-002",
+		"caseId": "CASE-SYN-002",
+		"draftRevision": 1,
+		"expectedRecordVersion": 2,
+		"action": "APPROVE",
+		"reasonCode": "REVIEWED"
+	},
+	"expectedDisplay": {
+		"en-CA": "Employee approval required",
+		"fr-CA": "Approbation d'un employ\u00e9 requise"
+	}
+}

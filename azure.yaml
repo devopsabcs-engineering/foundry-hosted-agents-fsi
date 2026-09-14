@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+# ============================================================================
+# AUTHOR-ONLY / NOT DEPLOYED.
+# Gated behind G2 (platform/security), G3 (reproducible compatibility), and
+# G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
+# `azd up`, or any apply command against this file until all three gates
+# are explicitly cleared by their owners. See infra/README.md.
+# ============================================================================
+
+name: desjardins-quote-preparation-workshop
+services:
+    ai-project:
+        host: azure.ai.project
+        deployments:
+            - name: gpt-4o-mini
+              model:
+                  name: gpt-4o-mini
+                  format: OpenAI
+                  version: "2024-07-18"
+              sku:
+                  name: GlobalStandard
+                  capacity: 10
+    rulebook-conn:
+        host: azure.ai.connection
+        endpoint: ${RULEBOOK_MCP_URL}
+        type: remote-tool
+    application-conn:
+        host: azure.ai.connection
+        endpoint: ${APPLICATION_MCP_URL}
+        type: remote-tool
+    quote-tools:
+        host: azure.ai.toolbox
+        uses:
+            - ai-project
+            - application-conn
+            - rulebook-conn
+        tools:
+            - type: mcp
+              connection: application-conn
+              server_label: application-conn
+            - type: mcp
+              connection: rulebook-conn
+              server_label: rulebook-conn
+    quote-preparation-agent:
+        project: ./src/quote-preparation-agent
+        host: azure.ai.agent
+        language: python
+        uses:
+            - ai-project
+            - quote-tools
+        codeConfiguration:
+            dependencyResolution: remote_build
+            entryPoint: main.py
+            runtime: python_3_13
+        container:
+            resources:
+                cpu: "0.5"
+                memory: 1Gi
+        kind: hosted
+        name: quote-preparation-agent
+        protocols:
+            - protocol: responses
+              version: 2.0.0
+        environmentVariables:
+            - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+              value: ${applicationInsightsConnectionString}
+            - name: FOUNDRY_TOOLBOX_VERSION
+              value: "1"
+            - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+              value: gpt-4o-mini
+            - name: AZURE_AI_PROJECT_ENDPOINT
+              value: ${FOUNDRY_PROJECT_ENDPOINT}
+            - name: AZURE_OPENAI_ENDPOINT
+              value: ${accountEndpoint}
+            - name: AZURE_OPENAI_DEPLOYMENT
+              value: gpt-4o-mini
+        toolboxes:
+            - quote-tools

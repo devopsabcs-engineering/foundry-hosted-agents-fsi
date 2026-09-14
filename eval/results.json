@@ -1,0 +1,212 @@
+{
+  "dataset_size": 12,
+  "records": [
+    {
+      "id": "biz-001-calc-compact-ready",
+      "category": "business_ready",
+      "check_type": "calculator",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        }
+      ]
+    },
+    {
+      "id": "biz-002-calc-sedan-ready",
+      "category": "business_ready",
+      "check_type": "calculator",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        }
+      ]
+    },
+    {
+      "id": "biz-003-calc-revision-fixture-ready",
+      "category": "business_ready",
+      "check_type": "calculator",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        }
+      ]
+    },
+    {
+      "id": "biz-004-calc-missing-plan-incomplete",
+      "category": "business_incomplete",
+      "check_type": "calculator",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        }
+      ]
+    },
+    {
+      "id": "biz-005-agent-ready-compact",
+      "category": "business_ready",
+      "check_type": "agent",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        },
+        {
+          "name": "agent_output_shape",
+          "passed": true,
+          "message": "Agent output shape matches expectations (issue/state/bounded bilingual message)."
+        }
+      ]
+    },
+    {
+      "id": "biz-006-agent-invalid-case-reference",
+      "category": "business_invalid_reference",
+      "check_type": "agent",
+      "passed": true,
+      "checks": [
+        {
+          "name": "agent_output_shape",
+          "passed": true,
+          "message": "Agent output shape matches expectations (issue/state/bounded bilingual message)."
+        }
+      ]
+    },
+    {
+      "id": "fault-001-calc-unsupported-no-invented-amount",
+      "category": "fault_unsupported_input",
+      "check_type": "calculator",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        }
+      ]
+    },
+    {
+      "id": "fault-002-agent-unsupported-no-invented-amount",
+      "category": "fault_unsupported_input",
+      "check_type": "agent",
+      "passed": true,
+      "checks": [
+        {
+          "name": "arithmetic_correctness",
+          "passed": true,
+          "message": "Calculation exactly matches the expected status/amount/issues."
+        },
+        {
+          "name": "no_invented_amount",
+          "passed": true,
+          "message": "amountCents is populated only when status is READY."
+        },
+        {
+          "name": "agent_output_shape",
+          "passed": true,
+          "message": "Agent output shape matches expectations (issue/state/bounded bilingual message)."
+        }
+      ]
+    },
+    {
+      "id": "fault-003-self-approval-rejected",
+      "category": "fault_self_approval",
+      "check_type": "approval_repository",
+      "passed": true,
+      "checks": [
+        {
+          "name": "approval_gate_integrity",
+          "passed": true,
+          "message": "Approval-gate state matches expectations."
+        }
+      ]
+    },
+    {
+      "id": "fault-004-forged-actor-approve-before-submit",
+      "category": "fault_forged_actor",
+      "check_type": "approval_repository",
+      "passed": true,
+      "checks": [
+        {
+          "name": "approval_gate_integrity",
+          "passed": true,
+          "message": "Approval-gate state matches expectations."
+        }
+      ]
+    },
+    {
+      "id": "fault-005-unauthorized-preview-before-approval",
+      "category": "fault_unauthorized_preview",
+      "check_type": "approval_repository",
+      "passed": true,
+      "checks": [
+        {
+          "name": "approval_gate_integrity",
+          "passed": true,
+          "message": "Approval-gate state matches expectations."
+        }
+      ]
+    },
+    {
+      "id": "fault-006-revision-invalidation-resets-to-draft",
+      "category": "fault_revision_invalidation",
+      "check_type": "approval_repository",
+      "passed": true,
+      "checks": [
+        {
+          "name": "approval_gate_integrity",
+          "passed": true,
+          "message": "Approval-gate state matches expectations."
+        }
+      ]
+    }
+  ],
+  "bilingual_parity": {
+    "name": "bilingual_parity",
+    "passed": true,
+    "message": "docs/labs and docs/fr/labs have matching file names (11 each)."
+  },
+  "passed": true
+}

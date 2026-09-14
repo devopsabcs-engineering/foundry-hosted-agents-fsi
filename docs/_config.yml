@@ -1,0 +1,24 @@
+title: "Foundry Hosted Agents Workshop (FSI)"
+description: "Bilingual hands-on workshop hosting a synthetic auto-insurance quote-preparation agent on Microsoft Foundry Hosted Agents"
+remote_theme: just-the-docs/just-the-docs
+baseurl: ""
+url: "" # TODO: set once GitHub Pages is enabled for this repository
+
+exclude:
+  - Gemfile.lock
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "default"
+  - scope:
+      path: "assets"
+    values:
+      nav_exclude: true
+
+nav_order_base: 0
+heading_anchors: true
+
+mermaid:
+  version: "10.9.1"
