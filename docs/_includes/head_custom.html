@@ -10,6 +10,14 @@
   #site-nav .nav-list-item:has(> a.nav-list-link:is([href="/fr"], [href^="/fr/"])) { display: none; }
   {%- endif %}
   .nav-list-item.lang-hidden { display: none !important; }
+
+  /* Site title is long; shrink it so it wraps to 2 lines instead of 3 in the sidebar. */
+  .site-title {
+    font-size: 1.15rem;
+    line-height: 1.3;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
 </style>
 <script>
   // Fallback for browsers without CSS :has() support.
