@@ -98,6 +98,10 @@ jobs:
         if: always()
         run: python scripts/ci_results.py --junit evidence
 
+      - name: Deployment links summary
+        if: always()
+        run: python scripts/deployment_summary.py
+
       - name: Stage deterministic gate result alongside JUnit evidence
         if: always()
         run: cp -f eval/results.json evidence/results.json 2>/dev/null || true

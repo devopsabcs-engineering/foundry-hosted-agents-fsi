@@ -271,6 +271,11 @@ jobs:
             echo "Project endpoint: $PROJECT_ENDPOINT"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Deployment links summary
+        if: always() && steps.deploy.outcome == 'success'
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: python scripts/deployment_summary.py
+
   # ---------------------------------------------------------------------
   # Stage 4: Deterministic evaluation gate as the release quality control
   #
@@ -460,3 +465,8 @@ jobs:
           PREVIOUS_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
           NEW_VERSION: ${{ steps.deploy.outputs.agent_version }}
         run: echo "## Promoted $PREVIOUS_VERSION -> $NEW_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deployment links summary
+        if: always() && steps.deploy.outcome == 'success'
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: python scripts/deployment_summary.py

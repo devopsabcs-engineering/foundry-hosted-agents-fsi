@@ -199,3 +199,84 @@ def test_render_trends_fallback_when_no_judge_data():
     assert "No comparable evaluation lineage has been collected yet." in trends
     assert "## Deterministic Gate" in trends
     assert "## Evaluation Trends" in trends
+
+
+def _judge_results_payload(item_outcomes: list[dict[str, bool]]) -> dict:
+    """Build a `judge-results.json` fixture matching the real Azure AI
+    Evaluation SDK run/item/result shape `judge_totals()`/`validate_results()`
+    expect. `item_outcomes` is one dict of `{metric: passed}` per item.
+    """
+    items = []
+    for index, outcomes in enumerate(item_outcomes):
+        items.append(
+            {
+                "id": f"item-{index}",
+                "status": "completed",
+                "error": None,
+                "sample": {},
+                "results": [
+                    {"name": metric, "score": 1.0 if passed else 0.0, "passed": passed, "status": "completed"}
+                    for metric, passed in outcomes.items()
+                ],
+            }
+        )
+    return {
+        "run": {
+            "status": "completed",
+            "error": None,
+            "result_counts": {"total": len(items), "errored": 0, "skipped": 0},
+        },
+        "items": items,
+    }
+
+
+def test_render_trends_charts_judge_metrics_when_evidence_is_present(tmp_path):
+    """This exercises the plumbing that stays dormant while
+    `deploy-and-evaluate.yml`'s LLM-judge step is guarded (`if: false`):
+    once real `judge-results.json`/`context.json` evidence exists,
+    `render_trends` must chart coherence/groundedness/task_adherence
+    rather than falling back to the "no lineage collected" placeholder.
+    """
+    evidence = tmp_path / "evidence"
+    judge_dir = evidence / "evaluation-evidence"
+    judge_dir.mkdir(parents=True)
+    outcomes = [
+        {"coherence": True, "groundedness": True, "task_adherence": False},
+        {"coherence": True, "groundedness": False, "task_adherence": True},
+        {"coherence": True, "groundedness": True, "task_adherence": True},
+        {"coherence": False, "groundedness": True, "task_adherence": True},
+    ]
+    (judge_dir / "judge-results.json").write_text(
+        json.dumps(_judge_results_payload(outcomes)), encoding="utf-8"
+    )
+    dataset_sha256 = "a" * 64
+    evaluator_sha256 = "b" * 64
+    (judge_dir / "context.json").write_text(
+        json.dumps(
+            {
+                "environment": "staging",
+                "agent_version": "3",
+                "dataset_sha256": dataset_sha256,
+                "evaluator_sha256": evaluator_sha256,
+                "judge_deployment": "gpt-4o-mini",
+                "version_after": "3",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    record = ci_results.collect(evidence, _run_payload(run_id=333, attempt=1), _jobs_payload())
+
+    assert record["evaluation"]["judge_rates"] == {
+        "coherence": 0.75,
+        "groundedness": 0.75,
+        "task_adherence": 0.75,
+    }
+
+    trends = ci_results.render_trends([record])
+
+    assert "No comparable evaluation lineage has been collected yet." not in trends
+    assert f"Full dataset SHA-256: `{dataset_sha256}`." in trends
+    for metric in ("coherence", "groundedness", "task_adherence"):
+        assert f'title "{metric}"' in trends
+        assert "bar [75.0]" in trends

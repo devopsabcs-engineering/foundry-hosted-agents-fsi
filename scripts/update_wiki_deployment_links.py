@@ -1,0 +1,44 @@
+"""Refresh the "Deployment Links" section of a wiki page in place.
+
+Invoked by `publish-test-trends.yml` after cloning this repository's wiki,
+alongside the `scripts/ci_results.py --wiki` call that regenerates
+`Continuous-Test-Trends.md`. Replaces the text between the
+`<!-- deployment-links:start -->` / `<!-- deployment-links:end -->` markers
+in the given file with the current output of
+`scripts.deployment_summary.render()`, leaving the rest of the page
+untouched. Fails loudly (non-zero exit) if the markers are not both
+present, rather than silently appending or skipping.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from deployment_summary import render  # noqa: E402
+
+START = "<!-- deployment-links:start -->"
+END = "<!-- deployment-links:end -->"
+
+
+def update(text: str) -> str:
+    pattern = re.compile(re.escape(START) + r".*?" + re.escape(END), re.DOTALL)
+    if not pattern.search(text):
+        raise ValueError(f"Could not find {START} ... {END} markers to update")
+    replacement = f"{START}\n{render().rstrip()}\n{END}"
+    return pattern.sub(replacement, text, count=1)
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        print("usage: update_wiki_deployment_links.py <path-to-wiki-page>", file=sys.stderr)
+        raise SystemExit(2)
+    path = Path(sys.argv[1])
+    path.write_text(update(path.read_text(encoding="utf-8")), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()

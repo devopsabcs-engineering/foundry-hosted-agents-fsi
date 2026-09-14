@@ -102,6 +102,10 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Deployment links summary
+        if: always()
+        run: python scripts/deployment_summary.py
+
       - name: Push trend history to the wiki
         if: always() && steps.report.outcome == 'success'
         env:
@@ -123,6 +127,7 @@ jobs:
           git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
             clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.wiki.git" wiki
           python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
+          python scripts/update_wiki_deployment_links.py wiki/Home.md
           cd wiki
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
