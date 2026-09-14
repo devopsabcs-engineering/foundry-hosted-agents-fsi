@@ -43,7 +43,11 @@ param rulebookImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 param containerPort int = 8000
 
 var useAcr = !empty(acrName)
-var isolatedPullIdentity = useAcr && namePrefix != 'mcp'
+// Every environment (staging and production) gets its own pull identity with an
+// automatically granted, idempotent AcrPull role assignment -- relying on an
+// out-of-band manual grant for a shared system-assigned identity left production
+// with no ACR permission and revisions that never provisioned ("Operation expired").
+var isolatedPullIdentity = useAcr
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = if (useAcr) {
   name: acrName
@@ -139,12 +143,6 @@ resource applicationContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
     }
   }
 }
-
-// AcrPull for both container apps' system-assigned identities is expected to be
-// granted out-of-band (pre-existing role assignments on the ACR), matching the
-// sibling module's pattern. Intentionally not re-declared here to avoid
-// RoleAssignmentExists failures on repeat provisioning; verify grants with
-// `az role assignment list --scope <acr-id>` once Gate G2 clears and an ACR exists.
 
 resource rulebookContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: '${namePrefix}-rulebook-server'
