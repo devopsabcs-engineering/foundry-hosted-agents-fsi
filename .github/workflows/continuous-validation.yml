@@ -42,24 +42,65 @@ jobs:
             -r src/quote-preparation-agent/requirements.txt
           mkdir -p evidence
 
-      - name: Full Python test sweep (calculator, approval repository, MCP services, agent graph, evaluation suite)
+      - name: Agent graph unit tests
+        run: |
+          pytest src/quote-preparation-agent/tests -v --junitxml=evidence/agent.xml
+
+      - name: Deterministic evaluation checks
+        run: |
+          pytest eval -v --junitxml=evidence/deterministic.xml
+
+      - name: Reporting and contract tests
         run: |
           pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests \
-            src/quote-preparation-agent/tests eval -v --junitxml=evidence/tests.xml
+            -v --junitxml=evidence/reporting.xml
 
       - name: Deterministic evaluation gate (golden dataset)
         if: ${{ !cancelled() }}
         run: python eval/evaluation_gate.py
 
-      - name: Offline test summary
+      - name: Deterministic evaluation gate summary
         if: always()
         run: |
-          {
-            echo '## Continuous Validation (offline)'
-            echo ''
-            echo 'Full pytest sweep and deterministic evaluation gate results are above.'
-            echo 'No staging deployment or Azure credential is used in this workflow.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("eval/results.json")
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not path.exists():
+              lines = [
+                  "## Deterministic Evaluation Gate",
+                  "",
+                  "No eval/results.json was produced; inspect the gate step above.",
+                  "",
+              ]
+          else:
+              report = json.loads(path.read_text(encoding="utf-8"))
+              records = report["records"]
+              passed = sum(1 for record in records if record["passed"])
+              lines = [
+                  "## Deterministic Evaluation Gate",
+                  "",
+                  f"Dataset size: {report['dataset_size']}",
+                  f"Passed records: {passed} / {len(records)}",
+                  f"Bilingual parity: {report['bilingual_parity']['passed']}",
+                  f"Gate result: {'PASSED' if report['passed'] else 'FAILED'}",
+                  "",
+              ]
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as handle:
+                  handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Offline test summary
+        if: always()
+        run: python scripts/ci_results.py --junit evidence
+
+      - name: Stage deterministic gate result alongside JUnit evidence
+        if: always()
+        run: cp -f eval/results.json evidence/results.json 2>/dev/null || true
 
       - name: Retain offline test evidence
         if: always()
@@ -68,7 +109,7 @@ jobs:
           name: offline-test-evidence-${{ github.run_attempt }}
           path: |
             evidence/*.xml
-            eval/results.json
+            evidence/results.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -85,6 +126,7 @@ jobs:
         run: az bicep install
 
       - name: az bicep build (main template and every module; compile-only, no login, no apply)
+        id: bicep-build
         run: |
           set -euo pipefail
           for FILE in infra/main.bicep infra/modules/*.bicep; do
@@ -92,3 +134,22 @@ jobs:
             az bicep build --file "$FILE"
             echo "::endgroup::"
           done
+
+      - name: Bicep lint summary
+        if: always()
+        run: |
+          {
+            echo '## Bicep Lint'
+            echo ''
+            echo 'Templates compiled with `az bicep build` (compile-only; no login, no apply):'
+            echo ''
+            for FILE in infra/main.bicep infra/modules/*.bicep; do
+              echo "- \`$FILE\`"
+            done
+            echo ''
+            if [ "${{ steps.bicep-build.outcome }}" = "success" ]; then
+              echo 'Zero diagnostics reported by `az bicep build` for every template listed above.'
+            else
+              echo '`az bicep build` reported diagnostics or failed; see the step above for details.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

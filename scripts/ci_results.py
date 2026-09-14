@@ -1,4 +1,22 @@
-"""Collect CI measurements and render durable, run-linked GitHub wiki trends."""
+"""Collect CI measurements and render durable, run-linked GitHub wiki trends.
+
+Adapted from the sibling `foundry-hosted-agents` repository's
+`scripts/ci_results.py`. That script's `evaluation_totals()`/`load_totals()`
+read artifacts this repository's pipelines do not produce (`captured.json`,
+`candidate-policy.json`, `run-identity.json`, `concurrent-sessions.json` --
+there is no hosted-agent capture pipeline or load-test harness here; see
+`eval/run_judge_evaluation.py`'s own AUTHOR-ONLY banner). This port drops
+those two functions and the "load" dimension entirely, and adds two
+repository-specific replacements: `deterministic_gate_totals()` (reads this
+repository's real `eval/evaluation_gate.py` output) and `judge_totals()`
+(reads LLM-judge evidence once `eval/run_judge_evaluation.py` is activated;
+returns `None` gracefully today, matching every real run so far -- no
+fabricated data). `junit_totals()`, `collect()`, `publish_history()`,
+`chart()`, and `run_label()` are ported verbatim except where noted inline.
+`web-chat-build.yml` invokes only this script's `--junit` mode (`junit_totals`
+alone), so its by_type labels ("Web chat backend"/"Web chat frontend") are
+preserved for compatibility.
+"""
 
 import argparse
 import hashlib
@@ -13,25 +31,14 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# The sibling `foundry-hosted-agents` repository's `eval/evaluation_gate.py`
-# validates an Azure AI *evaluation run* result payload (LLM-judge scores per
-# METRICS, fail-closed via validate_results) and exposes both symbols for
-# import. This repo's `eval/evaluation_gate.py` is a deterministic
-# calculator/approval-repository/agent gate with no LLM judge and no
-# METRICS/validate_results shape (see its module docstring) -- so those two
-# names are not importable here. web-chat-build.yml only ever invokes this
-# script in `--junit` mode, which does not touch evaluation_totals(),
-# test_counts(), or render_trends() below, so a defensive fallback keeps the
-# import from failing without guessing at a shape the local gate does not
-# have. Wiring live evaluation-evidence trends into this repo is out of
-# scope for this parity pass (see Planning Log DR-02 / WI-01).
-try:
-    from eval.evaluation_gate import METRICS, validate_results  # type: ignore[attr-defined]
-except ImportError:
-    METRICS: list[str] = []
-
-    def validate_results(*_args: Any, **_kwargs: Any) -> dict[str, float]:
-        raise ValueError("validate_results is not available in this repo's eval/evaluation_gate.py")
+# This repository's LLM-judge counterpart to the sibling's
+# eval/evaluation_gate.py is eval/judge_gate.py (see that module's own
+# docstring): eval/evaluation_gate.py is the deterministic gate and has no
+# METRICS/validate_results shape by design. judge_totals() below imports
+# from judge_gate so a real judge_rates breakdown can be computed once
+# eval/run_judge_evaluation.py actually runs against a hosted endpoint;
+# until then judge_totals() returns None for every run.
+from eval.judge_gate import METRICS, validate_results
 
 
 def read_json(path):
@@ -53,7 +60,7 @@ def junit_totals(directory):
         label = {
             "agent": "Agent graph",
             "deterministic": "Deterministic evaluation",
-            "reporting": "Reporting and load contracts",
+            "reporting": "Reporting and contract tests",
             "backend": "Web chat backend",
             "frontend": "Web chat frontend",
         }.get(path.stem, "Other JUnit")
@@ -73,99 +80,86 @@ def junit_totals(directory):
     return totals
 
 
-def evaluation_totals(directory):
-    captures = read_json(directory / "captured.json")
-    policy = read_json(directory / "candidate-policy.json")
-    results = read_json(directory / "results.json")
-    identity = read_json(directory / "run-identity.json") or {}
-    if captures is None and results is None:
+def deterministic_gate_totals(path: Path = Path("eval/results.json")):
+    """Read this repository's real `eval/evaluation_gate.py` output.
+
+    Unlike the sibling's `evaluation_totals()` (which reads a live-hosted
+    capture/policy pipeline this repository does not have), this reads the
+    machine-readable report `eval/evaluation_gate.py` already writes today:
+    `{"dataset_size": int, "records": [{"passed": bool, ...}], "bilingual_parity":
+    {"passed": bool, ...}, "passed": bool}`. Returns `None` if the file is
+    missing or malformed -- never raises -- so a run without this evidence
+    yet does not break trend rendering.
+    """
+    try:
+        report = read_json(path)
+        if report is None:
+            return None
+        records = report["records"]
+        passed_records = sum(1 for record in records if record["passed"])
+        return {
+            "dataset_size": report["dataset_size"],
+            "passed_records": passed_records,
+            "failed_records": len(records) - passed_records,
+            "bilingual_parity": report["bilingual_parity"]["passed"],
+            "gate_passed": report["passed"],
+        }
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
-    totals = {
-        "captured": len(captures) if captures is not None else None,
-        "capture_errors": sum(bool(item.get("capture_error")) for item in captures)
-        if captures is not None
-        else None,
-        "policy_failures": len(policy) if policy is not None else None,
-        "tool_receipts": sum(len(item.get("runtime_state", {}).get("tool_calls", [])) for item in captures)
-        if captures is not None
-        else None,
-        "agent_version": identity.get("version"),
-        "eval_run": identity.get("run_id"),
-        "judge_rates": None,
-    }
-    if results is not None:
-        items = results.get("items", [])
-        try:
-            totals["judge_rates"] = validate_results(results.get("run", {}), items, len(items), 0.000001)
-        except ValueError:
-            complete = True
-            rates = {}
-            for metric in METRICS:
-                judged = [
-                    result
-                    for item in items
-                    for result in item.get("results", [])
-                    if result.get("name") == metric
-                ]
-                if (
-                    not judged
-                    or len(judged) != len(items)
-                    or any(
-                        type(result.get("passed")) is not bool
-                        or result.get("error")
-                        or result.get("status") == "error"
-                        for result in judged
-                    )
-                ):
-                    complete = False
-                else:
-                    rates[metric] = sum(result["passed"] for result in judged) / len(judged)
-            if complete:
-                try:
-                    validation_copy = json.loads(json.dumps(results))
-                    for item in validation_copy["items"]:
-                        for result in item["results"]:
-                            result["passed"] = True
-                    validate_results(validation_copy["run"], validation_copy["items"], len(items))
-                    totals["judge_rates"] = rates
-                except ValueError:
-                    pass
-        totals["judged"] = len(items)
+
+
+def judge_totals(directory):
+    """Read LLM-judge evaluation evidence, if any.
+
+    This repository has no capture/policy-check pipeline distinct from the
+    evaluation run itself (`eval/run_judge_evaluation.py`'s `capture()` is
+    AUTHOR-ONLY and raises rather than producing a `captured.json`). Once a
+    real hosted endpoint exists and this step actually runs, the judge
+    harness's run/items payload is expected at `directory/judge-results.json`;
+    until then this returns `None` for every run today, matching the
+    repository's no-fabrication convention -- never raises for a missing file.
+    """
+    results = read_json(directory / "judge-results.json")
+    if results is None:
+        return None
+    items = results.get("items", [])
+    totals = {"captured": len(items), "judged": len(items), "judge_rates": None}
+    try:
+        totals["judge_rates"] = validate_results(results.get("run", {}), items, len(items), 0.000001)
+    except ValueError:
+        complete = True
+        rates = {}
+        for metric in METRICS:
+            judged = [
+                result
+                for item in items
+                for result in item.get("results", [])
+                if result.get("name") == metric
+            ]
+            if (
+                not judged
+                or len(judged) != len(items)
+                or any(
+                    type(result.get("passed")) is not bool
+                    or result.get("error")
+                    or result.get("status") == "error"
+                    for result in judged
+                )
+            ):
+                complete = False
+            else:
+                rates[metric] = sum(result["passed"] for result in judged) / len(judged)
+        if complete:
+            try:
+                validation_copy = json.loads(json.dumps(results))
+                for item in validation_copy["items"]:
+                    for result in item["results"]:
+                        result["passed"] = True
+                validate_results(validation_copy["run"], validation_copy["items"], len(items))
+                totals["judge_rates"] = rates
+            except ValueError:
+                pass
     return totals
-
-
-def load_totals(directory):
-    data = read_json(directory / "concurrent-sessions.json")
-    if data is None:
-        return None
-    if data.get("contract") != "completed-text-v2" or data.get("mode") != "concurrent-sessions":
-        raise ValueError("Unsupported load contract or mode")
-    fields = (
-        "mode",
-        "requested_count",
-        "success_count",
-        "error_count",
-        "latency_p50_seconds",
-        "latency_p95_seconds",
-        "wall_clock_seconds",
-    )
-    result = {key: data.get(key) for key in fields}
-    count = result["requested_count"]
-    if type(count) is not int or not 1 <= count <= 20:
-        raise ValueError("Invalid load count")
-    samples = data.get("results", [])
-    if len(samples) != count or result["success_count"] + result["error_count"] != count:
-        raise ValueError("Incomplete load samples")
-    if sum(sample.get("error") is None for sample in samples) != result["success_count"]:
-        raise ValueError("Load counts do not match samples")
-    for metric in ("latency_p50_seconds", "latency_p95_seconds", "wall_clock_seconds"):
-        value = result[metric]
-        if value is not None and (type(value) not in (int, float) or not math.isfinite(value) or value < 0):
-            raise ValueError("Invalid load timing")
-    if result["success_count"] == 0:
-        result["latency_p50_seconds"] = result["latency_p95_seconds"] = None
-    result["contract"] = "completed-text-v2"
-    return result
 
 
 def collect(evidence, run, jobs):
@@ -198,25 +192,31 @@ def collect(evidence, run, jobs):
         ],
         "tests": None,
         "evaluation": None,
-        "load": None,
+        "deterministic_gate": None,
         "context": {},
         "data_issues": [],
     }
     for key, loader, folder in [
         ("tests", junit_totals, "offline-test-evidence"),
-        ("evaluation", evaluation_totals, "evaluation-evidence"),
-        ("load", load_totals, "load-test-evidence"),
+        ("evaluation", judge_totals, "evaluation-evidence"),
     ]:
         try:
             record[key] = loader(evidence / folder)
         except (ValueError, KeyError, TypeError, AttributeError, ET.ParseError):
             record["data_issues"].append(f"Invalid {key} evidence; measurement withheld")
+    # The deterministic gate's real eval/results.json is bundled as a flat
+    # `results.json` alongside the JUnit XMLs in continuous-validation.yml's
+    # "offline-test-evidence" artifact ("Stage deterministic gate result
+    # alongside JUnit evidence" step), but in deploy-and-evaluate.yml's
+    # separate `evaluate` job it is instead the sole contents of the
+    # "evaluation-evidence" artifact. Try both locations, first match wins.
+    # deterministic_gate_totals() itself never raises on a missing/malformed
+    # file, so no outer try/except or data_issues entry is needed here.
+    record["deterministic_gate"] = deterministic_gate_totals(
+        evidence / "offline-test-evidence" / "results.json"
+    ) or deterministic_gate_totals(evidence / "evaluation-evidence" / "results.json")
     try:
-        context = (
-            read_json(evidence / "load-test-evidence" / "context.json")
-            or read_json(evidence / "evaluation-evidence" / "context.json")
-            or {}
-        )
+        context = read_json(evidence / "evaluation-evidence" / "context.json") or {}
         if not isinstance(context, dict):
             raise ValueError("Invalid context")
     except ValueError:
@@ -234,13 +234,6 @@ def collect(evidence, run, jobs):
             "version_after",
         ]
     }
-    load = record["load"]
-    if isinstance(load, dict):
-        if not context.get("agent_version") or context.get("version_after") != context.get("agent_version"):
-            record["data_issues"].append(
-                "Staging route was not stable or could not be verified; load timings withheld"
-            )
-            record["load"] = dict(load, latency_p50_seconds=None, latency_p95_seconds=None)
     return record
 
 
@@ -283,25 +276,22 @@ def summary(record):
     ]
     lines += ["", "</details>"]
     lines += ["", "| Measurement | Value |", "| --- | --- |"]
-    tests, evaluation, load = (
+    tests, evaluation, gate = (
         record.get("tests") or {},
         record.get("evaluation") or {},
-        record.get("load") or {},
+        record.get("deterministic_gate") or {},
     )
     values = {
         "Tests: passed / failed / skipped": " / ".join(
             cell(tests.get(key)) for key in ("passed", "failed", "skipped")
         ),
-        "Evaluation captures / capture errors": " / ".join(
-            cell(evaluation.get(key)) for key in ("captured", "capture_errors")
+        "Deterministic gate: dataset size": gate.get("dataset_size"),
+        "Deterministic gate: passed / failed records": " / ".join(
+            cell(gate.get(key)) for key in ("passed_records", "failed_records")
         ),
-        "Deterministic policy failures": evaluation.get("policy_failures"),
-        "Runtime tool receipts": evaluation.get("tool_receipts"),
+        "Deterministic gate: bilingual parity": gate.get("bilingual_parity"),
+        "Judge cases judged": evaluation.get("judged"),
         "Staging agent version": record["context"].get("agent_version") or evaluation.get("agent_version"),
-        "Load: success / errors": f"{cell(load.get('success_count'))} / {cell(load.get('error_count'))}",
-        "Load p50 / p95 seconds": " / ".join(
-            cell(load.get(key)) for key in ("latency_p50_seconds", "latency_p95_seconds")
-        ),
     }
     for name, value in values.items():
         lines.append(f"| {name} | {cell(value)} |")
@@ -312,9 +302,8 @@ def summary(record):
     lines += [
         "",
         "N/A means not measured or unavailable, not zero. "
-        "Live probes test deployed staging, not necessarily the pushed source.",
-        "Synthetic fixtures only. Five concurrent requests are a bounded regression probe, "
-        "not a capacity benchmark.",
+        "This repository has no hosted-agent capture pipeline; LLM-judge evaluation "
+        "is author-only and inert until a real endpoint exists (see eval/run_judge_evaluation.py).",
     ]
     lines += [f"- {cell(issue)}" for issue in record["data_issues"]]
     return "\n".join(lines) + "\n"
@@ -329,18 +318,15 @@ def test_counts(record):
     tests = record.get("tests") or {}
     by_type = tests.get("by_type") or {}
     evaluation = record.get("evaluation") or {}
-    load = record.get("load") or {}
     return {
         "Total offline tests": tests.get("tests"),
         "Agent graph": by_type.get("Agent graph"),
         "Deterministic evaluation": by_type.get("Deterministic evaluation"),
-        "Reporting and load contracts": by_type.get("Reporting and load contracts"),
+        "Reporting and contract tests": by_type.get("Reporting and contract tests"),
         "Other JUnit": by_type.get("Other JUnit"),
-        "Live evaluation cases": evaluation.get("captured"),
+        "Judge cases judged": evaluation.get("judged"),
         "Judge checks": evaluation["judged"] * len(METRICS)
         if evaluation.get("judge_rates") is not None and evaluation.get("judged") is not None else None,
-        "Load requests": load.get("success_count", 0) + load.get("error_count", 0)
-        if load.get("success_count") is not None and load.get("error_count") is not None else None,
     }
 
 
@@ -374,20 +360,20 @@ def render_trends(records):
         "Chart labels use V (validation) or R (release), workflow run number, and attempt. "
         "The table links each label to the full run ID.",
         "Failed and cancelled runs stay visible. Charts show measurements, not workflow status.",
-        "Live tests use existing staging with synthetic fixtures; "
-        "the test-code SHA is not the deployed-agent source SHA.",
+        "This repository has no hosted-agent capture pipeline; LLM-judge evaluation is "
+        "author-only and inert until a real endpoint exists and Gates G2/G3/G6 clear "
+        "(see eval/run_judge_evaluation.py).",
         "",
         "## Recent Runs",
         "",
-        "| Run / attempt | UTC | Workflow outcome | Test SHA | Agent version | Tests pass / fail / skip | "
-        "Captures / policy failures | Load success / errors | p50 / p95 (s) |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Run / attempt | UTC | Workflow outcome | Test SHA | Agent version | "
+        "Tests pass / fail / skip | Judge cases judged |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for record in reversed(recent):
-        tests, evaluation, load = (
+        tests, evaluation = (
             record.get("tests") or {},
             record.get("evaluation") or {},
-            record.get("load") or {},
         )
         values = [
             f"[{run_label(record)} / {record['run_id']}]({record['url']})",
@@ -396,9 +382,7 @@ def render_trends(records):
             cell(record["sha"][:7]),
             cell(record["context"].get("agent_version") or evaluation.get("agent_version")),
             " / ".join(cell(tests.get(key)) for key in ("passed", "failed", "skipped")),
-            " / ".join(cell(evaluation.get(key)) for key in ("captured", "policy_failures")),
-            " / ".join(cell(load.get(key)) for key in ("success_count", "error_count")),
-            " / ".join(cell(load.get(key)) for key in ("latency_p50_seconds", "latency_p95_seconds")),
+            cell(evaluation.get("judged")),
         ]
         lines.append("| " + " | ".join(values) + " |")
     counts = [(record, test_counts(record)) for record in recent]
@@ -412,10 +396,9 @@ def render_trends(records):
         "Counts per run, not cumulative executions. Offline inventory includes skipped tests. "
         "Adding tests increases inventory; rerunning the same suite does not. Decreases remain visible.",
         "Total offline tests is the sum of the JUnit types, not an additional test type. "
-        "Shell regression steps are tracked as job outcomes and are not included in JUnit counts.",
-        "Live evaluation cases, judge checks and load requests are measured separately: "
-        "these overlap or repeat scenarios and must not be added to the offline inventory. "
-        "They reflect available results, not undiscovered or unexecuted cases.",
+        "Judge cases and judge checks are measured separately: these overlap or repeat scenarios "
+        "and must not be added to the offline inventory. They reflect available results, "
+        "not undiscovered or unexecuted cases.",
         "Historical records without a type breakdown show N/A until their retained artifacts are replayed.",
         "",
         "| Run / attempt | " + " | ".join(count_types) + " |",
@@ -445,6 +428,27 @@ def render_trends(records):
             "failed tests",
         ),
     ]
+    lines += [
+        "",
+        "## Deterministic Gate",
+        "",
+        "Real `eval/evaluation_gate.py` output for each run: dataset size, passed/failed record "
+        "counts, and the bilingual-parity check. N/A means the deterministic-gate evidence was "
+        "missing or malformed for that run, not zero passing records.",
+        "",
+        "| Run / attempt | Dataset size | Passed records | Failed records | Bilingual parity |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for record in reversed(recent):
+        gate = record.get("deterministic_gate") or {}
+        values = [
+            f"[{run_label(record)} / {record['run_id']}]({record['url']})",
+            cell(gate.get("dataset_size")),
+            cell(gate.get("passed_records")),
+            cell(gate.get("failed_records")),
+            cell(gate.get("bilingual_parity")),
+        ]
+        lines.append("| " + " | ".join(values) + " |")
     groups = {}
     for record in recent:
         context = record["context"]
@@ -480,25 +484,6 @@ def render_trends(records):
                 if (record.get("evaluation") or {}).get("judge_rates") is not None
             ]
             lines += ["", chart(metric, samples, "pass percent")]
-    lines += [
-        "",
-        "## Load Latency",
-        "",
-        "Completed-text-v2 contract, five concurrent requests against staging. "
-        "p50/p95 use successful requests only; see error counts above.",
-        "Small-sample percentiles are not capacity or SLA evidence. "
-        "Timings are withheld if the routed version changes or cannot be verified.",
-    ]
-    for metric in ("latency_p50_seconds", "latency_p95_seconds"):
-        samples = [
-            (record, record["load"][metric])
-            for record in recent
-            if (record.get("load") or {}).get("requested_count") == 5
-            and record["load"].get("contract") == "completed-text-v2"
-            and record["context"].get("environment") == "staging"
-            and record["load"].get(metric) is not None
-        ]
-        lines += ["", chart(metric, samples, "seconds")]
     lines += ["", "## Reporting Gaps", ""]
     gaps = [
         f"- [{record['run_id']}.{record['attempt']}]({record['url']}): {cell(issue)}"
@@ -519,7 +504,7 @@ def publish_history(record, wiki):
     previous = read_json(target)
     if previous:
         record = dict(record)
-        for key in ("tests", "evaluation", "load"):
+        for key in ("tests", "evaluation", "deterministic_gate"):
             if record.get(key) is None:
                 record[key] = previous.get(key)
         record["context"] = {
@@ -538,7 +523,6 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("ci-report"))
     parser.add_argument("--wiki", type=Path)
     parser.add_argument("--junit", type=Path)
-    parser.add_argument("--load", type=Path)
     parser.add_argument("--context", type=Path)
     parser.add_argument("--dataset", type=Path)
     parser.add_argument("--agent-state", type=Path)
@@ -559,25 +543,14 @@ def main():
                 "agent_content_hash": state.get("content_hash"),
                 "dataset_sha256": hashlib.sha256(args.dataset.read_bytes()).hexdigest(),
                 "evaluator_sha256": hashlib.sha256(
-                    (Path(__file__).parents[1] / "eval/run_hosted_evaluation.py").read_bytes()
-                    + (Path(__file__).parents[1] / "eval/evaluation_gate.py").read_bytes()
+                    (Path(__file__).parents[1] / "eval/run_judge_evaluation.py").read_bytes()
+                    + (Path(__file__).parents[1] / "eval/judge_gate.py").read_bytes()
                 ).hexdigest(),
                 "judge_deployment": os.environ.get("JUDGE_DEPLOYMENT"),
             }
         args.context.parent.mkdir(parents=True, exist_ok=True)
         args.context.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return
-    if args.load:
-        totals = load_totals(args.load)
-        text = (
-            "## Load Probe Measurements\n\n"
-            + (
-                "\n".join(f"- {key}: {cell(value)}" for key, value in totals.items())
-                if totals
-                else "No load measurements available; inspect setup/probe outcomes."
-            )
-            + "\n"
-        )
     elif args.junit:
         totals = junit_totals(args.junit)
         text = (

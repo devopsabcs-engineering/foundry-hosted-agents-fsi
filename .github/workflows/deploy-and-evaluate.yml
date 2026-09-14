@@ -27,6 +27,14 @@ name: Deploy and Evaluate (Staging -> Production)
 # "evaluate" stage below therefore re-runs the deterministic gate as the
 # release quality control rather than inventing a live smoke-test script;
 # see the Planning Log Discrepancy Log entry for Implementation Phase 11.
+#
+# The "evaluate" job also contains a guarded (`if: false`) LLM-judge step
+# (eval/run_judge_evaluation.py, eval/judge-dataset.jsonl) for future
+# activation once a real hosted quote-preparation-agent endpoint exists.
+# It is wired but inert: GitHub Actions skips it entirely at runtime, so
+# it never installs anything or calls an LLM judge today. Flipping it to
+# `if: true` before a real hosted endpoint exists and Gates G2/G3/G6 have
+# cleared is misconfiguration, not a supported state -- see azure.yaml.
 
 on:
   workflow_call:
@@ -86,11 +94,19 @@ jobs:
             -r mcp/rulebook-server/requirements.txt \
             -r src/quote-preparation-agent/requirements.txt
 
-      - name: Full Python test sweep
+      - name: Agent graph unit tests
         run: |
           mkdir -p offline-evidence
+          pytest src/quote-preparation-agent/tests -v --junitxml=offline-evidence/agent.xml
+
+      - name: Deterministic evaluation checks
+        run: |
+          pytest eval -v --junitxml=offline-evidence/deterministic.xml
+
+      - name: Reporting and contract tests
+        run: |
           pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests \
-            src/quote-preparation-agent/tests eval -v --junitxml=offline-evidence/tests.xml
+            -v --junitxml=offline-evidence/reporting.xml
 
       - name: Deterministic evaluation gate (golden dataset)
         run: python eval/evaluation_gate.py
@@ -242,6 +258,19 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
+      - name: Deployed candidate summary
+        if: always() && steps.deploy.outcome == 'success'
+        env:
+          AGENT_VERSION: ${{ steps.deploy.outputs.agent_version }}
+          PROJECT_ENDPOINT: ${{ steps.deploy.outputs.project_endpoint }}
+        run: |
+          {
+            echo '## Deployed Candidate'
+            echo ''
+            echo "Agent version: $AGENT_VERSION"
+            echo "Project endpoint: $PROJECT_ENDPOINT"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ---------------------------------------------------------------------
   # Stage 4: Deterministic evaluation gate as the release quality control
   #
@@ -277,6 +306,58 @@ jobs:
 
       - name: Deterministic evaluation gate (golden dataset)
         run: python eval/evaluation_gate.py
+
+      - name: Deterministic evaluation gate summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("eval/results.json")
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not path.exists():
+              lines = [
+                  "## Deterministic Evaluation Gate (Release)",
+                  "",
+                  "No eval/results.json was produced; inspect the gate step above.",
+                  "",
+              ]
+          else:
+              report = json.loads(path.read_text(encoding="utf-8"))
+              records = report["records"]
+              passed = sum(1 for record in records if record["passed"])
+              lines = [
+                  "## Deterministic Evaluation Gate (Release)",
+                  "",
+                  f"Dataset size: {report['dataset_size']}",
+                  f"Passed records: {passed} / {len(records)}",
+                  f"Bilingual parity: {report['bilingual_parity']['passed']}",
+                  f"Gate result: {'PASSED' if report['passed'] else 'FAILED'}",
+                  "",
+              ]
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as handle:
+                  handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Install judge evaluation SDKs
+        run: python -m pip install azure-ai-projects==2.6.0 openai==3.6.0 azure-identity==1.25.3
+
+      - name: LLM-judge evaluation gate (author-only; not yet activated)
+        if: false  # Flip once Gates G2/G3/G6 clear and a hosted endpoint exists; see azure.yaml banner.
+        env:
+          PROJECT_ENDPOINT: ${{ needs.deploy-staging.outputs.project_endpoint }}
+          AGENT_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
+          JUDGE_DEPLOYMENT: gpt-4o-mini
+        run: |
+          python eval/convert_judge_dataset.py eval/judge-dataset.jsonl "$RUNNER_TEMP/judge-dataset.json" --locale en-CA
+          python eval/run_judge_evaluation.py \
+            --endpoint "$PROJECT_ENDPOINT" --agent quote-preparation-agent \
+            --version "$AGENT_VERSION" --deployment "$JUDGE_DEPLOYMENT" \
+            --dataset "$RUNNER_TEMP/judge-dataset.json" \
+            --output-dir judge-evidence --minimum-pass-rate 1.0
 
       - name: Retain evaluation evidence
         if: always()
@@ -372,3 +453,10 @@ jobs:
           path: /tmp/prod-agent-show*.json
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Production promotion summary
+        if: always() && steps.deploy.outcome == 'success'
+        env:
+          PREVIOUS_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
+          NEW_VERSION: ${{ steps.deploy.outputs.agent_version }}
+        run: echo "## Promoted $PREVIOUS_VERSION -> $NEW_VERSION" >> "$GITHUB_STEP_SUMMARY"

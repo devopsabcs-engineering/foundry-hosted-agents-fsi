@@ -45,6 +45,28 @@ ISSUE_INVALID_CASE_ID = "INVALID_CASE_ID"
 ISSUE_APPLICATION_NOT_FOUND = "APPLICATION_NOT_FOUND"
 ISSUE_RULEBOOK_NOT_FOUND = "RULEBOOK_NOT_FOUND"
 
+# Eval-metadata only. Not wired into `default_model`, `build_graph`, or any
+# executed code path in this phase. Extracted via AST parsing by
+# `eval/run_judge_evaluation.py` to give task_adherence judging a real
+# instructions text; does not change graph execution or require network
+# access. Content is a plain-language restatement of this module's own
+# topology description above -- not a live system prompt.
+AGENT_TASK_INSTRUCTIONS = """\
+You are the quote-preparation composition stage for a training-simulation \
+insurance quote workflow. Given a validated case reference, you must:
+1. Confirm the case reference matches the required CASE-SYN-### pattern; \
+reject any unrecognized reference before any lookup occurs.
+2. Look up the application input and the pinned rulebook for the case.
+3. Run the calculator against the application input and rulebook to \
+produce a bounded calculation result (READY, INCOMPLETE, UNSUPPORTED, or \
+EVIDENCE_UNAVAILABLE) -- never invent an amount for a non-READY status.
+4. Submit the resulting draft case for human employee review; never \
+approve, reject, or revise a case yourself.
+5. Compose a bounded, bilingual (en-CA/fr-CA) applicant-facing message \
+using only the status template and the rulebook's own notice text -- \
+never reveal an amount, raw rulebook fields, or any reviewer-only field.
+"""
+
 ModelCallable = Callable[[str], str]
 
 

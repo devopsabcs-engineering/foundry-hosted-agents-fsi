@@ -1,18 +1,21 @@
 name: Publish Test Trends
 
-# Adapted from the sibling repository's publish-test-trends.yml, but
-# significantly simplified (Implementation Phase 11, Step 11.4). The
-# sibling's version depends on two custom reporting scripts
-# (scripts/ci_results.py, scripts/deployment_summary.py) and pushes an
-# aggregate history to the repository wiki via a WIKI_PUSH_TOKEN secret.
-# Neither the reporting scripts nor a wiki-push requirement exists in this
-# repository; inventing them was out of scope for this phase. This version
-# instead downloads whatever evidence artifacts the source run produced and
-# writes a plain job summary via $GITHUB_STEP_SUMMARY, retaining the
-# collected evidence as a single consolidated artifact. There is also no
-# equivalent of the sibling's web-chat-build.yml in the trigger list below,
-# because this repository has no apps/web-chat (see the Planning Log
-# Discrepancy Log entry for this phase for the full rationale).
+# Adapted from the sibling repository's publish-test-trends.yml. Verifies
+# the triggering run's provenance, downloads this repository's two real
+# evidence-artifact kinds (offline-test-evidence, evaluation-evidence --
+# there is no load-test-evidence kind here; this repository has no
+# load-test harness), runs the ported scripts/ci_results.py trend
+# aggregator, uploads the generated ci-report/ as an artifact regardless of
+# the wiki-push outcome, and -- when secrets.WIKI_PUSH_TOKEN is configured
+# -- clones this repository's wiki, regenerates Continuous-Test-Trends.md
+# and trend-history/, and pushes the result using the same
+# `git -c http.extraheader` basic-auth pattern the sibling repository
+# uses. If WIKI_PUSH_TOKEN is not configured, the wiki-push step fails
+# loudly (::error:: annotation, $GITHUB_STEP_SUMMARY message, exit 1)
+# rather than silently skipping. There is also no equivalent of the
+# sibling's web-chat-build.yml in the trigger list below, because this
+# repository has no apps/web-chat (see the Planning Log Discrepancy Log
+# entry for Implementation Phase 11).
 
 on:
   workflow_run:
@@ -24,6 +27,9 @@ on:
       run_id:
         description: Completed main-branch source run ID to publish or repair
         required: true
+      run_attempt:
+        description: Specific run attempt to publish (defaults to the run's latest attempt)
+        required: false
 
 permissions:
   contents: read
@@ -41,36 +47,94 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN: ${{ inputs.run_id || github.event.workflow_run.id }}
+      SOURCE_ATTEMPT: ${{ inputs.run_attempt || github.event.workflow_run.run_attempt }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Resolve source run attempt
+        if: ${{ env.SOURCE_ATTEMPT == '' }}
+        run: |
+          set -euo pipefail
+          ATTEMPT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '.run_attempt')
+          echo "SOURCE_ATTEMPT=$ATTEMPT" >> "$GITHUB_ENV"
+
+      - name: Verify source run provenance
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/attempts/$SOURCE_ATTEMPT" > source-run.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" '.repository.full_name == $repo' source-run.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" '.head_repository.full_name == $repo' source-run.json
+          jq -e '.head_branch == "main"' source-run.json
+          jq -e '.status == "completed"' source-run.json
+          jq -e '.event == "push" or .event == "workflow_dispatch"' source-run.json
+          jq -e '
+            .path == ".github/workflows/continuous-validation.yml" or
+            .path == ".github/workflows/deploy-and-evaluate.yml" or
+            .path == ".github/workflows/hosted-agent-cd.yml"
+          ' source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/attempts/$SOURCE_ATTEMPT/jobs?per_page=100" > source-jobs.json
+
       - name: Download known evidence artifacts from the source run
         run: |
           set -euo pipefail
           mkdir -p evidence
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.expired == false) | .name' > artifact-names.txt || true
-          while IFS= read -r NAME; do
-            [ -z "$NAME" ] && continue
-            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$NAME" --dir "evidence/$NAME" || true
-          done < artifact-names.txt
+          for KIND in offline-test-evidence evaluation-evidence; do
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name "${KIND}-${SOURCE_ATTEMPT}" --dir "evidence/$KIND" || true
+          done
 
-      - name: Publish test trend summary
-        run: |
-          {
-            echo '## Test Trends'
-            echo ''
-            echo "Source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN"
-            echo ''
-            echo 'Evidence artifacts collected from the source run (offline test results,'
-            echo 'evaluation gate output) are retained below. This repository has no'
-            echo 'aggregate trend-history script or wiki publication step; see the'
-            echo 'Planning Log Discrepancy Log entry for Implementation Phase 11.'
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Generate CI report
+        id: report
+        run: python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report
 
-      - name: Retain collected evidence
-        if: always()
+      - name: Retain generated CI report
+        if: always() && steps.report.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
-          name: test-trends-evidence-${{ env.SOURCE_RUN }}
-          path: evidence/
+          name: ci-report-${{ env.SOURCE_RUN }}-${{ env.SOURCE_ATTEMPT }}
+          path: ci-report/
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Push trend history to the wiki
+        if: always() && steps.report.outcome == 'success'
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WIKI_PUSH_TOKEN:-}" ]; then
+            echo "::error::WIKI_PUSH_TOKEN secret is not configured; cannot publish Continuous-Test-Trends.md to the wiki."
+            {
+              echo '## Wiki publish skipped'
+              echo ''
+              echo '`WIKI_PUSH_TOKEN` is not configured for this repository, so the generated'
+              echo '`ci-report/` (uploaded as an artifact above) could not be published to the'
+              echo 'wiki. Provision the secret with wiki write access to enable publishing.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$WIKI_PUSH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
+            clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.wiki.git" wiki
+          python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to publish for this run."
+          else
+            git commit -m "Publish continuous test trends for run ${SOURCE_RUN} attempt ${SOURCE_ATTEMPT}"
+            git -c "http.https://github.com/.extraheader=$AUTH_HEADER" push origin master
+            {
+              echo '## Continuous Test Trends published'
+              echo ''
+              echo "https://github.com/$GITHUB_REPOSITORY/wiki/Continuous-Test-Trends"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
