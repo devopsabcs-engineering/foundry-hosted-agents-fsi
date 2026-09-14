@@ -210,7 +210,14 @@ jobs:
 
       - name: Provision staging infrastructure (idempotent)
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
-        run: azd provision --no-prompt
+        run: |
+          set -euo pipefail
+          for ATTEMPT in 1 2 3; do
+            azd provision --no-prompt && exit 0
+            [[ "$ATTEMPT" -lt 3 ]] || { echo "::error::azd provision failed after 3 attempts"; exit 1; }
+            echo "::warning::azd provision failed (attempt $ATTEMPT/3); a prior ARM operation may still be settling -- retrying in 60s"
+            sleep 60
+          done
 
       - name: Deploy candidate to staging
         id: deploy
@@ -337,7 +344,14 @@ jobs:
 
       - name: Provision production infrastructure (idempotent)
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
-        run: azd provision --no-prompt
+        run: |
+          set -euo pipefail
+          for ATTEMPT in 1 2 3; do
+            azd provision --no-prompt && exit 0
+            [[ "$ATTEMPT" -lt 3 ]] || { echo "::error::azd provision failed after 3 attempts"; exit 1; }
+            echo "::warning::azd provision failed (attempt $ATTEMPT/3); a prior ARM operation may still be settling -- retrying in 60s"
+            sleep 60
+          done
 
       - name: Deploy evaluated source to production
         id: deploy
