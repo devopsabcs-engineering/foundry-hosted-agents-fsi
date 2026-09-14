@@ -198,6 +198,25 @@ Note on `parallelizable`: the marker describes whether a phase's files can be au
 * [x] Step 11.5: Validate phase changes
   * Lint each workflow YAML file for syntax validity; confirm no workflow triggers an actual Azure deployment before Gates G2, G3, and G6 clear
 
+### [ ] Implementation Phase 12: Web Chat App and Full Workflow Parity (author only, offline-testable)
+
+<!-- parallelizable: false -->
+
+* [ ] Step 12.1: Adapt the web-chat FastAPI backend
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 730-748)
+* [ ] Step 12.2: Adapt the web-chat backend tests
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 749-763)
+* [ ] Step 12.3: Adapt the web-chat React/Vite frontend
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 764-782)
+* [ ] Step 12.4: Adapt the web-chat frontend contract tests
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 783-797)
+* [ ] Step 12.5: Add the web-chat-build workflow and restore its publish-test-trends reference
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 798-816)
+* [ ] Step 12.6: Enable GitHub Pages for the docs/ site (operator action, not a code change)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 817-828)
+* [ ] Step 12.7: Validate phase changes
+  * Run the new backend and frontend test suites and the frontend production build; YAML-lint the new/updated workflow files; confirm no test or build step contacts a real Azure endpoint
+
 ## Planning Log
 
 See .copilot-tracking/plans/logs/2026-09-13/desjardins-bilingual-hosted-agents-workshop-log.md for discrepancy tracking, implementation paths considered, and suggested follow-on work.

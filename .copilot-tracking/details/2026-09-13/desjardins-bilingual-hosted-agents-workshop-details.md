@@ -733,6 +733,156 @@ Validation commands:
 * Manual review confirming no job in any new workflow runs on a `push`/`pull_request` trigger against a job that performs an actual `azd provision`, `azd deploy`, or `az deployment` apply command.
 * Provide the user with next steps and recommend additional research/planning rather than a large-scale fix in this phase.
 
+## Implementation Phase 12: Web Chat App and Full Workflow Parity (author only, offline-testable)
+
+<!-- parallelizable: false -->
+
+Sources: C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\app.py, auth.py, requirements.txt, tests\test_app.py, tests\test_auth.py, frontend\src\main.jsx, request.js, samples.js, stream.js, style.css, frontend\tests\*.test.js, frontend\package.json, frontend\vite.config.js, .github\workflows\web-chat-build.yml - Sibling repository's web-chat pilot app and its build workflow, reversing the Phase 11 (Step 11.4) documented omission at the user's explicit request. The backend is fully offline-testable today: `create_app(settings, verifier, upstream)` accepts injected stub verifier/upstream objects, so no test in this phase may contact a real Entra ID tenant or a real Foundry endpoint, consistent with this repository's existing pattern of building author-only components fully tested before any Gate G2/G3/G6 deployment. Do not copy sibling files wholesale; re-theme all Air Canada/threat-assessment branding, sample data, and package names to this repository's Desjardins/quote-preparation domain.
+
+### Step 12.1: Adapt the web-chat FastAPI backend
+
+Create `apps/web-chat/app.py`, `apps/web-chat/auth.py`, and `apps/web-chat/requirements.txt`, adapted from the sibling. Keep the structural pattern unchanged (Settings.from_env with Foundry-HTTPS-endpoint validation, SessionStore with TTL/capacity limits, FoundryClient streaming via `httpx-sse` against the Responses-protocol `AGENT_ENDPOINT`, PilotAuth-equivalent Entra ID JWT verification, CSP/security-header middleware, `create_app(settings=None, verifier=None, upstream=None)` dependency-injection seam). Re-theme: package/env-var naming may stay generic (`AGENT_ENDPOINT`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `PILOT_GROUP_ID`) since the sibling's backend carries no domain-specific strings other than the OpenAPI/docs being disabled; do not introduce any live call to this repository's (not-yet-hosted) quote-preparation-agent endpoint outside of tests.
+
+Files:
+* apps/web-chat/app.py - Adapted FastAPI backend (Settings, SessionStore, FoundryClient, security headers, conversation/message endpoints).
+* apps/web-chat/auth.py - Adapted Entra ID JWT verification (Identity, PilotAuth-equivalent class).
+* apps/web-chat/requirements.txt - fastapi, uvicorn, httpx, httpx-sse, PyJWT[crypto], azure-identity, aiohttp, pinned to the sibling's versions unless a newer patch version is already used elsewhere in this repository.
+* apps/web-chat/Dockerfile - Adapted only if needed for local/dev parity; not deployed in this phase.
+* apps/web-chat/.dockerignore - Adapted only if the Dockerfile is added.
+
+Discrepancy references:
+* Reverses Phase 11 Step 11.4's documented `web-chat-build.yml` omission at explicit user request (see new Planning Log discrepancy entry added in Step 12.5).
+
+Success criteria:
+* `apps/web-chat/app.py` and `auth.py` contain no hardcoded secrets, no Air Canada/threat-assessment branding strings, and no call path that reaches a real Azure endpoint outside of the injected `upstream`/`verifier` seams.
+
+Context references:
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\app.py - Structural reference.
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\auth.py - Structural reference.
+
+Dependencies:
+* None beyond Phase 1's directory scaffold; independent of the quote-preparation-agent's own (not-yet-hosted) deployment.
+
+### Step 12.2: Adapt the web-chat backend tests
+
+Create `apps/web-chat/tests/test_app.py` and `apps/web-chat/tests/test_auth.py`, adapted from the sibling, exercising `create_app` with injected stub `verifier`/`upstream` objects (never a real Entra ID tenant or Foundry endpoint): session creation/expiry/capacity limits, message idempotency-key replay, conversation-not-found/conversation-busy error paths, and JWT claim validation (audience, issuer, tenant, scope, group membership) using locally generated/synthetic tokens or stubbed `PyJWKClient`.
+
+Files:
+* apps/web-chat/tests/test_app.py - Adapted backend endpoint/session tests.
+* apps/web-chat/tests/test_auth.py - Adapted JWT verification tests.
+
+Discrepancy references:
+* None; mirrors sibling test structure with re-themed fixtures only.
+
+Success criteria:
+* `pytest apps/web-chat/tests -q` passes with no network calls to a real Azure or Entra ID endpoint.
+
+Context references:
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\tests\test_app.py - Structural reference.
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\tests\test_auth.py - Structural reference.
+
+Dependencies:
+* Step 12.1 completion.
+
+### Step 12.3: Adapt the web-chat React/Vite frontend
+
+Create `apps/web-chat/frontend/` (package.json, vite.config.js, index.html, src/main.jsx, src/request.js, src/stream.js, src/samples.js, src/style.css), adapted from the sibling. Re-theme: rename the npm package (for example `desjardins-quote-preparation-web-chat`), replace "Air Canada / Security Operations" and "Threat assessment" branding with a Desjardins/quote-preparation equivalent (for example "Desjardins / Quote Preparation" and "Quote preparation workspace"), and replace `samples.js`'s three Air Canada security-incident sample prompts with three synthetic auto-insurance quote-preparation sample prompts grounded in this repository's own synthetic fixtures (reuse existing case IDs and MCP tool names from `data/synthetic/` and `mcp/*/`, for example `get_application`/`get_rulebook`, not the sibling's `get_device_risk`/`list_vulnerabilities`). Keep the MSAL-based sign-in flow, SSE streaming consumption, and accessibility structure unchanged. Add the mandatory bilingual, non-binding, synthetic-only disclaimer text (matching Phase 9's disclaimer convention) in place of the sibling's "Verify recommendations before action" line.
+
+Files:
+* apps/web-chat/frontend/package.json - Renamed package, same dependency set as the sibling unless a newer compatible version is already pinned elsewhere in this repository.
+* apps/web-chat/frontend/vite.config.js - Adapted build config (structural copy).
+* apps/web-chat/frontend/index.html - Adapted entry HTML.
+* apps/web-chat/frontend/src/main.jsx - Re-themed chat UI.
+* apps/web-chat/frontend/src/request.js - Adapted idempotency-key request helper.
+* apps/web-chat/frontend/src/stream.js - Adapted SSE response consumer.
+* apps/web-chat/frontend/src/samples.js - Re-themed synthetic sample prompts (quote-preparation domain).
+* apps/web-chat/frontend/src/style.css - Adapted styling (rebrand only; no sibling screenshots or logos carried over, per Risk Register RR12).
+
+Discrepancy references:
+* Domain re-theme required by the Objectives (adapt to Desjardins, not copy Air Canada content wholesale).
+
+Success criteria:
+* No "Air Canada", "Threat assessment", or "Security Operations" string remains anywhere under `apps/web-chat/frontend/`.
+* The synthetic-only, non-binding disclaimer is present in both the empty-state and composer-footer copy.
+
+Context references:
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\frontend\src\main.jsx - Structural reference.
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\frontend\src\samples.js - Structural reference (do not reuse its sample content).
+
+Dependencies:
+* Step 12.1 completion (the frontend calls the Step 12.1 backend's `/api/*` routes).
+
+### Step 12.4: Adapt the web-chat frontend contract tests
+
+Create `apps/web-chat/frontend/tests/request.test.js`, `stream.test.js`, and `samples.test.js`, adapted from the sibling, using Node's built-in test runner (`node --test`). Update `samples.test.js`'s assertions to match Step 12.3's re-themed sample data (three entries, quote-preparation tool names) rather than the sibling's security-tool names.
+
+Files:
+* apps/web-chat/frontend/tests/request.test.js - Adapted idempotency-key contract tests.
+* apps/web-chat/frontend/tests/stream.test.js - Adapted SSE-consumption contract tests.
+* apps/web-chat/frontend/tests/samples.test.js - Adapted sample-data shape/content tests.
+
+Discrepancy references:
+* None; mirrors sibling test structure with re-themed fixtures only.
+
+Success criteria:
+* `node --test tests/*.test.js` (run from `apps/web-chat/frontend/`) passes with no network calls.
+
+Context references:
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\apps\web-chat\frontend\tests\samples.test.js - Structural reference (do not reuse its assertions verbatim).
+
+Dependencies:
+* Step 12.3 completion.
+
+### Step 12.5: Add the web-chat-build workflow and restore its publish-test-trends reference
+
+Add `.github/workflows/web-chat-build.yml`, adapted from the sibling: `workflow_dispatch`/`push`/`pull_request` (paths-filtered to `apps/web-chat/**` and the workflow file itself), Node 22 + Python 3.13 setup, backend pytest run, frontend `npm ci`/`npm install` + `node --test` + `npm run build`, and artifact retention for the compiled `dist/` and test results. Drop the sibling's `scripts/ci_results.py`/`scripts/deployment_summary.py` calls (not present in this repository, consistent with Phase 11 Step 11.4's simplified reporting-layer decision) in favor of an inline `$GITHUB_STEP_SUMMARY` block. Update `.github/workflows/publish-test-trends.yml`'s `workflow_run.workflows` trigger list to include `"Web Chat Build"` alongside the three workflows added in Phase 11. Update the Planning Log's existing DD-03 discrepancy entry (from Phase 11 Step 11.4) to record that the `web-chat-build.yml` omission was later reversed in Phase 12 at explicit user request, and why (full Actions-tab parity with the sibling repository).
+
+Files:
+* .github/workflows/web-chat-build.yml - New adapted build/test workflow (`permissions: contents: read` only, no Azure credentials).
+* .github/workflows/publish-test-trends.yml - Updated `workflow_run.workflows` trigger list.
+* .copilot-tracking/plans/logs/2026-09-13/desjardins-bilingual-hosted-agents-workshop-log.md - Updated DD-03 entry recording the reversal.
+
+Discrepancy references:
+* Reverses Phase 11 Step 11.4's `web-chat-build.yml` omission; the Planning Log entry must reflect both the original reasoning and the reversal.
+
+Success criteria:
+* The new and updated workflow YAML files are syntactically valid.
+* No job in `web-chat-build.yml` performs an Azure login, deployment, or provisioning command.
+
+Context references:
+* C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents\.github\workflows\web-chat-build.yml - Structural reference.
+
+Dependencies:
+* Steps 12.1-12.4 completion (referenced test/build commands must exist and pass).
+
+### Step 12.6: Enable GitHub Pages for the docs/ site (operator action, not a code change)
+
+Enable GitHub Pages on the `devopsabcs-engineering/foundry-hosted-agents-fsi` repository via the GitHub API (`gh api --method POST repos/devopsabcs-engineering/foundry-hosted-agents-fsi/pages -f "source[branch]=main" -f "source[path]=/docs"`), matching the sibling repository's configuration (legacy Jekyll build, `main` branch, `/docs` path). This is a repository-settings change performed directly, not a file edit; it is what produces the sibling's extra auto-generated "pages build and deployment" Actions-tab entry. Confirm afterward with `gh api repos/devopsabcs-engineering/foundry-hosted-agents-fsi/pages` that the site reports a `building` or `built` status.
+
+Files:
+* None (repository settings change only, recorded in the changes log as an Additional or Deviating Change rather than a file diff).
+
+Discrepancy references:
+* Explains the second "missing" item the user identified when comparing Actions tabs between the two repositories.
+
+Success criteria:
+* `gh api repos/devopsabcs-engineering/foundry-hosted-agents-fsi/pages` returns a 200 response (no longer 404) with `source.branch == "main"` and `source.path == "/docs"`.
+
+Context references:
+* Sibling repository's `pages` API response (`build_type: legacy`, `source: {branch: main, path: /docs}`), captured during this session's investigation.
+
+Dependencies:
+* None; independent of Steps 12.1-12.5.
+
+### Step 12.7: Validate phase changes
+
+Validation commands:
+* `pytest apps/web-chat/tests -q` (backend).
+* `npm ci` (or `npm install`) then `node --test tests/*.test.js` and `npm run build`, run from `apps/web-chat/frontend/`.
+* A YAML syntax check on `.github/workflows/web-chat-build.yml` and the updated `.github/workflows/publish-test-trends.yml`.
+* Re-run the full repository pytest sweep (`pytest apps/workshop mcp src/quote-preparation-agent eval apps/web-chat -q`) to confirm no regression in existing suites.
+* Confirm via `gh api repos/devopsabcs-engineering/foundry-hosted-agents-fsi/pages` that GitHub Pages is enabled (Step 12.6).
+
 ## Dependencies
 
 * Python 3.11+, pytest, jsonschema (or equivalent) for Phases 2, 3, 4, 5, 7, 9.
