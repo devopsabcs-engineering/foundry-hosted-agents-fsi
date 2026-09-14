@@ -2,7 +2,7 @@ title: "Foundry Hosted Agents Workshop (FSI)"
 description: "Bilingual hands-on workshop hosting a synthetic auto-insurance quote-preparation agent on Microsoft Foundry Hosted Agents"
 remote_theme: just-the-docs/just-the-docs
 baseurl: ""
-url: "" # TODO: set once GitHub Pages is enabled for this repository
+url: "https://psychic-chainsaw-1vjrnqr.pages.github.io"
 
 exclude:
   - Gemfile.lock

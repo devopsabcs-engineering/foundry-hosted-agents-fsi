@@ -1,0 +1,221 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "10082384767405025932"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the web-chat Container App and its identity"
+      }
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "foundry-quote-chat-staging",
+      "metadata": {
+        "description": "Container App name for the web-chat frontend"
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "mcp-staging-mcp-env",
+      "metadata": {
+        "description": "Existing Container Apps managed environment name (shared with the MCP servers; matches modules/mcp-container-apps.bicep's <namePrefix>-mcp-env pattern)"
+      }
+    },
+    "acrName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure Container Registry hosting the built web-chat image (no default; must be supplied at deploy time, matching the env-var-driven MCP_ACR_NAME convention used elsewhere in this repo)"
+      }
+    },
+    "image": {
+      "type": "string",
+      "metadata": {
+        "description": "Fully digest-pinned image reference for the web-chat container (e.g. <acr>.azurecr.io/foundry-web-chat@sha256:...); never a floating tag"
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "Entra tenant ID authorized to sign in to the pilot (no default; operator must supply the real Desjardins tenant ID)"
+      }
+    },
+    "clientId": {
+      "type": "string",
+      "metadata": {
+        "description": "Entra application (client) ID of the web-chat app registration (no default; created via scripts/setup-web-chat-identity.ps1)"
+      }
+    },
+    "pilotGroupId": {
+      "type": "string",
+      "metadata": {
+        "description": "Entra security group ID for the pilot user cohort (no default; operator must supply the real Desjardins pilot group ID)"
+      }
+    },
+    "foundryAccountName": {
+      "type": "string",
+      "defaultValue": "aif-desjardins-quote-preparation-staging",
+      "metadata": {
+        "description": "Existing Foundry account (Microsoft.CognitiveServices/accounts) name (matches infra/main.bicep's accountName = aif-<environmentName> pattern)"
+      }
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "defaultValue": "proj-desjardins-quote-preparation-staging",
+      "metadata": {
+        "description": "Existing Foundry project name (matches infra/main.bicep's projectName = proj-<environmentName> pattern)"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}-identity', parameters('appName'))]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'AcrPull')]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'FoundryUser')]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('appName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "environment": "staging",
+        "purpose": "internal-pilot-web-chat"
+      },
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": true,
+            "allowInsecure": false,
+            "targetPort": 8000,
+            "transport": "http"
+          },
+          "registries": [
+            {
+              "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "web-chat",
+              "image": "[parameters('image')]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "ENTRA_TENANT_ID",
+                  "value": "[parameters('tenantId')]"
+                },
+                {
+                  "name": "ENTRA_CLIENT_ID",
+                  "value": "[parameters('clientId')]"
+                },
+                {
+                  "name": "PILOT_GROUP_ID",
+                  "value": "[parameters('pilotGroupId')]"
+                },
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').clientId]"
+                },
+                {
+                  "name": "AGENT_ENDPOINT",
+                  "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1', parameters('foundryAccountName'), parameters('foundryProjectName'))]"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 30
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 1
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]",
+        "[extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'FoundryUser'))]",
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'AcrPull'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "url": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2024-03-01').configuration.ingress.fqdn)]"
+    },
+    "principalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').principalId]"
+    }
+  }
+}
