@@ -196,7 +196,7 @@ jobs:
           TAG="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           for SERVER in application rulebook; do
             IMAGE="staging/${SERVER}-mcp:${TAG}"
-            az acr build --registry "$MCP_ACR_NAME" --image "$IMAGE" "mcp/${SERVER}-server"
+            az acr build --registry "$MCP_ACR_NAME" --image "$IMAGE" --file "mcp/${SERVER}-server/Dockerfile" .
             DIGEST=$(az acr repository show --name "$MCP_ACR_NAME" --image "$IMAGE" --query digest -o tsv)
             [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "::error::Invalid image digest"; exit 1; }
             azd env set "${SERVER^^}_MCP_IMAGE" "${REGISTRY}/staging/${SERVER}-mcp@${DIGEST}"
