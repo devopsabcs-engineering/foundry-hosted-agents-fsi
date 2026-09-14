@@ -130,6 +130,12 @@ resource applicationContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'application-server'
           image: applicationImage
+          env: [
+            {
+              name: 'PORT'
+              value: string(containerPort)
+            }
+          ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -178,6 +184,12 @@ resource rulebookContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'rulebook-server'
           image: rulebookImage
+          env: [
+            {
+              name: 'PORT'
+              value: string(containerPort)
+            }
+          ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
