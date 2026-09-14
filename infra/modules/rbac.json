@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "16645067221730739164"
+    }
+  },
+  "parameters": {
+    "accountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing Foundry (Microsoft.CognitiveServices/accounts) resource to scope role assignments to"
+      }
+    },
+    "principalIds": {
+      "type": "array",
+      "metadata": {
+        "description": "Principal IDs to receive the Foundry roles in roleDefinitionIds"
+      }
+    },
+    "principalType": {
+      "type": "string",
+      "defaultValue": "ServicePrincipal",
+      "allowedValues": [
+        "ServicePrincipal",
+        "User",
+        "Group"
+      ],
+      "metadata": {
+        "description": "Principal type applied to every entry in principalIds"
+      }
+    },
+    "roleDefinitionIds": {
+      "type": "array",
+      "defaultValue": [
+        "53ca6127-db72-4b80-b1b0-d745d6d5456d",
+        "eadc314b-1a2d-4efa-be10-5d325db5065e",
+        "eed3b665-ab3a-47b6-8f48-c9382fb1dad6"
+      ],
+      "metadata": {
+        "description": "Foundry role definition GUIDs to assign to every principal in principalIds"
+      }
+    }
+  },
+  "variables": {
+    "principalRolePairs": "[map(parameters('principalIds'), lambda('principalId', map(parameters('roleDefinitionIds'), lambda('roleDefinitionId', createObject('principalId', lambdaVariables('principalId'), 'roleDefinitionId', lambdaVariables('roleDefinitionId'))))))]",
+    "assignmentPairs": "[reduce(variables('principalRolePairs'), createArray(), lambda('cur', 'next', concat(lambdaVariables('cur'), lambdaVariables('next'))))]"
+  },
+  "resources": [
+    {
+      "copy": {
+        "name": "roleAssignments",
+        "count": "[length(variables('assignmentPairs'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), variables('assignmentPairs')[copyIndex()].principalId, variables('assignmentPairs')[copyIndex()].roleDefinitionId)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('assignmentPairs')[copyIndex()].roleDefinitionId)]",
+        "principalId": "[variables('assignmentPairs')[copyIndex()].principalId]",
+        "principalType": "[parameters('principalType')]"
+      }
+    }
+  ]
+}

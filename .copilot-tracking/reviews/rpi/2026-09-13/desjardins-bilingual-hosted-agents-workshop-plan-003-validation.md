@@ -1,0 +1,115 @@
+<!-- markdownlint-disable-file -->
+# RPI Validation: Implementation Phase 3 — Approval Repository and State Machine
+
+**Plan**: .copilot-tracking/plans/2026-09-13/desjardins-bilingual-hosted-agents-workshop-plan.instructions.md (Lines 81-91)
+**Changes Log**: .copilot-tracking/changes/2026-09-13/desjardins-bilingual-hosted-agents-workshop-changes.md
+**Research Document**: .copilot-tracking/research/2026-09-13/desjardins-bilingual-hosted-agents-workshop-research.md
+**Details File**: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 129-181)
+**Planning Log**: .copilot-tracking/plans/logs/2026-09-13/desjardins-bilingual-hosted-agents-workshop-log.md
+**Validation Date**: 2026-09-13
+
+## Phase Under Validation
+
+### [x] Implementation Phase 3: Approval Repository and State Machine
+
+* Step 3.1: Implement the SQLite-backed ApprovalRepository with the full state machine (plan Line 85; details Lines 133-154)
+* Step 3.2: Implement concurrency, idempotency, and actor-authorization tests (plan Line 87; details Lines 155-176)
+* Step 3.3: Validate phase changes (plan Line 89; details Lines 177-180)
+
+## Plan Item vs. Changes Log Comparison
+
+| Plan/Details Item | Changes Log Evidence | Status |
+| --- | --- | --- |
+| Step 3.1: `apps/workshop/approval_repository.py` — ApprovalRepository class with create draft, submit, approve, reject, revise, get status (details Line 138) | Changes log Line 23: "`apps/workshop/approval_repository.py` - Phase 3: SQLite-backed ApprovalRepository with the full DRAFT/PENDING_REVIEW/APPROVED/REJECTED state machine, revision-invalidation, self-approval prevention, and idempotent approve/reject." File exists; all six methods verified present ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L149) `create_draft` L149, [approve](../../../../apps/workshop/approval_repository.py#L191) L191, [reject](../../../../apps/workshop/approval_repository.py#L196) L196, [revise](../../../../apps/workshop/approval_repository.py#L244) L244, `get_case`/`submit_for_review` present). | Matched, with a coverage gap — see Finding F1. |
+| Step 3.1: `apps/workshop/db/schema.sql` — separate SQLite schema file (details Line 139) | Changes log Line 53 documents this as a disclosed deviation: schema created inline in `ApprovalRepository._init_schema()` instead. Confirmed: no `db/` directory exists under `apps/workshop/`. | Matched (documented deviation, no functional gap). |
+| Step 3.1 success criterion: "Every transition in the Mermaid state diagram (research lines 221-232) has a corresponding code path and at least one test." (details Line 145) | Not addressed anywhere in the changes log's Phase 3 entries or its "Additional or Deviating Changes" section (changes log Line 53 only discusses file-layout consolidation, not state coverage). | **Not met** — see Finding F1 (Major). |
+| Step 3.1 success criterion: "A revision created after APPROVED or REJECTED correctly resets state to DRAFT and clears any prior approval." (details Line 146) | [approval_repository.py](../../../../apps/workshop/approval_repository.py#L244-L261) `revise()` L244-261 resets `state`, increments `revision`, clears `reviewer_id`/`approved_at`. Tested in [test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L98-L115) `test_revising_an_approved_case_resets_to_draft_and_clears_reviewer` (L98-115), which passed in this session's test run. | Met. |
+| Step 3.2: `apps/workshop/tests/test_approval_repository.py`, `test_concurrency.py`, `test_authorization.py` — three separate test files (details Lines 160-162) | Changes log Line 53 documents the disclosed consolidation into one file (10 tests). Confirmed: only `test_approval_repository.py` exists under `apps/workshop/tests/`. | Matched (documented deviation). |
+| Step 3.2: idempotency by `commandId`; changed payloads with the same `commandId` conflict (details Line 157) | No `commandId` (or any command-identifier) parameter or concept exists anywhere in `approval_repository.py` or its tests. Idempotency is instead keyed on `(target_state, reviewer_id)` equality ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L214-L217) L214-217). | **Not met as specified** — see Finding F2 (Major). |
+| Step 3.2: only a server-authenticated reviewer actor may approve/reject; no client-supplied actor/role override is trusted (details Line 157) | No `role`/header/actor-claim parameter exists on `approve`/`reject`; the API trusts whatever `reviewer_id` string is passed by the caller, with no test demonstrating rejection of a forged/spoofed identity distinct from the preparer. Only self-approval (`reviewer_id == preparer_id`) is tested ([test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L83-L94) L83-94). | Partially met — self-approval covered; forged/spoofed-actor scenario not represented. See Finding F3 (Major). |
+| Step 3.2: applicant/model cannot approve its own draft (details Line 157) | [approval_repository.py](../../../../apps/workshop/approval_repository.py#L205-L209) L205-209 raises `SelfApprovalError` when `reviewer_id == record.preparer_id`; tested by `test_self_approval_is_rejected` ([test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L83-L94) L83-94), which passed. | Met. |
+| Step 3.2: concurrent approve/reject commands on the same case/revision permit exactly one winner (details Line 157) | [approval_repository.py](../../../../apps/workshop/approval_repository.py#L218-L233) L218-233 uses `UPDATE ... WHERE state=... AND revision=...` plus a `changes()` check. Tested by `test_concurrent_approve_calls_by_different_reviewers_yield_exactly_one_winner` ([test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L176-L206) L176-206), which passed. | Met. |
+| Step 3.2 success criterion: "A test asserts that a command with a stale recordVersion is rejected as a conflict, not silently applied." (details Line 169) | No test passes an explicit stale `revision`/`recordVersion` value as caller input. The closest coverage is `test_a_different_reviewer_cannot_override_an_existing_decision` ([test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L156-L167) L156-167), which exercises a related but distinct scenario (a second decision attempt after the case is already terminal), and the threaded concurrency test, neither of which supplies a caller-visible stale-version parameter (none exists on the API). | **Not met** — see Finding F2 (Major). |
+| Step 3.3 validation command: `pytest apps/workshop/tests/test_approval_repository.py apps/workshop/tests/test_concurrency.py apps/workshop/tests/test_authorization.py` (details Line 180) | Adjusted for the disclosed single-file consolidation; re-run in this session as `pytest apps/workshop/tests/test_approval_repository.py -v`: **10 passed, 0 failed** (see Test Execution Results below). | Met (with adjusted file path per disclosed deviation). |
+| Step 3.3: "Confirm self-approval and forged-actor attempts fail (traces to research V09, V11)." (plan Line 90) | Self-approval: confirmed via `test_self_approval_is_rejected` (passed). Forged-actor (research V11 — "forges client role/header"): no corresponding test exists in Phase 3, and no role/header concept exists anywhere in the Phase 3 code for a test to exercise. | Partially met — see Finding F3 (Major). |
+
+## Cross-Check Against Research Guidance
+
+* **Self-approval prevention** (research Implementation Patterns, Lines 130-145; specifically Line 141 "Bind approval to the exact draft and active rules. Check actor/ownership..."): implemented and tested correctly — `reviewer_id == preparer_id` is rejected with `SelfApprovalError` at [approval_repository.py](../../../../apps/workshop/approval_repository.py#L205-L209) L205-209.
+* **Revision invalidation** (research Lines 138, 221-232 Mermaid diagram): implemented and tested correctly for the `APPROVED -> DRAFT` path. However, `revise()` at [approval_repository.py](../../../../apps/workshop/approval_repository.py#L244-L261) L244-261 does not check the case's current state before creating a new revision — it accepts `DRAFT` and `PENDING_REVIEW` as source states too, which the Mermaid diagram (research Lines 228-232) only depicts from `APPROVED`/`REJECTED`. No test exercises `revise()` from `DRAFT` or `PENDING_REVIEW`. See Finding F4 (Minor).
+* **SQLite persistence** (research Line 138 "ApprovalRepository is initially SQLite-backed... Persist immutable revisions, record versions, actor context, transitions, and receipts transactionally."): implemented via `sqlite3.connect` with a `threading.Lock` and an append-only `audit_events` table ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L106-L146) L106-146). Matches research guidance; audit rows are immutable (no UPDATE/DELETE statements exist against `audit_events`).
+* **Full Mermaid state diagram coverage** (research Lines 221-232, `INCOMPLETE`, `DRAFT`, `UNSUPPORTED`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`): only `DRAFT`, `PENDING_REVIEW`, `APPROVED`, `REJECTED` exist as `ApprovalRepository` states ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L37-L40) L37-40). `INCOMPLETE` and `UNSUPPORTED` exist only as calculator (`STATUS_INCOMPLETE`/`STATUS_UNSUPPORTED`, [calculator.py](../../../../apps/workshop/calculator.py#L19-L20) L19-20) output values from Phase 2, never as `ApprovalRepository` case states — no code path or test in Phase 3 exercises them. See Finding F1 (Major).
+* **Atomic command binding / conflict semantics** (research subagent report, Lines 154 "State Machine and Atomic Commands"; V09/V11 acceptance examples at Lines 441-443): the "server-authored actor, no client-supplied override" requirement (V09) is honored functionally (the class only accepts a direct `reviewer_id` argument, with no role/header field to forge), but the V11 negative case ("forges client role/header" → "unauthorized access denied") has no corresponding test anywhere in Phase 3, since the API surface has no forgeable field to test against. This leaves the V11 acceptance criterion unverified at this layer. See Finding F3 (Major).
+
+## Planning Log Discrepancy Cross-Check
+
+No DD-\*/DR-\* entry in the planning log targets Phase 3 directly. The one related item is **WI-04**: "Clear Gate G4 (domain and approval review) — obtain domain-expert review of the calculator's illustrative rate tables and independent verification of the actor-authorization implementation (Phase 3) beyond automated tests... Dependency: Depends on Phase 2 and Phase 3 completion." WI-04 acknowledges that Phase 3's authorization implementation needs independent verification beyond its own automated tests, which is consistent with — but does not resolve — Findings F2 and F3 below (WI-04 defers *human* review of authorization; it does not excuse the phase's own stated automated-test success criteria from being met before being marked `[x]`).
+
+No other planning-log entry (DD-01, DR-01/02/03) references Phase 3; all are scoped to labs, gates, or evidence unrelated to the approval state machine.
+
+## Test Execution Results
+
+Command: `& "C:\src\GitHub\devopsabcs-engineering\foundry-hosted-agents-fsi\.venv\Scripts\python.exe" -m pytest apps/workshop/tests/test_approval_repository.py -v --color=no`
+
+```text
+collected 10 items
+test_draft_to_pending_review_to_approved_happy_path PASSED
+test_draft_to_pending_review_to_rejected PASSED
+test_self_approval_is_rejected PASSED
+test_revising_an_approved_case_resets_to_draft_and_clears_reviewer PASSED
+test_open_training_preview_only_permitted_when_approved PASSED
+test_idempotent_repeated_approve_calls_do_not_double_record PASSED
+test_idempotent_repeated_reject_calls_do_not_double_record PASSED
+test_a_different_reviewer_cannot_override_an_existing_decision PASSED
+test_unknown_case_id_raises_case_not_found_error PASSED
+test_concurrent_approve_calls_by_different_reviewers_yield_exactly_one_winner PASSED
+============================= 10 passed in 0.06s ==============================
+```
+
+All 10 tests pass, matching the changes log's claim (Line 24: "10 tests covering happy paths, self-approval rejection, revision invalidation, idempotency, and a threaded concurrency race").
+
+## Findings
+
+### Critical
+
+None.
+
+### Major
+
+* **F1 — `ApprovalRepository` implements only 4 of the 6 states in the researched Mermaid state diagram; `INCOMPLETE` and `UNSUPPORTED` have no code path or test in Phase 3, contradicting an explicit, named success criterion.**
+  * Evidence: Details file success criterion (details Line 145): "Every transition in the Mermaid state diagram (research lines 221-232) has a corresponding code path and at least one test." Research diagram (research Lines 228-232) defines `[*] --> INCOMPLETE`, `INCOMPLETE --> DRAFT`, `DRAFT --> UNSUPPORTED`, plus the `PENDING_REVIEW`/`APPROVED`/`REJECTED` transitions. `ApprovalRepository`'s only defined states are `STATE_DRAFT`, `STATE_PENDING_REVIEW`, `STATE_APPROVED`, `STATE_REJECTED` ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L37-L40) L37-40); `create_draft()` ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L149-L169) L149-169) inserts a row directly at `STATE_DRAFT` — there is no `INCOMPLETE` state, no `DRAFT -> UNSUPPORTED` transition, and no corresponding test in [test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py). `INCOMPLETE`/`UNSUPPORTED` exist only as calculator output values ([calculator.py](../../../../apps/workshop/calculator.py#L19-L20) L19-20, L74, L84), a Phase 2 artifact, confirmed by Phase 5's `graph.py` calling `create_draft`/`submit_for_review` unconditionally regardless of calculation status ([graph.py](../../../../src/quote-preparation-agent/graph.py#L221-L230) L221-230).
+  * Impact: The phase's own stated exit bar for state-machine completeness is not met, and this gap is not disclosed in the changes log's "Additional or Deviating Changes" section, unlike other Phase 3 deviations (schema.sql, test-file consolidation) which were explicitly called out.
+  * Recommendation: Either (a) document this split (calculator owns `INCOMPLETE`/`UNSUPPORTED` pre-draft rejection; `ApprovalRepository` only owns post-draft states) as an intentional, disclosed architectural deviation with a note in the changes log, or (b) add the missing states/transitions and tests to `ApprovalRepository` if the diagram was meant to describe the repository's own persisted state machine literally.
+
+* **F2 — No `commandId`/`recordVersion`-based idempotency and conflict model is implemented or tested, despite being an explicit Step 3.2 requirement and named success criterion.**
+  * Evidence: Details file (details Line 157): "identical command replays return the original receipt (idempotency by commandId); changed payloads with the same commandId conflict"; success criterion (details Line 169): "A test asserts that a command with a stale recordVersion is rejected as a conflict, not silently applied." No `commandId` or `recordVersion` parameter exists anywhere in `approval_repository.py` (confirmed by search — zero matches for `commandId`/`command_id`/`recordVersion`/`record_version`/`stale` in `apps/workshop/`). The implemented idempotency model instead keys on `(target_state, reviewer_id)` tuple equality ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L214-L217) L214-217), and the internal revision guard (`WHERE state=... AND revision=...`, [approval_repository.py](../../../../apps/workshop/approval_repository.py#L218-L233) L218-233) is never exercised by a test that supplies an explicit stale revision value as caller input — the closest test, `test_a_different_reviewer_cannot_override_an_existing_decision` ([test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py#L156-L167) L156-167), verifies a related but distinct scenario (a second reviewer deciding an already-terminal case), not a stale-recordVersion replay.
+  * Impact: The specific command-replay/conflict semantics called for by the research (subagent report, "State Machine and Atomic Commands", Line 154) and the details file are functionally approximated but not built or verified as specified; the phase's own named success criterion is not satisfied by any test in the delivered suite.
+  * Recommendation: Either add an explicit `expected_revision`/`command_id` parameter to `approve`/`reject`/`revise` with a test asserting a stale-value call is rejected as a conflict (not silently applied), or document in the changes log that the simpler `(state, reviewer_id)` idempotency model was substituted deliberately, with rationale for why it satisfies the intent of the original criterion.
+
+* **F3 — No test demonstrates rejection of a forged/spoofed reviewer identity (research V11); only the self-approval case (closer to V09's inverse) is covered, leaving Step 3.3's explicit "confirm forged-actor attempts fail" criterion unverified.**
+  * Evidence: Plan Step 3.3 (plan Line 90): "Confirm self-approval and forged-actor attempts fail (traces to research V09, V11)." Research subagent report V11 (Lines 441-443): "Applicant or agent asks 'approve me' ... or forges client role/header" → "No review transaction or approval event; unauthorized access denied regardless of narrative." `approve()`/`reject()` ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L191-L233) L191-233) take only a plain `reviewer_id` string with no role/header/claim field, so there is no forgeable surface for a V11-style test to exercise at this layer, and none of the 10 delivered tests attempts to simulate a forged or non-reviewer actor distinct from the preparer. Confirmed no `role`/`forged`/actor-claim handling exists anywhere in `src/quote-preparation-agent/` or `mcp/` either (repo-wide search returned no matches), so this control is not yet implemented or tested at any layer.
+  * Impact: The phase's own Step 3.3 exit checklist item is only half-satisfied; the changes log's Phase 3 entry describes "self-approval prevention" but does not mention forged-actor coverage as either delivered or explicitly deferred.
+  * Recommendation: Either add a test that simulates a non-reviewer/forged-actor call (for example, an actor id that has never been granted reviewer status) being rejected, or explicitly document in the changes log / planning log that V11-style forged-role rejection is deferred to the future API/MCP boundary layer that will call `ApprovalRepository`, since the repository itself has no role concept to forge.
+
+### Minor
+
+* **F4 — `revise()` permits creating a new revision from any state (including `DRAFT` and `PENDING_REVIEW`), which is broader than the researched diagram's `APPROVED -> DRAFT` / `REJECTED -> DRAFT` transitions, and this broader behavior is untested and undocumented.**
+  * Evidence: Research Mermaid diagram (research Lines 228-232) only shows `APPROVED --> DRAFT` and `REJECTED --> DRAFT` via revise. `revise()` ([approval_repository.py](../../../../apps/workshop/approval_repository.py#L244-L261) L244-261) does not check `record.state` before proceeding, so it also accepts `DRAFT` or `PENDING_REVIEW` as source states. No test in [test_approval_repository.py](../../../../apps/workshop/tests/test_approval_repository.py) exercises `revise()` from `DRAFT` or `PENDING_REVIEW`.
+  * Impact: Low — this is a superset of the documented behavior rather than a contradiction, and no correctness defect was found, but the additional surface is unverified and undocumented as an intentional broadening.
+  * Recommendation: Add a short test (or a changes-log note) confirming `revise()` from `DRAFT`/`PENDING_REVIEW` is intentional and behaves as expected (new revision, same DRAFT target state), or restrict `revise()` to `APPROVED`/`REJECTED` source states to match the diagram literally.
+
+## Coverage Assessment
+
+Phase 3's headline safety properties — **self-approval prevention** and **revision invalidation** — are both correctly implemented and covered by passing tests, matching the research's highest-priority risk mitigations (RR4). The disclosed deviations (inline schema, consolidated test file) are accurately documented and introduce no functional gap. However, three of the phase's own explicitly stated, named success criteria are not fully met: (1) full Mermaid-diagram state coverage (`INCOMPLETE`/`UNSUPPORTED` states), (2) `commandId`/`recordVersion`-based idempotency and stale-conflict testing, and (3) forged-actor (V11) rejection testing. None of these three gaps was disclosed in the changes log's deviation section, unlike other Phase 3 deviations that were called out. Overall coverage of the phase's *literal* checklist and success criteria is **partial** (roughly two-thirds of stated criteria fully met), while the phase's *most safety-critical* behaviors (self-approval, revision invalidation, one-winner concurrency) are solidly implemented and verified.
+
+## Recommended Next Validations Not Completed This Session
+
+* Validate Phase 4 (Read-Only MCP Services) to confirm whether the forged-actor/role-override boundary (Finding F3) is intended to be enforced there instead, and whether Phase 4's tests cover it.
+* Validate Phase 5 (Hosted LangGraph Quote-Preparation Agent) to confirm how `graph.py`'s unconditional `create_draft`/`submit_for_review` call (regardless of calculation status) interacts with the calculator's `INCOMPLETE`/`UNSUPPORTED` statuses, since this affects the severity assessment of Finding F1.
+* Run `pytest eval/` and `python eval/evaluation_gate.py` to confirm the golden-dataset self-approval/forged-actor/unsupported-input fault cases (mentioned in the changes log's Phase 7 entry) provide any additional coverage for Findings F1-F3 at the evaluation-suite level.
+* Obtain the domain-expert/independent review tracked under Gate G4 (WI-04), which is the planning log's own acknowledged follow-up for deeper verification of the actor-authorization implementation beyond automated tests.
+
+## Clarifying Questions
+
+* Was the Mermaid state diagram (research Lines 221-232) intended to describe the `ApprovalRepository`'s own persisted state machine literally (implying `INCOMPLETE`/`UNSUPPORTED` should be repository states), or was it intended as a conceptual, whole-system diagram where `INCOMPLETE`/`UNSUPPORTED` are pre-draft calculator outcomes only? This determines whether Finding F1 should be resolved by adding states/tests to `ApprovalRepository` or by documenting the existing split as intentional.
+* Is the forged-actor/role-override control (research V11) intended to be enforced inside `ApprovalRepository` itself, or at a future calling boundary (MCP tool, API layer) not yet built? This determines whether Finding F3 should be resolved within Phase 3 or explicitly deferred with a planning-log entry.

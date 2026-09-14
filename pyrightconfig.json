@@ -1,0 +1,6 @@
+{
+  "//": "Cross-directory imports here are resolved by each test/module file inserting its target directory into sys.path at runtime (see apps/workshop/tests/test_approval_repository.py, eval/deterministic-tests/checks.py, src/quote-preparation-agent/main.py). This is intentional: apps/workshop, mcp/application-server, mcp/rulebook-server, and src/quote-preparation-agent are each standalone, unpackaged modules by design (Review finding F-07), not a misconfiguration. Pyright/Pylance cannot see these runtime sys.path insertions statically, so it may report 'reportMissingImports' for names like 'approval_repository', 'calculator', or 'toolbox' outside the directory that defines them -- these are expected editor-only false positives, not real errors (pytest resolves them correctly at run time).",
+  "exclude": ["**/node_modules", "**/__pycache__", ".venv"],
+  "reportMissingImports": "none",
+  "useLibraryCodeForTypes": true
+}

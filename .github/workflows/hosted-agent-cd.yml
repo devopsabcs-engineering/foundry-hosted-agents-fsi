@@ -1,0 +1,24 @@
+name: Hosted Agent CI/CD
+
+# ============================================================================
+# AUTHOR-ONLY / DO NOT DISPATCH UNTIL GATES CLEAR.
+# This is a thin `workflow_dispatch`-only wrapper around
+# deploy-and-evaluate.yml, which runs `azd provision`, `azd deploy`, and
+# `az deployment group create` against a real Azure subscription. Do not
+# dispatch it until Gates G2 (platform/security), G3 (reproducible
+# compatibility), and G6 (regulatory/privacy) are explicitly cleared by
+# their owners. See deploy-and-evaluate.yml's top-of-file comment and
+# infra/README.md for the full gate definitions.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  release:
+    uses: ./.github/workflows/deploy-and-evaluate.yml
+    secrets: inherit

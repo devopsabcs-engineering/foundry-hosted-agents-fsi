@@ -1,0 +1,344 @@
+name: Deploy and Evaluate (Staging -> Production)
+
+# ============================================================================
+# AUTHOR-ONLY / DO NOT DISPATCH UNTIL GATES CLEAR.
+# Gated behind G2 (platform/security), G3 (reproducible compatibility), and
+# G6 (regulatory/privacy) sign-off. This workflow runs `azd provision`,
+# `azd deploy`, and `az deployment group create` (via `what-if` and the
+# real apply performed by `azd provision`/`azd deploy`) against a real
+# Azure subscription. Do not dispatch it -- directly or via
+# hosted-agent-cd.yml -- until all three gates are explicitly cleared by
+# their owners. This repository has never been deployed to Azure. See
+# infra/README.md for the gate definitions and infra/modules/*.bicep for
+# the matching author-only banner on the templates this workflow deploys.
+# ============================================================================
+#
+# Shared by hosted-agent-cd.yml's manual dispatch entry point. Adapted from
+# the sibling `foundry-hosted-agents` repository's lint -> Bicep
+# validate/what-if -> deploy-staging -> evaluate -> manual-approval ->
+# promote flow (Implementation Phase 11, Step 11.2). Simplified relative to
+# the sibling: this repository's evaluation suite (eval/evaluation_gate.py)
+# is fully deterministic and local -- it does not call an LLM judge or a
+# live agent endpoint, unlike the sibling's run_hosted_evaluation.py /
+# check_conversation.py. There is also no live-invocation smoke-test
+# harness in this repository (no scripts/invoke-agent.sh or equivalent),
+# and the quote-preparation-agent's main.py is explicitly documented as a
+# local-only entry point, not a hosted Responses-protocol server. The
+# "evaluate" stage below therefore re-runs the deterministic gate as the
+# release quality control rather than inventing a live smoke-test script;
+# see the Planning Log Discrepancy Log entry for Implementation Phase 11.
+
+on:
+  workflow_call:
+    inputs:
+      golden_dataset_path:
+        type: string
+        required: false
+        default: eval/golden-dataset.jsonl
+  workflow_dispatch:
+    inputs:
+      golden_dataset_path:
+        description: "Path to the golden dataset used for the evaluation gate"
+        required: false
+        default: eval/golden-dataset.jsonl
+
+# Secretless OIDC federation (no stored client secrets) for every job that
+# talks to Azure, mirroring the sibling repository's proven pattern.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: desjardins-quote-preparation-shared-environments
+  queue: max
+
+env:
+  AGENT_PROJECT_DIR: .
+  AGENT_NAME: quote-preparation-agent
+  GOLDEN_DATASET_PATH: ${{ inputs.golden_dataset_path || 'eval/golden-dataset.jsonl' }}
+  STAGING_AZD_ENV_NAME: desjardins-quote-preparation-staging
+  PRODUCTION_AZD_ENV_NAME: desjardins-quote-preparation-poc
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Stage 1: Lint and offline unit tests (re-run here so this workflow is
+  # self-contained when dispatched directly, without depending on a prior
+  # continuous-validation.yml run).
+  # ---------------------------------------------------------------------
+  lint:
+    name: Lint and offline unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -r requirements.txt \
+            -r mcp/application-server/requirements.txt \
+            -r mcp/rulebook-server/requirements.txt \
+            -r src/quote-preparation-agent/requirements.txt
+
+      - name: Full Python test sweep
+        run: |
+          mkdir -p offline-evidence
+          pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests \
+            src/quote-preparation-agent/tests eval -v --junitxml=offline-evidence/tests.xml
+
+      - name: Deterministic evaluation gate (golden dataset)
+        run: python eval/evaluation_gate.py
+
+      - name: Retain offline test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: offline-test-evidence-${{ github.run_attempt }}
+          path: offline-evidence/*.xml
+          retention-days: 30
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------
+  # Stage 2: Bicep validate and what-if (staging resource group)
+  # ---------------------------------------------------------------------
+  bicep-validate:
+    name: Bicep validate and what-if
+    needs: [lint]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: az bicep build (full module graph)
+        run: az bicep build --file infra/main.bicep
+
+      - name: az deployment group what-if (staging resource group; preview only, no apply)
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+          APPLICATION_MCP_IMAGE: ${{ vars.APPLICATION_MCP_IMAGE }}
+          RULEBOOK_MCP_IMAGE: ${{ vars.RULEBOOK_MCP_IMAGE }}
+        run: |
+          set -euo pipefail
+          az deployment group what-if \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters environmentName="$STAGING_AZD_ENV_NAME" location="$AZURE_LOCATION" \
+              mcpAcrName="$MCP_ACR_NAME" applicationMcpImage="$APPLICATION_MCP_IMAGE" \
+              rulebookMcpImage="$RULEBOOK_MCP_IMAGE"
+
+  # ---------------------------------------------------------------------
+  # Stage 3: Deploy candidate to staging (MCP services and hosted agent)
+  # ---------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy candidate to staging
+    needs: [bicep-validate]
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      agent_version: ${{ steps.deploy.outputs.agent_version }}
+      project_endpoint: ${{ steps.deploy.outputs.project_endpoint }}
+      application_mcp_image: ${{ steps.build-mcp.outputs.application_mcp_image }}
+      rulebook_mcp_image: ${{ steps.build-mcp.outputs.rulebook_mcp_image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v2
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure azd authentication
+        run: |
+          azd config set auth.useAzCliAuth true
+          azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Configure staging deployment environment
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          azd env select "$STAGING_AZD_ENV_NAME" || azd env new "$STAGING_AZD_ENV_NAME" --no-prompt
+
+          azd env set AZURE_SUBSCRIPTION_ID "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          azd env set AZURE_TENANT_ID "${{ vars.AZURE_TENANT_ID }}"
+          azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
+          azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP }}"
+          azd env set MCP_ACR_NAME "${{ vars.MCP_ACR_NAME }}"
+
+      - name: Build immutable staging MCP images
+        id: build-mcp
+        env:
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+        run: |
+          set -euo pipefail
+          REGISTRY=$(az acr show --name "$MCP_ACR_NAME" --query loginServer -o tsv)
+          TAG="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for SERVER in application rulebook; do
+            IMAGE="staging/${SERVER}-mcp:${TAG}"
+            az acr build --registry "$MCP_ACR_NAME" --image "$IMAGE" "mcp/${SERVER}-server"
+            DIGEST=$(az acr repository show --name "$MCP_ACR_NAME" --image "$IMAGE" --query digest -o tsv)
+            [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "::error::Invalid image digest"; exit 1; }
+            azd env set "${SERVER^^}_MCP_IMAGE" "${REGISTRY}/staging/${SERVER}-mcp@${DIGEST}"
+            echo "${SERVER}_mcp_image=${REGISTRY}/staging/${SERVER}-mcp@${DIGEST}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Provision staging infrastructure (idempotent)
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: azd provision --no-prompt
+
+      - name: Deploy candidate to staging
+        id: deploy
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          azd deploy --no-prompt
+          PROJECT_ENDPOINT=$(azd env get-values --output json | jq -er '.FOUNDRY_PROJECT_ENDPOINT')
+          echo "project_endpoint=$PROJECT_ENDPOINT" >> "$GITHUB_OUTPUT"
+          azd ai agent show "$AGENT_NAME" --output json > /tmp/agent-show.json
+          AGENT_VERSION=$(jq -er '.version | select(type == "string" and test("^[0-9]+$"))' /tmp/agent-show.json)
+          jq -e '.status == "active"' /tmp/agent-show.json
+          echo "Deployed candidate version: $AGENT_VERSION"
+          echo "agent_version=$AGENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload azd environment state (for the evaluate job)
+        uses: actions/upload-artifact@v6
+        with:
+          name: azd-env-staging
+          path: ${{ github.workspace }}/.azure/
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  # ---------------------------------------------------------------------
+  # Stage 4: Deterministic evaluation gate as the release quality control
+  #
+  # Unlike the sibling repository, this stage does not invoke the deployed
+  # staging endpoint: no LLM-judge evaluation script or live smoke-test
+  # harness exists for this agent yet (see the top-of-file comment). The
+  # gate re-validates the golden dataset against the exact code that was
+  # just packaged and deployed, so a regression introduced between the
+  # lint stage and this point still blocks promotion.
+  # ---------------------------------------------------------------------
+  evaluate:
+    name: Deterministic evaluation gate (release quality control)
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install evaluation dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Deterministic evaluation gate (golden dataset)
+        run: python eval/evaluation_gate.py
+
+      - name: Retain evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: evaluation-evidence-${{ github.run_attempt }}
+          path: eval/results.json
+          retention-days: 30
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------
+  # Stage 5: Manual production-approval gate, then promote
+  #
+  # No dedicated approval job is needed: gating on the `production` GitHub
+  # Environment (with required reviewers configured in repository
+  # settings) blocks this job from starting until a human approves it,
+  # which *is* the "manual production approval" step from the plan.
+  # ---------------------------------------------------------------------
+  promote-production:
+    name: Promote to production
+    needs: [evaluate, deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v2
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure azd authentication and select production environment
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          APPLICATION_MCP_IMAGE: ${{ needs.deploy-staging.outputs.application_mcp_image }}
+          RULEBOOK_MCP_IMAGE: ${{ needs.deploy-staging.outputs.rulebook_mcp_image }}
+        run: |
+          set -euo pipefail
+          azd config set auth.useAzCliAuth true
+          azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          azd env select "$PRODUCTION_AZD_ENV_NAME" || azd env new "$PRODUCTION_AZD_ENV_NAME" --no-prompt
+
+          azd env set AZURE_SUBSCRIPTION_ID "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          azd env set AZURE_TENANT_ID "${{ vars.AZURE_TENANT_ID }}"
+          azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
+          azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP }}"
+          azd env set MCP_ACR_NAME "${{ vars.MCP_ACR_NAME }}"
+          for SERVER in APPLICATION RULEBOOK; do
+            IMAGE_KEY="${SERVER}_MCP_IMAGE"
+            IMAGE="${!IMAGE_KEY}"
+            [[ "$IMAGE" =~ @sha256:[a-f0-9]{64}$ ]] || { echo "::error::Missing evaluated MCP image digest"; exit 1; }
+            azd env set "$IMAGE_KEY" "$IMAGE"
+          done
+
+      - name: Provision production infrastructure (idempotent)
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: azd provision --no-prompt
+
+      - name: Deploy evaluated source to production
+        id: deploy
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          azd deploy --no-prompt
+          azd ai agent show "$AGENT_NAME" --output json > /tmp/prod-agent-show.json
+          AGENT_VERSION=$(jq -er '.version | select(type == "string" and test("^[0-9]+$"))' /tmp/prod-agent-show.json)
+          jq -e '.status == "active"' /tmp/prod-agent-show.json
+          echo "agent_version=$AGENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload production version evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: production-version-evidence
+          path: /tmp/prod-agent-show*.json
+          retention-days: 30
+          if-no-files-found: warn

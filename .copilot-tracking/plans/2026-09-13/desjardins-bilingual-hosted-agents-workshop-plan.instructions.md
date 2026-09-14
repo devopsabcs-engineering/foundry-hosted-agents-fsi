@@ -160,6 +160,44 @@ Note on `parallelizable`: the marker describes whether a phase's files can be au
   * Document any issue requiring additional research or an unresolved gate (G1-G6)
   * Provide next steps and recommended follow-up planning instead of attempting large-scale fixes here
 
+### [x] Implementation Phase 10: Review Remediation (Approval States, Test Coverage, Curriculum Reconciliation)
+
+<!-- parallelizable: true -->
+
+* [x] Step 10.1: Resolve the `ApprovalRepository` state-coverage gap (review finding F-01)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 478-498)
+* [x] Step 10.2: Add idempotency/stale-conflict test coverage (review finding F-02)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 499-517)
+* [x] Step 10.3: Add forged/spoofed reviewer identity rejection test (review finding F-03)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 518-536)
+* [x] Step 10.4: Reconcile lab curriculum topics against the plan/details file (review finding F-04)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 537-557)
+* [x] Step 10.5: Perform and record the PptxGenJS license check (review finding F-05)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 558-576)
+* [x] Step 10.6: Add an injection-attempt fault case and deterministic check (review finding F-06)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 577-596)
+* [x] Step 10.7: Document the intentional per-directory `sys.path` pattern (review finding F-07)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 597-615)
+* [x] Step 10.8: Reconcile changes log file-accounting discrepancies (review finding F-08)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 616-634)
+* [x] Step 10.9: Validate phase changes
+  * Re-run the full pytest sweep and the evaluation gate; re-run markdown lint on any edited Markdown files
+
+### [x] Implementation Phase 11: CI/CD Workflows (author only, gated)
+
+<!-- parallelizable: true -->
+
+* [x] Step 11.1: Adapt the offline continuous-validation workflow
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 648-666)
+* [x] Step 11.2: Adapt the eval-gated staging deploy-and-evaluate workflow (author only, gated)
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 667-687)
+* [x] Step 11.3: Adapt the hosted-agent-cd dispatch wrapper
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 688-706)
+* [x] Step 11.4: Adapt the publish-test-trends workflow and document the web-chat-build omission
+  * Details: .copilot-tracking/details/2026-09-13/desjardins-bilingual-hosted-agents-workshop-details.md (Lines 707-728)
+* [x] Step 11.5: Validate phase changes
+  * Lint each workflow YAML file for syntax validity; confirm no workflow triggers an actual Azure deployment before Gates G2, G3, and G6 clear
+
 ## Planning Log
 
 See .copilot-tracking/plans/logs/2026-09-13/desjardins-bilingual-hosted-agents-workshop-log.md for discrepancy tracking, implementation paths considered, and suggested follow-on work.

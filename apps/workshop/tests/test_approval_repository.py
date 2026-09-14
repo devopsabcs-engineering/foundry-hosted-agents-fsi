@@ -224,3 +224,71 @@ def test_concurrent_approve_calls_by_different_reviewers_yield_exactly_one_winne
     audit = repo.get_audit_trail(case_id)
     approve_events = [event for event in audit if event.command == "APPROVE"]
     assert len(approve_events) == 1
+
+
+def test_duplicate_command_replay_is_idempotent_and_not_a_new_transition(repo):
+    """Step 10.2 (review finding F-02): ApprovalRepository has no caller-
+    supplied commandId parameter -- approve()/reject() take only
+    (case_id, reviewer_id). The closest analog this API offers to a
+    "duplicate commandId replay" is calling approve() twice with the same
+    reviewer_id: the class docstring's Idempotency rule guarantees the
+    second call returns the existing CaseRecord and appends no second
+    audit event, rather than treating the replay as a new transition."""
+    case_id = _submitted_case(repo)
+
+    first = repo.approve(case_id, REVIEWER)
+    replay = repo.approve(case_id, REVIEWER)
+
+    assert first == replay
+    audit = repo.get_audit_trail(case_id)
+    assert [event.command for event in audit] == ["CREATE_DRAFT", "SUBMIT", "APPROVE"]
+
+
+def test_stale_command_against_an_already_advanced_case_is_rejected_as_conflict(repo):
+    """Step 10.2 (review finding F-02): ApprovalRepository also has no
+    caller-supplied recordVersion parameter -- every command re-reads the
+    case's *current* state and revision under the lock before acting (see
+    _decide/_get_locked), so a command based on a stale snapshot is
+    naturally rejected once the case has moved on, with no version number
+    ever passed by the caller. Here a reviewer holds a stale
+    PENDING_REVIEW/revision-1 view; by the time it calls approve(), the
+    case has already been revised to DRAFT/revision-2 by another actor,
+    and the stale approve() is rejected as a conflict."""
+    case_id = _submitted_case(repo)
+    stale_view = repo.get_case(case_id)
+    assert stale_view.state == STATE_PENDING_REVIEW
+    assert stale_view.revision == 1
+
+    repo.revise(case_id, PREPARER)
+
+    with pytest.raises(InvalidTransitionError):
+        repo.approve(case_id, REVIEWER)
+
+    current = repo.get_case(case_id)
+    assert current.state == STATE_DRAFT
+    assert current.revision == 2
+    assert current.revision != stale_view.revision
+
+
+def test_forged_reviewer_cannot_approve_a_case_never_submitted_for_review(repo):
+    """Step 10.3 (review finding F-03): distinct from the self-approval
+    test (which uses reviewer_id == preparer_id) -- here a reviewer
+    identity with no legitimate relationship to the case at all attempts
+    to approve/reject a case still in DRAFT (never legitimately queued via
+    submit_for_review). This mirrors research test V11 ("forges client
+    role/header ... unauthorized access denied regardless of narrative"):
+    merely asserting a reviewer identity is not sufficient to reach a
+    decision that was never legitimately submitted for review."""
+    case_id = "CASE-SYN-FORGED-001"
+    repo.create_draft(case_id, PREPARER)
+
+    with pytest.raises(InvalidTransitionError):
+        repo.approve(case_id, REVIEWER)
+
+    with pytest.raises(InvalidTransitionError):
+        repo.reject(case_id, REVIEWER)
+
+    record = repo.get_case(case_id)
+    assert record.state == STATE_DRAFT
+    assert record.reviewer_id is None
+    assert [event.command for event in repo.get_audit_trail(case_id)] == ["CREATE_DRAFT"]

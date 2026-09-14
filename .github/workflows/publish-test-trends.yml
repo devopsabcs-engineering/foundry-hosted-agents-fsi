@@ -1,0 +1,76 @@
+name: Publish Test Trends
+
+# Adapted from the sibling repository's publish-test-trends.yml, but
+# significantly simplified (Implementation Phase 11, Step 11.4). The
+# sibling's version depends on two custom reporting scripts
+# (scripts/ci_results.py, scripts/deployment_summary.py) and pushes an
+# aggregate history to the repository wiki via a WIKI_PUSH_TOKEN secret.
+# Neither the reporting scripts nor a wiki-push requirement exists in this
+# repository; inventing them was out of scope for this phase. This version
+# instead downloads whatever evidence artifacts the source run produced and
+# writes a plain job summary via $GITHUB_STEP_SUMMARY, retaining the
+# collected evidence as a single consolidated artifact. There is also no
+# equivalent of the sibling's web-chat-build.yml in the trigger list below,
+# because this repository has no apps/web-chat (see the Planning Log
+# Discrepancy Log entry for this phase for the full rationale).
+
+on:
+  workflow_run:
+    workflows: [Continuous Validation, 'Deploy and Evaluate (Staging -> Production)', Hosted Agent CI/CD]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Completed main-branch source run ID to publish or repair
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: desjardins-quote-preparation-test-trends
+  queue: max
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.event != 'pull_request') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.run_id || github.event.workflow_run.id }}
+    steps:
+      - name: Download known evidence artifacts from the source run
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired == false) | .name' > artifact-names.txt || true
+          while IFS= read -r NAME; do
+            [ -z "$NAME" ] && continue
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$NAME" --dir "evidence/$NAME" || true
+          done < artifact-names.txt
+
+      - name: Publish test trend summary
+        run: |
+          {
+            echo '## Test Trends'
+            echo ''
+            echo "Source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN"
+            echo ''
+            echo 'Evidence artifacts collected from the source run (offline test results,'
+            echo 'evaluation gate output) are retained below. This repository has no'
+            echo 'aggregate trend-history script or wiki publication step; see the'
+            echo 'Planning Log Discrepancy Log entry for Implementation Phase 11.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain collected evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-trends-evidence-${{ env.SOURCE_RUN }}
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn

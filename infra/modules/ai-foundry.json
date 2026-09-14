@@ -1,0 +1,279 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "2495564181008049297"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Foundry account and project"
+      }
+    },
+    "accountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Microsoft.CognitiveServices/accounts (Foundry) resource"
+      }
+    },
+    "projectName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Foundry project"
+      }
+    },
+    "projectDisplayName": {
+      "type": "string",
+      "defaultValue": "[parameters('projectName')]",
+      "metadata": {
+        "description": "Display name shown in the Foundry portal for the project"
+      }
+    },
+    "projectDescription": {
+      "type": "string",
+      "defaultValue": "Desjardins synthetic auto-insurance quote-preparation workshop project (synthetic data only, non-binding, no regulatory endorsement)",
+      "metadata": {
+        "description": "Description of the Foundry project"
+      }
+    },
+    "modelDeploymentName": {
+      "type": "string",
+      "defaultValue": "gpt-4o-mini",
+      "metadata": {
+        "description": "Model deployment name (referenced by azure.yaml AZURE_AI_MODEL_DEPLOYMENT_NAME). Placeholder pending Gate G2/G3 sign-off."
+      }
+    },
+    "modelName": {
+      "type": "string",
+      "defaultValue": "gpt-4o-mini",
+      "metadata": {
+        "description": "Model name to deploy. Placeholder pending Gate G2/G3 sign-off."
+      }
+    },
+    "modelFormat": {
+      "type": "string",
+      "defaultValue": "OpenAI",
+      "metadata": {
+        "description": "Model publisher format"
+      }
+    },
+    "modelVersion": {
+      "type": "string",
+      "defaultValue": "2024-07-18",
+      "metadata": {
+        "description": "Model version. Placeholder pending Gate G3 sign-off."
+      }
+    },
+    "modelSkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "Model deployment SKU name"
+      }
+    },
+    "modelSkuCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Model deployment SKU capacity (thousands of tokens-per-minute)"
+      }
+    },
+    "applicationMcpUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "MCP endpoint URL for the application-server tool server (get_application). Leave empty to skip creating the connection."
+      }
+    },
+    "rulebookMcpUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "MCP endpoint URL for the rulebook-server tool server (get_rulebook). Leave empty to skip creating the connection."
+      }
+    },
+    "applicationInsightsResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Application Insights resource associated with this project"
+      }
+    },
+    "applicationInsightsConnectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Application Insights ingestion connection string"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[parameters('accountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "S0"
+      },
+      "kind": "AIServices",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "customSubDomainName": "[parameters('accountName')]",
+        "allowProjectManagement": true,
+        "disableLocalAuth": false,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', parameters('accountName'), parameters('modelDeploymentName'))]",
+      "sku": {
+        "name": "[parameters('modelSkuName')]",
+        "capacity": "[parameters('modelSkuCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "[parameters('modelFormat')]",
+          "name": "[parameters('modelName')]",
+          "version": "[parameters('modelVersion')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}', parameters('accountName'), parameters('projectName'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "displayName": "[parameters('projectDisplayName')]",
+        "description": "[parameters('projectDescription')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), 'application-insights')]",
+      "properties": {
+        "category": "AppInsights",
+        "target": "[parameters('applicationInsightsResourceId')]",
+        "authType": "ApiKey",
+        "credentials": {
+          "key": "[parameters('applicationInsightsConnectionString')]"
+        },
+        "isSharedToAll": true,
+        "metadata": {
+          "ResourceId": "[parameters('applicationInsightsResourceId')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), format('{0}-connection', parameters('modelDeploymentName')))]",
+      "properties": {
+        "category": "AzureOpenAI",
+        "target": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-06-01').endpoint]",
+        "authType": "AAD",
+        "isSharedToAll": true,
+        "metadata": {
+          "ApiType": "Azure",
+          "ResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+          "DeploymentName": "[parameters('modelDeploymentName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('accountName'), parameters('modelDeploymentName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('applicationMcpUrl')))]",
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), 'application-conn')]",
+      "properties": {
+        "category": "RemoteTool",
+        "target": "[parameters('applicationMcpUrl')]",
+        "authType": "None",
+        "isSharedToAll": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('rulebookMcpUrl')))]",
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), 'rulebook-conn')]",
+      "properties": {
+        "category": "RemoteTool",
+        "target": "[parameters('rulebookMcpUrl')]",
+        "authType": "None",
+        "isSharedToAll": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "accountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+    },
+    "accountName": {
+      "type": "string",
+      "value": "[parameters('accountName')]"
+    },
+    "accountEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-06-01').endpoint]"
+    },
+    "accountPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-06-01', 'full').identity.principalId]"
+    },
+    "projectId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]"
+    },
+    "projectName": {
+      "type": "string",
+      "value": "[parameters('projectName')]"
+    },
+    "projectPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]"
+    },
+    "modelDeploymentName": {
+      "type": "string",
+      "value": "[parameters('modelDeploymentName')]"
+    },
+    "projectEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}', parameters('accountName'), parameters('projectName'))]"
+    }
+  }
+}

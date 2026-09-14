@@ -1,0 +1,94 @@
+name: Continuous Validation
+
+# Offline-only regression suite for the Desjardins quote-preparation
+# workshop. No Azure credentials are used anywhere in this file: every step
+# is a local pytest sweep, the deterministic evaluation gate, or an offline
+# `az bicep build` lint/compile check. This is intentional so the workflow
+# is safe to run automatically on every push and pull request while Gates
+# G2, G3, and G6 remain open -- staging evaluation against a real
+# deployment lives in the separate, `workflow_dispatch`-only
+# deploy-and-evaluate.yml, not here (see that file's gating comment).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: Offline regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -r requirements.txt \
+            -r mcp/application-server/requirements.txt \
+            -r mcp/rulebook-server/requirements.txt \
+            -r src/quote-preparation-agent/requirements.txt
+          mkdir -p evidence
+
+      - name: Full Python test sweep (calculator, approval repository, MCP services, agent graph, evaluation suite)
+        run: |
+          pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests \
+            src/quote-preparation-agent/tests eval -v --junitxml=evidence/tests.xml
+
+      - name: Deterministic evaluation gate (golden dataset)
+        if: ${{ !cancelled() }}
+        run: python eval/evaluation_gate.py
+
+      - name: Offline test summary
+        if: always()
+        run: |
+          {
+            echo '## Continuous Validation (offline)'
+            echo ''
+            echo 'Full pytest sweep and deterministic evaluation gate results are above.'
+            echo 'No staging deployment or Azure credential is used in this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain offline test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: offline-test-evidence-${{ github.run_attempt }}
+          path: |
+            evidence/*.xml
+            eval/results.json
+          retention-days: 30
+          if-no-files-found: warn
+
+  bicep-lint:
+    name: Bicep lint and compile (offline; no deployment)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: az bicep install
+        run: az bicep install
+
+      - name: az bicep build (main template and every module; compile-only, no login, no apply)
+        run: |
+          set -euo pipefail
+          for FILE in infra/main.bicep infra/modules/*.bicep; do
+            echo "::group::az bicep build $FILE"
+            az bicep build --file "$FILE"
+            echo "::endgroup::"
+          done

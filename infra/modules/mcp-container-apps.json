@@ -1,0 +1,207 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "340761623349199456"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for the MCP Container Apps environment and apps."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "mcp",
+      "metadata": {
+        "description": "Base name used to derive resource names."
+      }
+    },
+    "acrName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Name of the existing Azure Container Registry hosting the built MCP server images."
+      }
+    },
+    "applicationImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/k8se/quickstart:latest",
+      "metadata": {
+        "description": "Container image for the application-server MCP server (get_application)."
+      }
+    },
+    "rulebookImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/k8se/quickstart:latest",
+      "metadata": {
+        "description": "Container image for the rulebook-server MCP server (get_rulebook)."
+      }
+    },
+    "containerPort": {
+      "type": "int",
+      "defaultValue": 8000,
+      "metadata": {
+        "description": "Port exposed by each MCP server container (matches PORT env var in mcp/*/main.py)."
+      }
+    }
+  },
+  "variables": {
+    "useAcr": "[not(empty(parameters('acrName')))]",
+    "isolatedPullIdentity": "[and(variables('useAcr'), not(equals(parameters('namePrefix'), 'mcp')))]",
+    "logAnalyticsWorkspaceName": "[format('{0}-mcp-logs', parameters('namePrefix'))]",
+    "environmentName": "[format('{0}-mcp-env', parameters('namePrefix'))]"
+  },
+  "resources": [
+    {
+      "condition": "[variables('isolatedPullIdentity')]",
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}-image-pull', parameters('namePrefix'))]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "condition": "[variables('isolatedPullIdentity')]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-03-01",
+      "name": "[variables('environmentName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}-application-server', parameters('namePrefix'))]",
+      "location": "[parameters('location')]",
+      "identity": "[if(variables('isolatedPullIdentity'), createObject('type', 'UserAssigned', 'userAssignedIdentities', createObject(format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix')))), createObject())), createObject('type', 'SystemAssigned'))]",
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('environmentName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": "[parameters('containerPort')]",
+            "transport": "http"
+          },
+          "registries": "[if(variables('useAcr'), createArray(createObject('server', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer, 'identity', if(variables('isolatedPullIdentity'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), 'system'))), createArray())]"
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "application-server",
+              "image": "[parameters('applicationImage')]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              }
+            }
+          ],
+          "scale": {
+            "minReplicas": 0,
+            "maxReplicas": 1
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('environmentName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix')))]",
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), 'AcrPull'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}-rulebook-server', parameters('namePrefix'))]",
+      "location": "[parameters('location')]",
+      "identity": "[if(variables('isolatedPullIdentity'), createObject('type', 'UserAssigned', 'userAssignedIdentities', createObject(format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix')))), createObject())), createObject('type', 'SystemAssigned'))]",
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('environmentName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": "[parameters('containerPort')]",
+            "transport": "http"
+          },
+          "registries": "[if(variables('useAcr'), createArray(createObject('server', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer, 'identity', if(variables('isolatedPullIdentity'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), 'system'))), createArray())]"
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "rulebook-server",
+              "image": "[parameters('rulebookImage')]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              }
+            }
+          ],
+          "scale": {
+            "minReplicas": 0,
+            "maxReplicas": 1
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('environmentName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix')))]",
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-image-pull', parameters('namePrefix'))), 'AcrPull'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "containerAppsEnvironmentId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.App/managedEnvironments', variables('environmentName'))]"
+    },
+    "applicationContainerAppFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-application-server', parameters('namePrefix'))), '2024-03-01').configuration.ingress.fqdn]"
+    },
+    "rulebookContainerAppFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-rulebook-server', parameters('namePrefix'))), '2024-03-01').configuration.ingress.fqdn]"
+    }
+  }
+}

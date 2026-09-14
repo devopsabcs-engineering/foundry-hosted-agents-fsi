@@ -25,6 +25,24 @@ WHERE state=... AND revision=... guard and checks changes() before
 recording the audit event, so a losing writer is rejected explicitly rather
 than silently overwriting the winner's decision even if the lock were ever
 relaxed to allow multiple connections.
+
+State-machine scope note (review finding F-01): the quote-contract
+schema's canonical state enum and the research state-machine diagram
+(.copilot-tracking/research/2026-09-13/desjardins-bilingual-hosted-agents-
+workshop-research.md, lines 229-231) list six states -- INCOMPLETE, DRAFT,
+UNSUPPORTED, PENDING_REVIEW, APPROVED, REJECTED -- but only the latter four
+are implemented as CaseRecord.state values here. INCOMPLETE/UNSUPPORTED are
+calculator-only gate results (apps/workshop/calculator.py's
+STATUS_INCOMPLETE/STATUS_UNSUPPORTED, lines 19-26/63-84):
+src/quote-preparation-agent/graph.py's composition_node calls
+create_draft()/submit_for_review() unconditionally, regardless of the
+calculator's status, so a persisted case always moves DRAFT ->
+PENDING_REVIEW even when its calculation is INCOMPLETE or UNSUPPORTED --
+that calculation result travels alongside the case in a separate
+`calculation` dict and is never written to the `cases.state` column. No
+code path in this repository, the agent, or the MCP services ever assigns
+"INCOMPLETE" or "UNSUPPORTED" to a CaseRecord.state; they are unreachable
+here by design, not by omission.
 """
 
 from __future__ import annotations
