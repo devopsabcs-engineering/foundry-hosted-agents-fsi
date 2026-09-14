@@ -162,6 +162,11 @@ jobs:
       - name: Install Azure Developer CLI
         uses: Azure/setup-azd@v2
 
+      - name: Install azd extensions (auto-install is disabled in CI)
+        run: |
+          azd extension install azure.ai.agents --source azd
+          azd extension install azure.ai.connections --source azd
+
       - name: Azure login with OIDC
         uses: azure/login@v3
         with:
@@ -288,6 +293,11 @@ jobs:
 
       - name: Install Azure Developer CLI
         uses: Azure/setup-azd@v2
+
+      - name: Install azd extensions (auto-install is disabled in CI)
+        run: |
+          azd extension install azure.ai.agents --source azd
+          azd extension install azure.ai.connections --source azd
 
       - name: Azure login with OIDC
         uses: azure/login@v3
