@@ -100,3 +100,54 @@ User request: ensure the Foundry project, hosted-agent, and web app/chatbot URLs
 
 * Did not execute `scripts/setup-web-chat-identity.ps1` or deploy `infra/web-chat.bicep`, which would be required to produce a real, live chatbot URL (WI-01). Both require a real Entra tenant ID and an existing security-enabled pilot group ID that were not supplied, and constitute a hard-to-reverse, shared-system, new-public-surface change (new Entra app registration + new Container App) that this repo's own gate language ("gated behind G2/G3/G6 sign-off... by their owners") and this session's operational-safety rules require explicit user authorization for before proceeding. Flagged to the user as the next decision point rather than assumed.
 * Noted, but did not resolve, an apparent contradiction between `deploy-and-evaluate.yml`'s top-of-file banner ("This repository has never been deployed to Azure. Do not dispatch it... until all three gates are explicitly cleared") and this session's and the prior session's confirmed real, successful dispatches of that exact workflow against real Azure infrastructure. Not changed pending user clarification on whether the banner is simply stale or reflects an unresolved process gap.
+
+## Follow-On Changes (2026-09-15, later): Verified links and a running chat UI
+
+User request: "also ensure all links work especially the UI for the main app". Every
+published destination was exercised for real, the live workshop site was added to the
+links table, and `apps/web-chat` was built and served locally so the chat UI is
+actually visible.
+
+### Link verification evidence (2026-09-15)
+
+* `application-server` MCP -- `POST` JSON-RPC `initialize` returns `200` with a valid
+  MCP handshake (`protocolVersion 2025-06-18`). A plain browser `GET` returns `406`,
+  which is correct streamable-HTTP behaviour, not a broken link.
+* `rulebook-server` MCP -- same: `200` and a valid MCP handshake.
+* Responses API -- authenticated `POST` with an `https://ai.azure.com` token returns
+  `200` and a real synthetic agent answer. The hosted agent is genuinely live.
+* Foundry project / resource group / container registry -- targets confirmed present
+  via `az resource list -g rg-desjardins-quote-preparation-poc`.
+* Workshop site -- `200`; serves the GitHub sign-in wall to anonymous callers because
+  the repository is private. Works for signed-in org members.
+* Repository -- `404` unauthenticated (private repo), normal for signed-in members.
+
+### Added (2026-09-15, later)
+
+* apps/web-chat/frontend/package-lock.json - generated at last, resolving DR-05/WI-05.
+  npm 12 defaults `allow-remote = "none"`, which rejects the corporate feed proxy's
+  absolute tarball URLs; `npm install --allow-remote=all` completes normally.
+* assets/web-chat-ui.png - screenshot of the running chat UI.
+
+### Modified (2026-09-15, later)
+
+* scripts/deployment_summary.py - added the published GitHub Pages workshop site as a
+  Deployment Links row, derived from `GITHUB_REPOSITORY` rather than hardcoded.
+* README.md - added a "Try the web chatbot" section with build/run steps, the UI
+  screenshot, and the `EALLOWREMOTE` workaround; linked the live workshop site from
+  "Getting started"; listed the workshop site among the wiki table's destinations.
+* Wiki `Home` (pushed as `4c65dad` and `12122c4`) - spliced in the eight real
+  deployment links, refreshed the stale note that claimed only the repository link
+  would appear, added the workshop site, and corrected the `[!CAUTION]` that declared
+  `quote-preparation-agent` "AUTHOR-ONLY and not deployed" -- it is deployed to the
+  proof-of-concept environment and answers requests.
+
+### Additional or Deviating Changes (2026-09-15, later)
+
+* The chat UI renders and is reachable at `http://127.0.0.1:8000/`, but **Sign in with
+  Microsoft** and the composer stay disabled without a real Entra app registration and
+  pilot group. Enabling an actually usable end-to-end chat still requires WI-01, which
+  needs explicit user authorization (it creates a tenant-level app registration).
+* Tracked `apps/web-chat/__pycache__/*.pyc` files remain checked in and dirty despite
+  commit `e1fcd63` adding bytecode to `.gitignore`; they were left untouched rather
+  than untracked, as that is outside the scope of this request.

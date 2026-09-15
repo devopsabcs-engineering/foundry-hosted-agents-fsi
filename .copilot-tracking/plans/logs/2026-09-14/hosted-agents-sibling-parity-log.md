@@ -99,3 +99,18 @@
 * WI-06: Wire `ci_results.py`'s evaluation-trend functions (`evaluation_totals()`/`test_counts()`/`render_trends()`) against this repo's deterministic `eval/evaluation_gate.py` gate shape instead of the current stub fallback. (low priority)
   * Source: DD-04
   * Dependency: A decision on what evaluation-trend data (if any) should be surfaced from the deterministic gate; ties into WI-02 (test-trends wiki publishing).
+
+## Addendum (2026-09-15, later)
+
+* DR-05 / WI-05 -- **resolved**. The frontend lockfile and build were never blocked by
+  a corporate registry policy as originally diagnosed; the blocker was npm 12's default
+  `allow-remote = "none"` rejecting the feed proxy's absolute tarball URLs.
+  `npm install --allow-remote=all` installs 169 packages and `npm run build` succeeds.
+* DR-08 -- **partially resolved**. The wiki's "AUTHOR-ONLY and not deployed" caution for
+  `quote-preparation-agent` was corrected to state the proof-of-concept deployment that
+  demonstrably exists. The equivalent stale banner at the top of
+  `.github/workflows/deploy-and-evaluate.yml` and `azure.yaml` is still unreconciled and
+  needs a decision from the gate owners.
+* WI-01 -- still open and still blocked on the same two inputs (Entra tenant ID, pilot
+  security group object ID) plus explicit authorization to create an app registration.
+  Everything else needed to host the chat UI is now proven working locally.
