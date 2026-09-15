@@ -70,6 +70,16 @@ deployed system rather than the earlier author-only posture.
   * `az rest` force-release of the link is rejected for the CLI client ID, so
     the only remedy is to wait for the purge to complete
   * The teardown workflow polls the purge for this reason
+* The first real teardown run failed with `CannotDeleteResource`
+  * A Foundry account refuses deletion while any nested project exists, and the
+    probe account had no project, so the probe did not surface this
+  * The workflow now enumerates and deletes the account's projects first
+* The second teardown run reported a successful purge that had not happened
+  * A purge issued while the account is still settling is accepted and then
+    does nothing, and the account lands in the soft-deleted list afterwards
+  * The next provision failed preflight with a soft-deleted name collision
+  * The loop now exits only when the account is absent from the resource group
+    and absent from the soft-deleted list
 
 ## Release Summary
 

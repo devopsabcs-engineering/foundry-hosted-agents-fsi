@@ -116,15 +116,12 @@ wiki page for the latest offline-test, deterministic-gate, and LLM-judge
 evaluation results.
 
 **Web chatbot pilot**: `apps/web-chat/` (a browser-based chat UI in front
-of the hosted agent) is fully authored and tested but has not been
-deployed -- both `infra/web-chat.bicep` and the
-[`Web Chat Build`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/workflows/web-chat-build.yml)
-workflow are explicitly gated behind the same G2 (platform/security), G3
-(reproducible compatibility), and G6 (regulatory/privacy) sign-off
-described in
-[infra/README.md](infra/README.md), and it additionally requires a real
-Entra ID app registration (see
-[scripts/setup-web-chat-identity.ps1](scripts/setup-web-chat-identity.ps1)).
-Once those gates clear and the pilot is deployed, its URL will appear
-automatically in the wiki's Deployment Links table above -- no README edit
-required.
+of the hosted agent) is deployed out of band rather than by
+`deploy-and-evaluate.yml`. Its template is
+[infra/web-chat.bicep](infra/web-chat.bicep), applied with a direct
+`az deployment group create` into the Container Apps environment that
+`infra/main.bicep` already provisioned, and its Entra app registration comes
+from [scripts/setup-web-chat-identity.ps1](scripts/setup-web-chat-identity.ps1).
+Because the managed environment is recreated whenever its network
+configuration changes, redeploy the chat and rerun the identity script after
+any network rebuild.

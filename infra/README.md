@@ -20,8 +20,9 @@ the network inside `main.bicep` would mean the staging deployment deletes
 production's subnets and the production deployment deletes staging's. Keeping
 it in its own template removes that failure mode entirely.
 
-`web-chat.bicep` is deployed out of band by `scripts/deploy-web-chat.ps1`
-rather than by the main graph.
+`web-chat.bicep` is deployed out of band with a direct
+`az deployment group create --template-file infra/web-chat.bicep` against the
+environment `main.bicep` already provisioned, rather than by the main graph.
 
 ## Modules
 
