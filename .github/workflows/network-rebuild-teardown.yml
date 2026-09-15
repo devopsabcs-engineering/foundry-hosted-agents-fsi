@@ -303,23 +303,27 @@ jobs:
               exit 0
             fi
           fi
-          # Deletion reports success before the resource leaves its Deleting state,
-          # and purge is rejected until it does, so poll rather than purge once.
+          # A purge issued while the account is still settling is accepted and then
+          # does nothing, so the only trustworthy exit condition is that the account
+          # is absent from the resource group AND absent from the soft-deleted list.
           for ATTEMPT in $(seq 1 30); do
-            if az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null; then
-              echo "Purged soft-deleted Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+            SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME'] | length(@)" --output tsv)
+            if az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+              ACTIVE=true
+            else
+              ACTIVE=false
+            fi
+            if [ "$ACTIVE" = "false" ] && [ "$SOFT_DELETED" = "0" ]; then
+              echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
               exit 0
             fi
-            if ! az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
-              if ! az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME'] | length(@)" --output tsv | grep -qv '^0$'; then
-                echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
-                exit 0
-              fi
+            if [ "$SOFT_DELETED" != "0" ]; then
+              az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null || true
             fi
-            echo "Account is not yet purgeable (attempt $ATTEMPT/30). Waiting 20s."
+            echo "Account is not yet fully removed (active=$ACTIVE, soft-deleted=$SOFT_DELETED, attempt $ATTEMPT/30). Waiting 20s."
             sleep 20
           done
-          echo "::error::Timed out waiting for '$FOUNDRY_ACCOUNT_NAME' to become purgeable. Rerun this workflow; it is safe to repeat."
+          echo "::error::Timed out waiting for '$FOUNDRY_ACCOUNT_NAME' to be fully removed. Rerun this workflow; it is safe to repeat."
           exit 1
 
       - name: Report the result
