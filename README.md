@@ -59,7 +59,39 @@ experience.
 ## Getting started
 
 Start at the workshop landing page: [docs/index.md](docs/index.md) in
-English, or [docs/fr/index.md](docs/fr/index.md) in French.
+English, or [docs/fr/index.md](docs/fr/index.md) in French. The same
+content is published as a browsable site at
+<https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/>
+(GitHub sign-in is required while this repository is private).
+
+## Try the web chatbot
+
+The chat UI in `apps/web-chat/` is not hosted anywhere yet (see the gate
+note under [Deployment links](#deployment-links)), so the supported way to
+see and use it today is to run it locally against the real deployed agent:
+
+```powershell
+cd apps/web-chat/frontend
+npm install
+npm run build
+cd ..
+$env:AGENT_ENDPOINT = "$env:FOUNDRY_PROJECT_ENDPOINT/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1"
+$env:ENTRA_TENANT_ID = (az account show --query tenantId -o tsv)
+$env:ENTRA_CLIENT_ID = "<app registration id from scripts/setup-web-chat-identity.ps1>"
+$env:PILOT_GROUP_ID = "<pilot security group object id>"
+python -m uvicorn app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+Then open <http://127.0.0.1:8000/>. The landing screen renders without any
+Entra configuration; **Sign in with Microsoft** and the message composer
+only become usable once `ENTRA_CLIENT_ID` and `PILOT_GROUP_ID` point at a
+real app registration and pilot group.
+
+![Quote preparation chat UI](assets/web-chat-ui.png)
+
+If `npm install` fails with `EALLOWREMOTE`, the npm 12 default
+`allow-remote = "none"` is rejecting the corporate feed proxy's absolute
+tarball URLs; re-run it as `npm install --allow-remote=all`.
 
 ## Deployment links
 
@@ -76,6 +108,7 @@ automatically after every staging or production run of
 * the agent's Responses API endpoint
 * the `application-server` and `rulebook-server` MCP endpoints
 * the resource group and container registry
+* the published workshop site on GitHub Pages
 
 See also the
 [Continuous Test Trends](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Continuous-Test-Trends)

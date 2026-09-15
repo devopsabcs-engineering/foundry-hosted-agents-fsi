@@ -58,7 +58,10 @@ def portal(resource_id: str) -> str:
 
 def render() -> str:
     values = azd_env_values()
-    repository_url = f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'devopsabcs-engineering/foundry-hosted-agents-fsi')}"
+    repository = os.environ.get("GITHUB_REPOSITORY", "devopsabcs-engineering/foundry-hosted-agents-fsi")
+    repository_url = f"https://github.com/{repository}"
+    owner, _, repository_name = repository.partition("/")
+    pages_url = f"https://{owner}.github.io/{repository_name}/" if owner and repository_name else None
 
     subscription_id = value(values, "AZURE_SUBSCRIPTION_ID")
     resource_group = value(values, "AZURE_RESOURCE_GROUP", "RESOURCE_GROUP")
@@ -118,6 +121,8 @@ def render() -> str:
         links.append(("Application-server MCP", application_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
     if rulebook_mcp_url:
         links.append(("Rulebook-server MCP", rulebook_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
+    if pages_url:
+        links.append(("Workshop site", pages_url, "Browsable lab content; GitHub sign-in required while the repository is private"))
     links.append(("Repository", repository_url, "Source and workflow history"))
 
     rows = [f"| [{label}]({url}) | {note} |" for label, url, note in links]
