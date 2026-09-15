@@ -30,7 +30,7 @@ La contrainte que vous avez prouvée aux ateliers 02 et 07 dispose maintenant d'
 * Décrire les quatre variables d'environnement sans lesquelles l'application refuse de démarrer
 * Expliquer comment l'appartenance à un groupe, et non un rôle d'application, contrôle l'accès au clavardage
 * Retracer comment une charge utile bilingue de l'agent est réduite à une seule langue pour l'affichage
-* Expliquer pourquoi la vue de conversation ne peut pas être exercée tant que le flux de déploiement demeure verrouillé
+* Expliquer pourquoi une exécution locale s'arrête à la barrière d'accès alors que l'origine déployée ne s'y arrête pas
 
 ## Exercices
 
@@ -141,11 +141,22 @@ Résultat attendu : chaque appel retourne la phrase de la langue demandée. `con
 
 Confirmez maintenant où réside réellement le montant. À l'atelier 07, l'agent s'est arrêté à `PENDING_REVIEW` sans jamais placer de chiffre dans `applicant_message`, et à l'atelier 13 vous verrez ce même chiffre apparaître dans l'interface de révision. La prime n'est pas dissimulée au demandeur par un filtre qui pourrait être mal configuré. Elle n'est jamais écrite dans le canal du demandeur au départ.
 
-### Exercice 11.7 : Comprendre ce que vous ne pouvez pas encore exécuter
+### Exercice 11.7 : Comprendre ce qu'une exécution locale ne peut pas faire
 
-Envoyer un message exige un `AGENT_ENDPOINT` actif soutenu par un agent hébergé déployé, ainsi qu'un enregistrement d'application dont l'URI de redirection pointe vers votre origine locale. Ni l'un ni l'autre n'existe tant que le verrou de déploiement de l'atelier 10 demeure fermé, et le projet Foundry ne rapporte actuellement aucun agent déployé.
+Envoyer un message exige deux choses dont votre exécution locale ne dispose pas : un `AGENT_ENDPOINT` actif soutenu par un agent hébergé déployé, et un enregistrement d'application dont l'URI de redirection pointe vers votre origine locale.
 
-Ce laboratoire s'arrête donc à la barrière d'accès. Cette limite est honnête plutôt qu'accidentelle : un atelier qui montrerait une conversation fabriquée vous en apprendrait moins qu'un atelier qui vous montre exactement où se trouve la barrière.
+Le clavardage déployé dispose des deux. `scripts/setup-web-chat-identity.ps1` enregistre les origines déployées aux côtés de `http://localhost:8000`, la connexion fonctionne donc sur l'adresse déployée alors que les valeurs d'identité fictives de l'exercice 11.2 ne le permettent pas.
+
+```powershell
+az containerapp show --name foundry-quote-chat-staging --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
+```
+
+Résultat attendu : un nom d'hôte se terminant par `azurecontainerapps.io`. Ouvrez-le dans un navigateur et connectez-vous avec un compte membre du groupe pilote.
+
+> [!NOTE]
+> Le nom d'hôte change chaque fois que l'environnement d'applications conteneurisées est recréé, ce que couvre l'atelier 14. Si la connexion échoue avec une discordance d'URI de redirection, l'enregistrement est périmé plutôt que mal configuré ; réexécutez `scripts/setup-web-chat-identity.ps1` avec le nom de domaine courant.
+
+Une exécution locale enseigne tout de même la partie la plus importante ici. La barrière d'accès, le point de terminaison de configuration et la réduction linguistique s'exercent tous sans aucun déploiement, et ce sont là les limites sur lesquelles une personne révisant le système poserait des questions.
 
 Arrêtez le service lorsque vous avez terminé.
 

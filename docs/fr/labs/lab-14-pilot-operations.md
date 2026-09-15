@@ -28,7 +28,7 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 * Lire la porte d'évaluation déterministe et expliquer ce qu'elle refuse de laisser passer
 * Expliquer pourquoi le pipeline s'authentifie par OIDC et ne porte presque aucun secret
 * Décrire la conception de sécurité du flux de démantèlement
-* Identifier quels flux de travail sont verrouillés et pourquoi
+* Expliquer pourquoi certaines ressources doivent être supprimées plutôt que reconfigurées
 
 ## Exercices
 
@@ -38,7 +38,7 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Résultat attendu : sept flux de travail.
+Résultat attendu : huit flux de travail.
 
 | Flux de travail | Déclencheur | Objet |
 | --- | --- | --- |
@@ -46,9 +46,10 @@ Résultat attendu : sept flux de travail.
 | `reviewer-app-build.yml` | poussée et demande de tirage filtrées par chemin | Tests et image de l'application de révision |
 | `web-chat-build.yml` | poussée et demande de tirage filtrées par chemin | Tests et image du clavardage |
 | `publish-test-trends.yml` | après la validation | Publie les preuves de tests dans le wiki |
-| `deploy-and-evaluate.yml` | appel et manuel seulement | Provisionnement et déploiement, verrouillé |
-| `hosted-agent-cd.yml` | appel et manuel seulement | Déploiement de l'agent hébergé, verrouillé |
+| `deploy-and-evaluate.yml` | appel et manuel seulement | Provisionnement et déploiement, préproduction puis production |
+| `hosted-agent-cd.yml` | appel et manuel seulement | Déploiement de l'agent hébergé |
 | `reviewer-app-teardown.yml` | manuel seulement | Supprime les ressources propres à la révision |
+| `network-rebuild-teardown.yml` | manuel seulement | Supprime les ressources dont la configuration réseau est immuable |
 
 Seuls les trois premiers s'exécutent automatiquement. Rien qui touche Azure ne s'exécute sur une poussée.
 
@@ -113,15 +114,16 @@ C'est également pourquoi l'atelier 12 devait être exécuté par une personne a
 actionlint
 ```
 
-Résultat attendu : code de sortie 1 avec exactement trois constats, tous signalant `unexpected key "queue"` :
+Résultat attendu : code de sortie 1 avec exactement quatre constats, tous signalant `unexpected key "queue"` :
 
 | Fichier | Ligne |
 | --- | --- |
-| `deploy-and-evaluate.yml` | 58 |
+| `deploy-and-evaluate.yml` | 53 |
+| `network-rebuild-teardown.yml` | 78 |
 | `publish-test-trends.yml` | 48 |
 | `reviewer-app-teardown.yml` | 80 |
 
-Ces constats sont attendus. `concurrency.queue` est valide pour le modèle de déploiement de ce dépôt et non reconnu par le schéma de l'analyseur. Traitez tout quatrième constat comme réel, et laissez ces trois-là tels quels.
+Ces constats sont attendus. `concurrency.queue` est valide pour le modèle de déploiement de ce dépôt et non reconnu par le schéma de l'analyseur. Traitez tout cinquième constat comme réel, et laissez ces quatre-là tels quels.
 
 ### Exercice 14.6 : Lire la conception de sécurité du démantèlement
 
@@ -144,32 +146,38 @@ Quatre protections indépendantes précèdent le premier appel Azure :
 
 Chaque suppression vérifie d'abord l'existence de la cible, une réexécution après un échec partiel réussit donc, et une exécution contre des ressources déjà absentes se termine avec le code 0.
 
-### Exercice 14.7 : Localiser le verrou restant
+### Exercice 14.7 : Lire le démantèlement pour reconstruction réseau
 
-L'atelier 10 a présenté le verrou G2, G3 et G6 sur le modèle d'infrastructure. Le même verrou couvre le déploiement.
+Certaines configurations ne peuvent pas être modifiées sur place. `vnetConfiguration` sur un environnement géré d'applications conteneurisées et `networkInjections` sur un compte Foundry se définissent uniquement à la création : déplacer un environnement déjà déployé vers un réseau virtuel impose donc de le supprimer d'abord.
 
 ```powershell
-Get-Content .github/workflows/deploy-and-evaluate.yml -TotalCount 20
+Get-Content .github/workflows/network-rebuild-teardown.yml -TotalCount 46
 ```
 
-Résultat attendu : une bannière réservée à l'auteur indiquant de ne pas déclencher le flux tant que les verrous ne sont pas levés.
+Résultat attendu : une bannière nommant les trois types de ressources supprimés et, plus longuement, ce qui est préservé.
 
-Deux conséquences en découlent, et les deux sont correctes plutôt que défectueuses :
+La liste des éléments préservés est la moitié la plus intéressante. Les comptes Cosmos restent, car un point de terminaison privé se rattache à un compte existant et les supprimer écarterait chaque dossier du magasin. Le réseau virtuel reste, car les deux environnements le partagent. Les enregistrements Entra restent, car un seul enregistrement de révision sert à la fois la préproduction et la production.
 
-* Les URI de redirection HTTPS enregistrés à l'atelier 12 ne se résolvent pas, car aucune application conteneurisée de révision n'existe encore
-* L'agent hébergé n'a aucune identité Entra d'agent, `agentPrincipalId` de l'atelier 10 demeure donc vide et les tableaux de liens de déploiement publiés dans le wiki omettent les lignes de révision
+```powershell
+Select-String -Path .github/workflows/network-rebuild-teardown.yml -Pattern "seq 1 30|purgeable" | Select-Object -ExpandProperty Line
+```
 
-Le pilote est complet en tant que système et délibérément incomplet en tant que déploiement. Reconnaître cette différence est l'objet de cet atelier.
+Résultat attendu : une boucle d'interrogation autour de la purge du compte Foundry.
+
+Cette boucle existe à cause d'un détail de synchronisation facile à manquer. `az cognitiveservices account delete` signale une réussite alors que le compte est encore à l'état `Deleting`, et une purge lancée pendant cette fenêtre est rejetée. Un compte injecté conserve en outre un lien d'association de service sur son sous-réseau jusqu'à la fin de la purge : une tentative de purge unique laisse donc le sous-réseau immobilisé et la reconstruction bloquée.
+
+> [!WARNING]
+> Supprimer un environnement géré change le nom de domaine de chaque application qu'il contient. Les URI de redirection enregistrés à l'atelier 12 et l'enregistrement du clavardage de l'atelier 11 doivent tous deux être rafraîchis ensuite, avec les mêmes scripts. Les deux scripts fusionnent les URI de redirection au lieu de les remplacer, les réexécuter est donc sûr.
 
 ## Liste de vérification
 
-* [ ] Vous avez listé les sept flux de travail et identifié ceux qui s'exécutent automatiquement
+* [ ] Vous avez listé les huit flux de travail et identifié ceux qui s'exécutent automatiquement
 * [ ] Chaque suite de tests locale réussit
 * [ ] `python eval/evaluation_gate.py` rapporte `Gate: PASS`
 * [ ] Le seul secret du pipeline est le jeton de poussée du wiki
-* [ ] `actionlint` rapporte exactement trois constats `queue` connus
-* [ ] Vous pouvez nommer les quatre protections précédant le flux de démantèlement
-* [ ] Vous avez localisé la bannière réservée à l'auteur sur le flux de déploiement
+* [ ] `actionlint` rapporte exactement quatre constats `queue` connus
+* [ ] Vous pouvez nommer les quatre protections précédant les flux de démantèlement
+* [ ] Vous pouvez expliquer pourquoi le démantèlement pour reconstruction réseau préserve les comptes Cosmos
 
 ## Vérification des connaissances
 
@@ -178,6 +186,7 @@ Le pilote est complet en tant que système et délibérément incomplet en tant 
 * Le flux de démantèlement supprime une attribution de rôle AcrPull mais jamais le registre de conteneurs. Pourquoi ?
 * Si `execute` vaut false par défaut, que produit réellement une première exécution du flux de démantèlement ?
 * Pourquoi la porte d'évaluation déterministe évite-t-elle d'appeler un modèle ?
+* Pourquoi le compte Foundry doit-il être purgé et pas seulement supprimé avant que la reconstruction puisse se poursuivre ?
 
 ## Étapes suivantes
 

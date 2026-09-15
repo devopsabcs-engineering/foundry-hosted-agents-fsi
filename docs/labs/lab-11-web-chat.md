@@ -29,7 +29,7 @@ By the end of this lab, you will be able to:
 * Describe the four environment variables the app refuses to start without
 * Explain how group membership, not an app role, gates access to the chat
 * Trace how a bilingual agent payload is narrowed to a single locale for display
-* Explain why the conversation view cannot be exercised while the deploy workflow is gated
+* Explain why a local run stops at the access gate while the deployed origin does not
 
 ## Exercises
 
@@ -140,11 +140,22 @@ Expected result: each call returns the sentence for the requested locale. `conte
 
 Now confirm where the amount actually lives. In Lab 07 the agent stopped at `PENDING_REVIEW` without ever placing a figure into `applicant_message`, and in Lab 13 you will watch that same figure appear in the reviewer UI. The premium is not hidden from the applicant by a filter that could be misconfigured. It is never written into the applicant channel in the first place.
 
-### Exercise 11.7: Understand What You Cannot Run Yet
+### Exercise 11.7: Understand What a Local Run Cannot Do
 
-Sending a message requires a live `AGENT_ENDPOINT` backed by a deployed hosted agent, plus an app registration whose redirect URI points at your local origin. Neither exists while the deployment gate from Lab 10 remains closed, and the Foundry project currently reports zero deployed agents.
+Sending a message requires two things your local run does not have: a live `AGENT_ENDPOINT` backed by a deployed hosted agent, and an app registration whose redirect URI points at your local origin.
 
-This lab therefore stops at the access gate. That boundary is honest rather than incidental: a workshop that showed a fabricated conversation would teach you less than one that shows you exactly where the gate is.
+The deployed chat has both. `scripts/setup-web-chat-identity.ps1` registers the deployed origins alongside `http://localhost:8000`, so signing in against the deployed URL works while the placeholder identity values from Exercise 11.2 cannot.
+
+```powershell
+az containerapp show --name foundry-quote-chat-staging --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
+```
+
+Expected result: a hostname ending in `azurecontainerapps.io`. Open it in a browser and sign in with an account in the pilot group.
+
+> [!NOTE]
+> The hostname changes whenever the Container Apps environment is recreated, which Lab 14 covers. If sign-in fails with a redirect URI mismatch, the registration is stale rather than misconfigured; rerun `scripts/setup-web-chat-identity.ps1` with the current FQDN.
+
+A local run still teaches the part that matters most here. The access gate, the config endpoint, and the locale reduction are all exercised without any deployment at all, and those are the boundaries a reviewer would ask about.
 
 Stop the server when you are finished.
 

@@ -27,7 +27,7 @@ By the end of this lab, you will be able to:
 * Read the deterministic evaluation gate and explain what it refuses to let through
 * Explain why the pipeline authenticates with OIDC and carries almost no secrets
 * Describe the safety design of the teardown workflow
-* Identify which workflows are gated and why
+* Explain why some resources have to be deleted rather than reconfigured
 
 ## Exercises
 
@@ -37,7 +37,7 @@ By the end of this lab, you will be able to:
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Expected result: seven workflows.
+Expected result: eight workflows.
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
@@ -45,9 +45,10 @@ Expected result: seven workflows.
 | `reviewer-app-build.yml` | path-filtered push and pull request | Reviewer backend and frontend tests, image build |
 | `web-chat-build.yml` | path-filtered push and pull request | Chat backend and frontend tests, image build |
 | `publish-test-trends.yml` | after validation completes | Publishes test evidence to the wiki |
-| `deploy-and-evaluate.yml` | call and dispatch only | Provision and deploy, gated |
-| `hosted-agent-cd.yml` | call and dispatch only | Hosted agent deployment, gated |
+| `deploy-and-evaluate.yml` | call and dispatch only | Provision and deploy, staging then production |
+| `hosted-agent-cd.yml` | call and dispatch only | Hosted agent deployment |
 | `reviewer-app-teardown.yml` | dispatch only | Removes reviewer-scoped resources |
+| `network-rebuild-teardown.yml` | dispatch only | Removes resources whose network configuration is immutable |
 
 Only the first three run automatically. Nothing that touches Azure runs on a push.
 
@@ -112,15 +113,16 @@ This is also why Lab 12 had to be run by an administrator. The federated identit
 actionlint
 ```
 
-Expected result: exit code 1 with exactly three findings, all reporting `unexpected key "queue"`:
+Expected result: exit code 1 with exactly four findings, all reporting `unexpected key "queue"`:
 
 | File | Line |
 | --- | --- |
-| `deploy-and-evaluate.yml` | 58 |
+| `deploy-and-evaluate.yml` | 53 |
+| `network-rebuild-teardown.yml` | 78 |
 | `publish-test-trends.yml` | 48 |
 | `reviewer-app-teardown.yml` | 80 |
 
-These are expected. `concurrency.queue` is valid to this repository's deployment model and unrecognized by the linter's schema. Treat any fourth finding as a real one, and leave these three alone.
+These are expected. `concurrency.queue` is valid to this repository's deployment model and unrecognized by the linter's schema. Treat any fifth finding as a real one, and leave these four alone.
 
 ### Exercise 14.6: Read the Teardown Safety Design
 
@@ -143,32 +145,38 @@ Four independent safeguards sit in front of the first Azure call:
 
 Every delete is existence-checked, so a rerun after a partial failure succeeds and a run against already-absent resources exits 0.
 
-### Exercise 14.7: Locate the Remaining Gate
+### Exercise 14.7: Read the Network Rebuild Teardown
 
-Lab 10 introduced the G2, G3, and G6 gate on the infrastructure template. The same gate covers deployment.
+Some configuration cannot be changed in place. `vnetConfiguration` on a Container Apps managed environment and `networkInjections` on a Foundry account are both set only at creation, so moving an already-deployed environment onto a virtual network means deleting it first.
 
 ```powershell
-Get-Content .github/workflows/deploy-and-evaluate.yml -TotalCount 20
+Get-Content .github/workflows/network-rebuild-teardown.yml -TotalCount 46
 ```
 
-Expected result: an author-only banner instructing that the workflow not be dispatched until the gates clear.
+Expected result: a banner naming the three resource kinds it deletes and, at greater length, what it preserves.
 
-Two consequences follow, and both are correct rather than defects:
+The preserved list is the more interesting half. The Cosmos accounts stay, because a private endpoint attaches to an existing account and deleting them would discard every case in the store. The virtual network stays, because both environments share it. The Entra registrations stay, because one reviewer registration serves staging and production together.
 
-* The HTTPS redirect URIs you registered in Lab 12 do not resolve, because no reviewer Container App exists yet
-* The hosted agent has no Entra agent identity, so `agentPrincipalId` from Lab 10 stays empty and the deployment link tables published to the wiki omit reviewer rows
+```powershell
+Select-String -Path .github/workflows/network-rebuild-teardown.yml -Pattern "seq 1 30|purgeable" | Select-Object -ExpandProperty Line
+```
 
-The pilot is complete as a system and deliberately incomplete as a deployment. Recognizing that difference is the point of this lab.
+Expected result: a polling loop around the Foundry account purge.
+
+That loop exists because of a timing detail that is easy to get wrong. `az cognitiveservices account delete` returns success while the account is still in a `Deleting` state, and a purge issued during that window is rejected. An injected account also holds a service association link on its subnet until the purge completes, so a single purge attempt leaves the subnet pinned and the rebuild blocked.
+
+> [!WARNING]
+> Deleting a managed environment changes the FQDN of every app inside it. The redirect URIs you registered in Lab 12 and the chat registration from Lab 11 both need refreshing afterwards, using the same scripts. Both scripts merge redirect URIs rather than replacing them, so rerunning them is safe.
 
 ## Validation Checklist
 
-* [ ] You listed all seven workflows and identified which run automatically
+* [ ] You listed all eight workflows and identified which run automatically
 * [ ] Every local test suite passes
 * [ ] `python eval/evaluation_gate.py` reports `Gate: PASS`
 * [ ] The only secret in the pipeline is the wiki push token
-* [ ] `actionlint` reports exactly three known `queue` findings
-* [ ] You can name the four safeguards in front of the teardown workflow
-* [ ] You located the author-only banner on the deployment workflow
+* [ ] `actionlint` reports exactly four known `queue` findings
+* [ ] You can name the four safeguards in front of the teardown workflows
+* [ ] You can explain why the network rebuild teardown preserves the Cosmos accounts
 
 ## Knowledge Check
 
@@ -177,6 +185,7 @@ The pilot is complete as a system and deliberately incomplete as a deployment. R
 * The teardown workflow deletes an AcrPull role assignment but never the container registry. Why?
 * If `execute` defaults to false, what does a first run of the teardown workflow actually produce?
 * Why does the deterministic evaluation gate avoid calling a model?
+* Why does the Foundry account have to be purged rather than merely deleted before the rebuild can proceed?
 
 ## Next Steps
 

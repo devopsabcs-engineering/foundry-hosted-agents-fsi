@@ -35,7 +35,7 @@ Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les 
 
 | Atelier | Titre | Ce que vous ferez |
 | --- | --- | --- |
-| [10](lab-10-azure-foundation.md) | Provisionner la fondation Azure | Lire et compiler le modèle Bicep, et trouver le verrou qui empêche son déploiement |
+| [10](lab-10-azure-foundation.md) | Provisionner la fondation Azure | Lire et compiler les modèles Bicep, et comprendre pourquoi le réseau est déployé séparément |
 | [11](lab-11-web-chat.md) | L'interface de clavardage du demandeur | Exécuter le clavardage et prouver que cette surface ne peut jamais afficher une prime |
 | [12](lab-12-reviewer-identity.md) | Identité et accès du réviseur | Enregistrer l'application de révision, accorder le rôle Reviewer et calculer les URI de redirection |
 | [13](lab-13-reviewer-ui.md) | L'interface de révision | Alimenter une file, se connecter, approuver un dossier et lire la piste de vérification |

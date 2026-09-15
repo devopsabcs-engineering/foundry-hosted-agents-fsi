@@ -34,7 +34,7 @@ Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot
 
 | Lab | Title | What you will do |
 | --- | --- | --- |
-| [10](lab-10-azure-foundation.md) | Provision the Azure Foundation | Read and compile the Bicep template, and find the gate that keeps it from deploying |
+| [10](lab-10-azure-foundation.md) | Provision the Azure Foundation | Read and compile the Bicep templates, and understand why the network is deployed separately |
 | [11](lab-11-web-chat.md) | The Applicant Web Chat UI | Run the applicant chat and prove the surface can never show a premium |
 | [12](lab-12-reviewer-identity.md) | Reviewer Identity and Access | Register the reviewer app, grant the Reviewer role, and compute redirect URIs |
 | [13](lab-13-reviewer-ui.md) | The Reviewer UI | Seed a queue, sign in, approve a case, and read the audit trail |
