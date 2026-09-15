@@ -283,10 +283,18 @@ jobs:
           LOCATION=$(az group show --name "$AZURE_RESOURCE_GROUP" --query location --output tsv)
           if az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
             if [ "$EXECUTE" != "true" ]; then
-              echo "DRY RUN: would delete and purge Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+              echo "DRY RUN: would delete the nested projects, then delete and purge Foundry account '$FOUNDRY_ACCOUNT_NAME'."
               exit 0
             fi
             echo "Deleting Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+            # A Foundry project is a nested resource, and the account refuses to
+            # delete while any project still exists, so clear them first.
+            ACCOUNT_ID=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query id --output tsv)
+            PROJECT_IDS=$(az rest --method get --url "https://management.azure.com${ACCOUNT_ID}/projects?api-version=2025-06-01" --query "value[].id" --output tsv || true)
+            for PROJECT_ID in $PROJECT_IDS; do
+              echo "Deleting nested Foundry project '${PROJECT_ID##*/}'."
+              az resource delete --ids "$PROJECT_ID" --output none
+            done
             az cognitiveservices account delete --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none
           else
             echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is already absent."
