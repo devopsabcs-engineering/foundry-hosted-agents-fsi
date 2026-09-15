@@ -27,7 +27,7 @@ name: Publish Test Trends
 
 on:
   workflow_run:
-    workflows: [Continuous Validation, 'Deploy and Evaluate (Staging -> Production)', Hosted Agent CI/CD]
+    workflows: [Continuous Validation, 'Deploy and Evaluate (Staging -> Production)', Hosted Agent CI/CD, Reviewer App Build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -84,7 +84,8 @@ jobs:
           jq -e '
             .path == ".github/workflows/continuous-validation.yml" or
             .path == ".github/workflows/deploy-and-evaluate.yml" or
-            .path == ".github/workflows/hosted-agent-cd.yml"
+            .path == ".github/workflows/hosted-agent-cd.yml" or
+            .path == ".github/workflows/reviewer-app-build.yml"
           ' source-run.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/attempts/$SOURCE_ATTEMPT/jobs?per_page=100" > source-jobs.json
 
@@ -92,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
-          for KIND in offline-test-evidence evaluation-evidence; do
+          for KIND in offline-test-evidence evaluation-evidence reviewer-test-evidence; do
             gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
               --name "${KIND}-${SOURCE_ATTEMPT}" --dir "evidence/$KIND" || true
           done
@@ -149,13 +150,16 @@ jobs:
             exit 1
           fi
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$WIKI_PUSH_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
-            clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.wiki.git" wiki
+          if ! git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
+            clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.wiki.git" wiki; then
+            echo "::error::Could not clone the wiki. A GitHub wiki only exists once its first page has been created through the web UI; create any page at https://github.com/$GITHUB_REPOSITORY/wiki and re-run."
+            exit 1
+          fi
           python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
           if [ -f deployment-links/deployment-links.md ]; then
-            python scripts/update_wiki_deployment_links.py wiki/Home.md --from-file deployment-links/deployment-links.md
+            python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing --from-file deployment-links/deployment-links.md
           else
-            python scripts/update_wiki_deployment_links.py wiki/Home.md
+            python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing
           fi
           cd wiki
           git config user.name "github-actions[bot]"

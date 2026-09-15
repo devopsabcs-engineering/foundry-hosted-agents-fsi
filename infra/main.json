@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "18041393003850122962"
+      "templateHash": "6782662651637108432"
     }
   },
   "parameters": {
@@ -138,10 +138,72 @@
       "metadata": {
         "description": "MCP resource prefix; staging must not share production tool apps."
       }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "defaultValue": "[toLower(format('cosmos-{0}', parameters('environmentName')))]",
+      "minLength": 3,
+      "maxLength": 44,
+      "metadata": {
+        "description": "Cosmos DB account name backing the shared approval case store. Globally unique, lowercase, 3-44 characters."
+      }
+    },
+    "reviewerAppName": {
+      "type": "string",
+      "defaultValue": "[if(endsWith(parameters('environmentName'), '-staging'), 'foundry-quote-reviewer-staging', 'foundry-quote-reviewer')]",
+      "minLength": 2,
+      "maxLength": 32,
+      "metadata": {
+        "description": "Container App name for the reviewer approval surface. Container App names are limited to 32 characters."
+      }
+    },
+    "reviewerAppImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/k8se/quickstart:latest",
+      "metadata": {
+        "description": "Container image reference for the reviewer app (apps/reviewer-app); digest-pinned by CI"
+      }
+    },
+    "reviewerClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Entra application (client) ID of the reviewer app registration from scripts/setup-reviewer-identity.ps1. Leave empty to skip deploying the reviewer app."
+      }
+    },
+    "reviewerTenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Entra tenant ID authorized to sign in to the reviewer surface"
+      }
+    },
+    "reviewerRole": {
+      "type": "string",
+      "defaultValue": "Reviewer",
+      "metadata": {
+        "description": "App role value required to use the reviewer surface"
+      }
+    },
+    "reviewerScope": {
+      "type": "string",
+      "defaultValue": "Review.Access",
+      "metadata": {
+        "description": "Delegated scope required on the reviewer access token"
+      }
+    },
+    "agentPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Object ID of the hosted agent's Entra agent identity, to receive Cosmos data-plane write access. Leave empty to skip the grant."
+      }
     }
   },
   "variables": {
-    "effectiveMcpNamePrefix": "[if(not(empty(parameters('mcpNamePrefix'))), parameters('mcpNamePrefix'), if(endsWith(parameters('environmentName'), '-staging'), 'mcp-staging', 'mcp'))]"
+    "effectiveMcpNamePrefix": "[if(not(empty(parameters('mcpNamePrefix'))), parameters('mcpNamePrefix'), if(endsWith(parameters('environmentName'), '-staging'), 'mcp-staging', 'mcp'))]",
+    "reviewerEnvironment": "[if(endsWith(parameters('environmentName'), '-staging'), 'staging', 'production')]",
+    "deployReviewerApp": "[not(empty(parameters('reviewerClientId')))]"
   },
   "resources": [
     {
@@ -723,7 +785,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.46.1.21595",
-              "templateHash": "340761623349199456"
+              "templateHash": "14824513106600418030"
             }
           },
           "parameters": {
@@ -772,7 +834,7 @@
           },
           "variables": {
             "useAcr": "[not(empty(parameters('acrName')))]",
-            "isolatedPullIdentity": "[and(variables('useAcr'), not(equals(parameters('namePrefix'), 'mcp')))]",
+            "isolatedPullIdentity": "[variables('useAcr')]",
             "logAnalyticsWorkspaceName": "[format('{0}-mcp-logs', parameters('namePrefix'))]",
             "environmentName": "[format('{0}-mcp-env', parameters('namePrefix'))]"
           },
@@ -850,6 +912,12 @@
                     {
                       "name": "application-server",
                       "image": "[parameters('applicationImage')]",
+                      "env": [
+                        {
+                          "name": "PORT",
+                          "value": "[string(parameters('containerPort'))]"
+                        }
+                      ],
                       "resources": {
                         "cpu": "[json('0.5')]",
                         "memory": "1Gi"
@@ -889,6 +957,12 @@
                     {
                       "name": "rulebook-server",
                       "image": "[parameters('rulebookImage')]",
+                      "env": [
+                        {
+                          "name": "PORT",
+                          "value": "[string(parameters('containerPort'))]"
+                        }
+                      ],
                       "resources": {
                         "cpu": "[json('0.5')]",
                         "memory": "1Gi"
@@ -924,6 +998,620 @@
           }
         }
       }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "cosmos-db",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "accountName": {
+            "value": "[parameters('cosmosAccountName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.46.1.21595",
+              "templateHash": "10492641748506538746"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for the Cosmos DB account"
+              }
+            },
+            "accountName": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 44,
+              "metadata": {
+                "description": "Cosmos DB account name. Globally unique across Azure, lowercase letters/digits/hyphens only, 3-44 characters."
+              }
+            },
+            "databaseName": {
+              "type": "string",
+              "defaultValue": "quote-preparation",
+              "metadata": {
+                "description": "SQL database holding the approval case store (matches COSMOS_DATABASE_ID in src/quote-preparation-agent/case_store.py)"
+              }
+            },
+            "containerName": {
+              "type": "string",
+              "defaultValue": "cases",
+              "metadata": {
+                "description": "SQL container holding one document per case (matches COSMOS_CONTAINER_ID in src/quote-preparation-agent/case_store.py)"
+              }
+            },
+            "partitionKeyPath": {
+              "type": "string",
+              "defaultValue": "/caseId",
+              "metadata": {
+                "description": "Partition key path for the cases container (matches COSMOS_PARTITION_KEY_PATH in src/quote-preparation-agent/case_store.py)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2024-11-15",
+              "name": "[parameters('accountName')]",
+              "location": "[parameters('location')]",
+              "kind": "GlobalDocumentDB",
+              "properties": {
+                "databaseAccountOfferType": "Standard",
+                "capabilities": [
+                  {
+                    "name": "EnableServerless"
+                  }
+                ],
+                "locations": [
+                  {
+                    "locationName": "[parameters('location')]",
+                    "failoverPriority": 0,
+                    "isZoneRedundant": false
+                  }
+                ],
+                "consistencyPolicy": {
+                  "defaultConsistencyLevel": "Session"
+                },
+                "disableLocalAuth": true,
+                "publicNetworkAccess": "Enabled",
+                "minimalTlsVersion": "Tls12"
+              }
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+              "apiVersion": "2024-11-15",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('databaseName'))]",
+              "properties": {
+                "resource": {
+                  "id": "[parameters('databaseName')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2024-11-15",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('databaseName'), parameters('containerName'))]",
+              "properties": {
+                "resource": {
+                  "id": "[parameters('containerName')]",
+                  "partitionKey": {
+                    "paths": [
+                      "[parameters('partitionKeyPath')]"
+                    ],
+                    "kind": "Hash"
+                  },
+                  "indexingPolicy": {
+                    "indexingMode": "consistent",
+                    "automatic": true,
+                    "includedPaths": [
+                      {
+                        "path": "/*"
+                      }
+                    ],
+                    "excludedPaths": [
+                      {
+                        "path": "/\"_etag\"/?"
+                      }
+                    ],
+                    "compositeIndexes": [
+                      [
+                        {
+                          "path": "/state",
+                          "order": "ascending"
+                        },
+                        {
+                          "path": "/updatedAt",
+                          "order": "descending"
+                        }
+                      ]
+                    ]
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', parameters('accountName'), parameters('databaseName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+            },
+            "accountName": {
+              "type": "string",
+              "value": "[parameters('accountName')]"
+            },
+            "documentEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName')), '2024-11-15').documentEndpoint]"
+            },
+            "databaseName": {
+              "type": "string",
+              "value": "[parameters('databaseName')]"
+            },
+            "containerName": {
+              "type": "string",
+              "value": "[parameters('containerName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[variables('deployReviewerApp')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "reviewer-app",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appName": {
+            "value": "[parameters('reviewerAppName')]"
+          },
+          "containerAppsEnvironmentId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'mcp-container-apps'), '2025-04-01').outputs.containerAppsEnvironmentId.value]"
+          },
+          "acrName": {
+            "value": "[parameters('mcpAcrName')]"
+          },
+          "image": {
+            "value": "[parameters('reviewerAppImage')]"
+          },
+          "tenantId": {
+            "value": "[parameters('reviewerTenantId')]"
+          },
+          "reviewerClientId": {
+            "value": "[parameters('reviewerClientId')]"
+          },
+          "reviewerRole": {
+            "value": "[parameters('reviewerRole')]"
+          },
+          "reviewerScope": {
+            "value": "[parameters('reviewerScope')]"
+          },
+          "environment": {
+            "value": "[variables('reviewerEnvironment')]"
+          },
+          "cosmosEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.documentEndpoint.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.46.1.21595",
+              "templateHash": "15507943559856695289"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for the reviewer Container App and its identity"
+              }
+            },
+            "appName": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 32,
+              "metadata": {
+                "description": "Container App name for the reviewer approval surface. Container App names are limited to 32 characters."
+              }
+            },
+            "containerAppsEnvironmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the existing Container Apps managed environment (from modules/mcp-container-apps.bicep's containerAppsEnvironmentId output)"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Name of the existing Azure Container Registry hosting the built reviewer image. Leave empty to use the public placeholder image."
+              }
+            },
+            "image": {
+              "type": "string",
+              "defaultValue": "mcr.microsoft.com/k8se/quickstart:latest",
+              "metadata": {
+                "description": "Fully digest-pinned image reference for the reviewer container (e.g. <acr>.azurecr.io/reviewer-app@sha256:...); never a floating tag"
+              }
+            },
+            "tenantId": {
+              "type": "string",
+              "metadata": {
+                "description": "Entra tenant ID authorized to sign in to the reviewer surface"
+              }
+            },
+            "reviewerClientId": {
+              "type": "string",
+              "metadata": {
+                "description": "Entra application (client) ID of the reviewer app registration (created via scripts/setup-reviewer-identity.ps1; distinct from the web-chat registration)"
+              }
+            },
+            "reviewerRole": {
+              "type": "string",
+              "defaultValue": "Reviewer",
+              "metadata": {
+                "description": "App role value required to use the reviewer surface"
+              }
+            },
+            "reviewerScope": {
+              "type": "string",
+              "defaultValue": "Review.Access",
+              "metadata": {
+                "description": "Delegated scope required on the reviewer access token"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "defaultValue": "staging",
+              "metadata": {
+                "description": "Value surfaced as the ENVIRONMENT env var and returned by /api/config"
+              }
+            },
+            "cosmosEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB documentEndpoint backing the shared case store (from modules/cosmos-db.bicep)"
+              }
+            },
+            "containerPort": {
+              "type": "int",
+              "defaultValue": 8000,
+              "metadata": {
+                "description": "Port the reviewer container listens on (matches EXPOSE/uvicorn in apps/reviewer-app/Dockerfile)"
+              }
+            }
+          },
+          "variables": {
+            "useAcr": "[not(empty(parameters('acrName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('{0}-identity', parameters('appName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "condition": "[variables('useAcr')]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'AcrPull')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('appName')]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "environment": "[parameters('environment')]",
+                "purpose": "reviewer-approval-surface"
+              },
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "ingress": {
+                    "external": true,
+                    "allowInsecure": false,
+                    "targetPort": "[parameters('containerPort')]",
+                    "transport": "http"
+                  },
+                  "registries": "[if(variables('useAcr'), createArray(createObject('server', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer, 'identity', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))))), createArray())]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "reviewer-app",
+                      "image": "[parameters('image')]",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "ENTRA_TENANT_ID",
+                          "value": "[parameters('tenantId')]"
+                        },
+                        {
+                          "name": "REVIEWER_CLIENT_ID",
+                          "value": "[parameters('reviewerClientId')]"
+                        },
+                        {
+                          "name": "REVIEWER_ROLE",
+                          "value": "[parameters('reviewerRole')]"
+                        },
+                        {
+                          "name": "REVIEWER_SCOPE",
+                          "value": "[parameters('reviewerScope')]"
+                        },
+                        {
+                          "name": "ENVIRONMENT",
+                          "value": "[parameters('environment')]"
+                        },
+                        {
+                          "name": "COSMOS_ENDPOINT",
+                          "value": "[parameters('cosmosEndpoint')]"
+                        },
+                        {
+                          "name": "AZURE_CLIENT_ID",
+                          "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').clientId]"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/healthz",
+                            "port": "[parameters('containerPort')]"
+                          },
+                          "initialDelaySeconds": 15,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/healthz",
+                            "port": "[parameters('containerPort')]"
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName')))]",
+                "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), 'AcrPull'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "fqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "url": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2024-03-01').configuration.ingress.fqdn)]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').principalId]"
+            },
+            "identityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').clientId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
+        "[resourceId('Microsoft.Resources/deployments', 'mcp-container-apps')]"
+      ]
+    },
+    {
+      "condition": "[variables('deployReviewerApp')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "cosmos-rbac-reviewer",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.accountName.value]"
+          },
+          "principalIds": {
+            "value": [
+              "[reference(resourceId('Microsoft.Resources/deployments', 'reviewer-app'), '2025-04-01').outputs.principalId.value]"
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.46.1.21595",
+              "templateHash": "12010688011338461197"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Cosmos DB account to scope the data-plane role assignments to"
+              }
+            },
+            "principalIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Principal IDs to receive the Cosmos data-plane role"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "defaultValue": "00000000-0000-0000-0000-000000000002",
+              "metadata": {
+                "description": "Built-in Cosmos DB SQL role definition GUID. Not an Azure RBAC role definition GUID."
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "roleAssignments",
+                "count": "[length(parameters('principalIds'))]"
+              },
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+              "apiVersion": "2024-11-15",
+              "name": "[format('{0}/{1}', parameters('accountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName')), parameters('principalIds')[copyIndex()], parameters('roleDefinitionId')))]",
+              "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('accountName'), parameters('roleDefinitionId'))]",
+                "principalId": "[parameters('principalIds')[copyIndex()]]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
+        "[resourceId('Microsoft.Resources/deployments', 'reviewer-app')]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('agentPrincipalId')))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "cosmos-rbac-agent",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.accountName.value]"
+          },
+          "principalIds": {
+            "value": [
+              "[parameters('agentPrincipalId')]"
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.46.1.21595",
+              "templateHash": "12010688011338461197"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Cosmos DB account to scope the data-plane role assignments to"
+              }
+            },
+            "principalIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Principal IDs to receive the Cosmos data-plane role"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "defaultValue": "00000000-0000-0000-0000-000000000002",
+              "metadata": {
+                "description": "Built-in Cosmos DB SQL role definition GUID. Not an Azure RBAC role definition GUID."
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "roleAssignments",
+                "count": "[length(parameters('principalIds'))]"
+              },
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+              "apiVersion": "2024-11-15",
+              "name": "[format('{0}/{1}', parameters('accountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName')), parameters('principalIds')[copyIndex()], parameters('roleDefinitionId')))]",
+              "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('accountName'), parameters('roleDefinitionId'))]",
+                "principalId": "[parameters('principalIds')[copyIndex()]]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
+        "[resourceId('Microsoft.Resources/deployments', 'cosmos-rbac-reviewer')]"
+      ]
     }
   ],
   "outputs": {
@@ -966,6 +1654,26 @@
     "RULEBOOK_MCP_URL": {
       "type": "string",
       "value": "[format('https://{0}/mcp', reference(resourceId('Microsoft.Resources/deployments', 'mcp-container-apps'), '2025-04-01').outputs.rulebookContainerAppFqdn.value)]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.accountName.value]"
+    },
+    "COSMOS_ENDPOINT": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.documentEndpoint.value]"
+    },
+    "REVIEWER_APP_URL": {
+      "type": "string",
+      "value": "[if(variables('deployReviewerApp'), reference(resourceId('Microsoft.Resources/deployments', 'reviewer-app'), '2025-04-01').outputs.url.value, '')]"
+    },
+    "REVIEWER_APP_NAME": {
+      "type": "string",
+      "value": "[if(variables('deployReviewerApp'), parameters('reviewerAppName'), '')]"
+    },
+    "reviewerAppPrincipalId": {
+      "type": "string",
+      "value": "[if(variables('deployReviewerApp'), reference(resourceId('Microsoft.Resources/deployments', 'reviewer-app'), '2025-04-01').outputs.principalId.value, '')]"
     }
   }
 }

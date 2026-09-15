@@ -78,6 +78,7 @@ from approval_repository import (  # noqa: E402
     InvalidTransitionError,
 )
 from calculator import calculate_quote as _calculate_quote  # noqa: E402
+from case_store import CalculationSnapshot  # noqa: E402
 
 
 def _load_mcp_tool(server_dir: Path, module_name: str, tool_name: str) -> Any:
@@ -175,14 +176,40 @@ def create_draft(repository: ApprovalRepository, case_id: str, preparer_id: str)
     return repository.create_draft(case_id, preparer_id)
 
 
-def submit_for_review(repository: ApprovalRepository, case_id: str, actor_id: str):
-    """Submit a DRAFT case for human review. Never call approve/reject/revise from agent code."""
+def submit_for_review(
+    repository: ApprovalRepository,
+    case_id: str,
+    actor_id: str,
+    *,
+    calculation: dict[str, Any] | None = None,
+    rulebook_version: str | None = None,
+):
+    """Submit a DRAFT case for human review. Never call approve/reject/revise from agent code.
+
+    When `calculation` is supplied and `repository` can persist it, the state
+    change and the calculation are written together so a case and its amount
+    become visible to reviewers atomically. A store without that capability --
+    notably the plain `ApprovalRepository`, which several test doubles subclass
+    with a strict two-argument `submit_for_review` -- takes the original call
+    unchanged and simply stores no amount.
+    """
+    if calculation is not None:
+        persist = getattr(repository, "submit_for_review_with_calculation", None)
+        if persist is not None:
+            return persist(
+                case_id,
+                actor_id,
+                calculation=CalculationSnapshot.from_calculation(
+                    calculation, rulebook_version=rulebook_version
+                ),
+            )
     return repository.submit_for_review(case_id, actor_id)
 
 
 __all__ = [
     "ApprovalRepository",
     "ApprovalRepositoryError",
+    "CalculationSnapshot",
     "CaseAlreadyExistsError",
     "CaseNotFoundError",
     "InvalidTransitionError",

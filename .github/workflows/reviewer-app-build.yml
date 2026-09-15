@@ -1,0 +1,144 @@
+name: Reviewer App Build
+
+# Build-and-test gate for the reviewer approval surface (apps/reviewer-app),
+# modelled on web-chat-build.yml. Like that workflow it never logs into Azure
+# and never deploys: the reviewer image is built and shipped by
+# deploy-and-evaluate.yml's deploy-staging job.
+#
+# Two deliberate differences from web-chat-build.yml:
+#   * `npm ci` is unconditional. apps/reviewer-app/Dockerfile COPYs
+#     frontend/package-lock.json unconditionally, so a missing lockfile is a
+#     hard container-build failure later; failing here with an actionable
+#     message is strictly better than passing on an `npm install` fallback.
+#   * The vendored-copy guard (see below) runs here as well as in
+#     continuous-validation.yml, because the reviewer container vendors
+#     src/quote-preparation-agent/approval_repository.py at build time.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/reviewer-app/**'
+      - 'apps/workshop/approval_repository.py'
+      - 'src/quote-preparation-agent/approval_repository.py'
+      - 'src/quote-preparation-agent/case_store.py'
+      - 'src/quote-preparation-agent/sqlite_case_store.py'
+      - 'src/quote-preparation-agent/cosmos_case_store.py'
+      - '.github/workflows/reviewer-app-build.yml'
+      - 'scripts/deployment_summary.py'
+  pull_request:
+    paths:
+      - 'apps/reviewer-app/**'
+      - 'apps/workshop/approval_repository.py'
+      - 'src/quote-preparation-agent/approval_repository.py'
+      - 'src/quote-preparation-agent/case_store.py'
+      - 'src/quote-preparation-agent/sqlite_case_store.py'
+      - 'src/quote-preparation-agent/cosmos_case_store.py'
+      - '.github/workflows/reviewer-app-build.yml'
+      - 'scripts/deployment_summary.py'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test and build reviewer app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      # RI-02 / WI-01. apps/reviewer-app/Dockerfile vendors the agent copy of
+      # approval_repository.py into the reviewer image, so a silent divergence
+      # between the two tracked copies ships straight into the container.
+      - name: Assert the vendored approval_repository copies are byte-identical
+        run: |
+          set -euo pipefail
+          AGENT=src/quote-preparation-agent/approval_repository.py
+          WORKSHOP=apps/workshop/approval_repository.py
+          if ! cmp -s "$AGENT" "$WORKSHOP"; then
+            echo "::error file=$AGENT::$AGENT and $WORKSHOP have diverged. They are vendored copies of one another and must stay byte-identical; update both or neither."
+            diff -u "$WORKSHOP" "$AGENT" || true
+            exit 1
+          fi
+          echo "Vendored copies are identical (sha256 $(sha256sum "$AGENT" | cut -d' ' -f1))."
+
+      - name: Install backend test dependencies
+        run: python -m pip install -r apps/reviewer-app/requirements.txt pytest
+
+      - name: Backend authorization and case-decision tests
+        env:
+          PYTHONPATH: apps/reviewer-app
+        run: python -m pytest apps/reviewer-app/tests -v --junitxml=reviewer-evidence/backend.xml
+
+      - name: Assert the reviewer frontend lockfile is committed
+        run: |
+          set -euo pipefail
+          if [ ! -f apps/reviewer-app/frontend/package-lock.json ]; then
+            echo "::error file=apps/reviewer-app/frontend/package.json::apps/reviewer-app/frontend/package-lock.json is missing. apps/reviewer-app/Dockerfile COPYs it unconditionally, so 'az acr build' of the reviewer image will fail without it. Run 'npm install' in apps/reviewer-app/frontend and commit the generated lockfile."
+            exit 1
+          fi
+
+      - name: Resolve frontend dependencies on the hosted runner
+        working-directory: apps/reviewer-app/frontend
+        run: npm ci
+
+      - name: Frontend formatting and rendering tests
+        working-directory: apps/reviewer-app/frontend
+        run: npm test
+
+      # Re-run through node's JUnit reporter so scripts/ci_results.py and the
+      # wiki trend publisher see the frontend results as XML; `npm test` above
+      # is the authoritative gate and matches the Dockerfile's own `npm test`.
+      - name: Frontend test evidence
+        working-directory: apps/reviewer-app/frontend
+        run: node --test --test-reporter=spec --test-reporter=junit --test-reporter-destination=stdout --test-reporter-destination=../../../reviewer-evidence/frontend.xml tests/*.test.js
+
+      - name: Compile frontend
+        working-directory: apps/reviewer-app/frontend
+        run: npm run build
+
+      - name: Retain compiled frontend and dependency lock
+        uses: actions/upload-artifact@v6
+        with:
+          name: reviewer-app-frontend-${{ github.sha }}
+          path: |
+            apps/reviewer-app/frontend/dist/
+            apps/reviewer-app/frontend/package-lock.json
+          if-no-files-found: error
+          retention-days: 14
+
+      # Name shape must stay `<kind>-<run_attempt>`: publish-test-trends.yml
+      # downloads evidence as "${KIND}-${SOURCE_ATTEMPT}".
+      - name: Retain backend and frontend test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reviewer-test-evidence-${{ github.run_attempt }}
+          path: reviewer-evidence/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Build summary
+        if: always()
+        env:
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          python scripts/ci_results.py --junit reviewer-evidence
+          {
+            echo '## Reviewer App Build'
+            echo "Build result: **$BUILD_STATUS**. See individual steps and artifacts for test results."
+            echo 'Successful builds retain dist/ and the dependency lockfile as an artifact.'
+            echo 'No Azure deployment was performed; the reviewer image is built by deploy-and-evaluate.yml.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          python scripts/deployment_summary.py

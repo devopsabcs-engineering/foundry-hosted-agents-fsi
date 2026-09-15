@@ -39,19 +39,41 @@ def update(text: str, content: str) -> str:
     return pattern.sub(replacement, text, count=1)
 
 
+def seed(text: str, content: str) -> str:
+    """Append a marked Deployment Links section to a page that has none.
+
+    Used with --create-missing so a wiki that has never been published to does
+    not hard-fail the publish job on its first run.
+    """
+    body = text.rstrip()
+    section = f"{START}\n{content.rstrip()}\n{END}"
+    return (f"{body}\n\n{section}\n" if body else f"{section}\n")
+
+
 def main() -> None:
     args = sys.argv[1:]
+    create_missing = "--create-missing" in args
+    if create_missing:
+        args.remove("--create-missing")
     from_file: str | None = None
     if "--from-file" in args:
         index = args.index("--from-file")
         from_file = args[index + 1]
         del args[index:index + 2]
     if len(args) != 1:
-        print("usage: update_wiki_deployment_links.py <path-to-wiki-page> [--from-file <path>]", file=sys.stderr)
+        print(
+            "usage: update_wiki_deployment_links.py <path-to-wiki-page> "
+            "[--from-file <path>] [--create-missing]",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     path = Path(args[0])
     content = Path(from_file).read_text(encoding="utf-8") if from_file else render()
-    path.write_text(update(path.read_text(encoding="utf-8"), content), encoding="utf-8")
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    if create_missing and START not in existing:
+        path.write_text(seed(existing, content), encoding="utf-8")
+        return
+    path.write_text(update(existing, content), encoding="utf-8")
 
 
 if __name__ == "__main__":

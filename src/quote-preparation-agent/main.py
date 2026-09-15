@@ -29,8 +29,8 @@ from typing import Any, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from case_input import parse_case_input  # noqa: E402
+from case_store import CaseStore  # noqa: E402
 from graph import DEFAULT_PREPARER_ID, DEFAULT_RULEBOOK_ID, ModelCallable, build_graph  # noqa: E402
-from toolbox import ApprovalRepository  # noqa: E402
 
 
 def run_case(
@@ -38,7 +38,7 @@ def run_case(
     *,
     preparer_id: Optional[str] = None,
     rulebook_id: Optional[str] = None,
-    repository: Optional[ApprovalRepository] = None,
+    repository: Optional[CaseStore] = None,
     model: Optional[ModelCallable] = None,
 ) -> dict[str, Any]:
     """Run the full intake -> reference-lookup -> composition graph for one case.

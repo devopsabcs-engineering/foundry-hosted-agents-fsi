@@ -67,6 +67,8 @@ def render() -> str:
     resource_group = value(values, "AZURE_RESOURCE_GROUP", "RESOURCE_GROUP")
     web_app_name = value(values, "WEB_CHAT_APP_NAME")
     web_url = value(values, "WEB_CHAT_URL")
+    reviewer_app_name = value(values, "REVIEWER_APP_NAME")
+    reviewer_url = value(values, "REVIEWER_APP_URL")
     acr_name = value(values, "MCP_ACR_NAME", "AZURE_CONTAINER_REGISTRY_NAME")
     # infra/main.bicep's azd outputs land as the literal `accountName`/
     # `projectName` keys (not `AZURE_AI_ACCOUNT_NAME`/`AZURE_AI_PROJECT_NAME`);
@@ -98,6 +100,15 @@ def render() -> str:
             links.append((
                 "Web app in Azure",
                 portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{web_app_name}"),
+                "Revisions, logs and metrics",
+            ))
+    if reviewer_url:
+        links.append(("Open reviewer app", reviewer_url, "Same-tenant reviewers holding the Reviewer app role"))
+        links.append(("Reviewer app health", f"{reviewer_url}/healthz", "Public process health; not an authorization test"))
+        if resource_group_id and reviewer_app_name:
+            links.append((
+                "Reviewer app in Azure",
+                portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{reviewer_app_name}"),
                 "Revisions, logs and metrics",
             ))
     if resource_group_id:

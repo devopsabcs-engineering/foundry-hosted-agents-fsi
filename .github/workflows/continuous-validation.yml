@@ -32,6 +32,31 @@ jobs:
         with:
           python-version: "3.13"
 
+      # RI-02 / WI-01. src/quote-preparation-agent/approval_repository.py and
+      # apps/workshop/approval_repository.py are vendored copies of one another:
+      # the workshop copy is what learners run, the agent copy is what ships in
+      # the hosted-agent image and is COPYed into the reviewer container by
+      # apps/reviewer-app/Dockerfile. The relationship is load-bearing and was
+      # previously unchecked. This workflow has no path filter, so this is the
+      # authoritative gate -- it runs on every push to main and every pull
+      # request. deploy-and-evaluate.yml repeats it so its reviewer image build
+      # is self-contained.
+      - name: Assert the vendored approval_repository copies are byte-identical
+        run: |
+          set -euo pipefail
+          AGENT=src/quote-preparation-agent/approval_repository.py
+          WORKSHOP=apps/workshop/approval_repository.py
+          BASELINE=16546da26fbf1bd9543bb9b3a73ab518594d36401c5dd8cde27cafc34cd74aa1
+          if ! cmp -s "$AGENT" "$WORKSHOP"; then
+            echo "::error file=$AGENT::$AGENT and $WORKSHOP have diverged. They are vendored copies of one another and must stay byte-identical; update both or neither."
+            diff -u "$WORKSHOP" "$AGENT" || true
+            exit 1
+          fi
+          CURRENT=$(sha256sum "$AGENT" | cut -d' ' -f1)
+          if [ "$CURRENT" != "$BASELINE" ]; then
+            echo "::notice file=$AGENT::Both copies changed together (sha256 $CURRENT, was $BASELINE). The invariant holds; update BASELINE in this step to re-baseline."
+          fi
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip

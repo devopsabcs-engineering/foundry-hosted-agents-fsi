@@ -30,6 +30,7 @@ from typing import Any, Callable, Literal, Optional
 from langgraph.graph import END, START, StateGraph
 
 import toolbox
+from case_store import CaseStore, build_case_store
 from state import (
     STAGE_COMPOSITION,
     STAGE_INTAKE,
@@ -165,18 +166,19 @@ def decide_next_step(
 
 def build_graph(
     *,
-    repository: Optional["toolbox.ApprovalRepository"] = None,
+    repository: Optional[CaseStore] = None,
     model: Optional[ModelCallable] = None,
 ):
     """Construct and compile the supervisor + specialist StateGraph.
 
-    `repository` defaults to a fresh in-memory ApprovalRepository (suitable
-    for a single local run or a test); pass one explicitly to share state
-    across calls, or to inject a spy/mock that asserts approve/reject/
-    revise are never called. `model` defaults to `default_model` (no
-    network call); pass a stub or a real chat-model callable to swap it.
+    `repository` defaults to the case store chosen by `build_case_store`
+    (Cosmos when `COSMOS_ENDPOINT` is set, otherwise an in-memory SQLite
+    store); pass one explicitly to share state across calls, or to inject a
+    spy/mock that asserts approve/reject/revise are never called. `model`
+    defaults to `default_model` (no network call); pass a stub or a real
+    chat-model callable to swap it.
     """
-    repository = repository if repository is not None else toolbox.ApprovalRepository()
+    repository = repository if repository is not None else build_case_store()
     model = model or default_model
 
     def intake_node(state: QuotePreparationState) -> dict:
@@ -238,6 +240,7 @@ def build_graph(
 
         application = state.get("application_record")
         rulebook = state.get("rulebook_record")
+        rulebook_version = rulebook.get("version") if rulebook else None
 
         if application is None:
             calculation = _issue_only_calculation(ISSUE_APPLICATION_NOT_FOUND)
@@ -249,7 +252,13 @@ def build_graph(
         try:
             draft = toolbox.create_draft(repository, case_id, preparer_id)
             draft_case_id = draft.case_id
-            submitted = toolbox.submit_for_review(repository, case_id, preparer_id)
+            submitted = toolbox.submit_for_review(
+                repository,
+                case_id,
+                preparer_id,
+                calculation=calculation,
+                rulebook_version=rulebook_version,
+            )
             workflow_state = submitted.state
         except toolbox.ApprovalRepositoryError:
             # Replayed run against an already-known case: surface the

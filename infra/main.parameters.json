@@ -19,6 +19,15 @@
     },
     "rulebookMcpImage": {
       "value": "${RULEBOOK_MCP_IMAGE}"
+    },
+    "reviewerClientId": {
+      "value": "${REVIEWER_CLIENT_ID=}"
+    },
+    "reviewerAppImage": {
+      "value": "${REVIEWER_APP_IMAGE=mcr.microsoft.com/k8se/quickstart:latest}"
+    },
+    "agentPrincipalId": {
+      "value": "${AGENT_PRINCIPAL_ID=}"
     }
   }
 }

@@ -1,0 +1,432 @@
+name: Reviewer App Teardown
+
+# ============================================================================
+# DESTRUCTIVE / MANUAL DISPATCH ONLY.
+#
+# THIS WORKFLOW NEVER DELETES THE RESOURCE GROUP (decision AD-01).
+# `vars.AZURE_RESOURCE_GROUP` is a SINGLE resource group shared by the staging
+# AND production azd environments (see deploy-and-evaluate.yml, which sets the
+# same variable for both). `az group delete` against it would take production
+# down while "tearing down staging". Only individually named reviewer-scoped
+# resources are deleted, and a protected-name guard refuses to proceed if a
+# computed deletion target ever collides with shared infrastructure.
+#
+# Safety posture:
+#   * workflow_dispatch only -- never push, schedule, or pull_request.
+#   * The operator must type the target environment name into `confirm`; a
+#     mismatch fails closed before any Azure call is made.
+#   * `execute` defaults to false, so a run with no inputs changed is a DRY RUN
+#     that deletes nothing and only reports what it would delete.
+#   * `environment:` binds to the matching GitHub Environment, so whatever
+#     required-reviewer protection exists on `production` also gates this.
+#   * Every delete is existence-checked first, so a rerun after a partial
+#     failure succeeds and a run against already-absent resources exits 0.
+#
+# Deleted (reviewer-scoped only, in dependency order):
+#   1. Reviewer Container App                   foundry-quote-reviewer[-staging]
+#   2. Cosmos SQL container                     cases
+#   3. Cosmos SQL database                      quote-preparation
+#   4. Cosmos DB account                        cosmos-<azd-env-name>
+#   5. Reviewer user-assigned identity          <app-name>-identity
+#      and that identity's AcrPull assignment on the shared ACR (the
+#      assignment only, scoped by the reviewer principal id -- never the ACR)
+#   6. Entra application + service principal    opt-in, see `remove_entra_objects`
+#
+# NEVER deleted (shared infrastructure; `existing` in Bicep or owned by another
+# component). These are asserted, not assumed -- see "Guard protected names":
+#   * The resource group itself
+#   * The Azure Container Registry (vars.MCP_ACR_NAME)
+#   * The Container Apps managed environment (<prefix>-mcp-env)
+#   * Log Analytics (log-<env>, <prefix>-mcp-logs) and App Insights (appi-<env>)
+#   * The Foundry account (aif-<env>) and project (proj-<env>)
+#   * The MCP container apps and their image-pull identity
+#   * The web-chat container app
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which deployment to tear the reviewer surface out of
+        type: choice
+        required: true
+        default: staging
+        options:
+          - staging
+          - production
+      confirm:
+        description: Type the environment name exactly (staging or production) to confirm
+        type: string
+        required: true
+      execute:
+        description: Actually delete. Leave unchecked for a dry run that only reports.
+        type: boolean
+        required: false
+        default: false
+      remove_entra_objects:
+        description: "Also delete the reviewer Entra app registration. WARNING: there is only ONE registration and it is shared by staging and production."
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# Shared with deploy-and-evaluate.yml so a teardown can never interleave with
+# an in-flight `azd provision` against the same resource group.
+concurrency:
+  group: desjardins-quote-preparation-shared-environments
+  queue: max
+
+jobs:
+  teardown:
+    name: Tear down the reviewer surface (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # Inputs are read through `env:` rather than interpolated into the script
+      # body, so a crafted input string cannot become shell code.
+      - name: Verify typed confirmation
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          TYPED_CONFIRMATION: ${{ inputs.confirm }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ENVIRONMENT" in
+            staging|production) ;;
+            *) echo "::error::Unsupported environment '$TARGET_ENVIRONMENT'."; exit 1 ;;
+          esac
+          if [ "$TYPED_CONFIRMATION" != "$TARGET_ENVIRONMENT" ]; then
+            echo "::error::Confirmation mismatch. Type '$TARGET_ENVIRONMENT' exactly to proceed. Nothing was deleted."
+            exit 1
+          fi
+          if [ "$EXECUTE" = "true" ]; then
+            echo "::warning::Running in DELETE mode against '$TARGET_ENVIRONMENT'."
+          else
+            echo "Running in DRY RUN mode. Nothing will be deleted."
+          fi
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Names are derived with the same expressions main.bicep uses, so the
+      # teardown targets exactly what the template provisions. They are NOT
+      # discovered by wildcard or tag, which would sweep up shared resources.
+      - name: Resolve reviewer resource names
+        id: names
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          if [ "$TARGET_ENVIRONMENT" = "staging" ]; then
+            AZD_ENV_NAME="desjardins-quote-preparation-staging"
+            REVIEWER_APP_NAME="foundry-quote-reviewer-staging"
+            MCP_NAME_PREFIX="mcp-staging"
+          else
+            AZD_ENV_NAME="desjardins-quote-preparation-poc"
+            REVIEWER_APP_NAME="foundry-quote-reviewer"
+            MCP_NAME_PREFIX="mcp"
+          fi
+          COSMOS_ACCOUNT_NAME=$(echo "cosmos-${AZD_ENV_NAME}" | tr '[:upper:]' '[:lower:]')
+          {
+            echo "azd_env_name=$AZD_ENV_NAME"
+            echo "reviewer_app_name=$REVIEWER_APP_NAME"
+            echo "reviewer_identity_name=${REVIEWER_APP_NAME}-identity"
+            echo "mcp_name_prefix=$MCP_NAME_PREFIX"
+            echo "cosmos_account_name=$COSMOS_ACCOUNT_NAME"
+            echo "cosmos_database_name=quote-preparation"
+            echo "cosmos_container_name=cases"
+          } >> "$GITHUB_OUTPUT"
+
+      # Belt and braces behind the derivation above: if a future rename ever
+      # makes a reviewer name collide with shared infrastructure, stop here
+      # rather than deleting the Foundry account or the Container Apps
+      # environment out from under production.
+      - name: Guard protected names
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+          AZD_ENV_NAME: ${{ steps.names.outputs.azd_env_name }}
+          MCP_NAME_PREFIX: ${{ steps.names.outputs.mcp_name_prefix }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+          REVIEWER_IDENTITY_NAME: ${{ steps.names.outputs.reviewer_identity_name }}
+          COSMOS_ACCOUNT_NAME: ${{ steps.names.outputs.cosmos_account_name }}
+        run: |
+          set -euo pipefail
+          [ -n "$AZURE_RESOURCE_GROUP" ] || { echo "::error::AZURE_RESOURCE_GROUP is not configured."; exit 1; }
+          PROTECTED=(
+            "$AZURE_RESOURCE_GROUP"
+            "$MCP_ACR_NAME"
+            "${MCP_NAME_PREFIX}-mcp-env"
+            "${MCP_NAME_PREFIX}-mcp-logs"
+            "${MCP_NAME_PREFIX}-application-server"
+            "${MCP_NAME_PREFIX}-rulebook-server"
+            "${MCP_NAME_PREFIX}-image-pull"
+            "log-${AZD_ENV_NAME}"
+            "appi-${AZD_ENV_NAME}"
+            "aif-${AZD_ENV_NAME}"
+            "proj-${AZD_ENV_NAME}"
+            "foundry-quote-chat-staging"
+          )
+          TARGETS=("$REVIEWER_APP_NAME" "$REVIEWER_IDENTITY_NAME" "$COSMOS_ACCOUNT_NAME")
+          for TARGET in "${TARGETS[@]}"; do
+            [ -n "$TARGET" ] || { echo "::error::Refusing to proceed: a deletion target resolved to an empty name."; exit 1; }
+            for GUARDED in "${PROTECTED[@]}"; do
+              if [ -n "$GUARDED" ] && [ "$TARGET" = "$GUARDED" ]; then
+                echo "::error::Refusing to proceed: deletion target '$TARGET' collides with protected shared resource '$GUARDED'."
+                exit 1
+              fi
+            done
+          done
+          echo "All deletion targets are reviewer-scoped and distinct from shared infrastructure."
+
+      - name: Report the teardown plan
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          EXECUTE: ${{ inputs.execute }}
+          REMOVE_ENTRA: ${{ inputs.remove_entra_objects }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+          REVIEWER_IDENTITY_NAME: ${{ steps.names.outputs.reviewer_identity_name }}
+          COSMOS_ACCOUNT_NAME: ${{ steps.names.outputs.cosmos_account_name }}
+          COSMOS_DATABASE_NAME: ${{ steps.names.outputs.cosmos_database_name }}
+          COSMOS_CONTAINER_NAME: ${{ steps.names.outputs.cosmos_container_name }}
+        run: |
+          set -euo pipefail
+          present() {
+            if "$@" >/dev/null 2>&1; then echo "present"; else echo "absent"; fi
+          }
+          APP_STATE=$(present az containerapp show --name "$REVIEWER_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP")
+          IDENTITY_STATE=$(present az identity show --name "$REVIEWER_IDENTITY_NAME" --resource-group "$AZURE_RESOURCE_GROUP")
+          ACCOUNT_STATE=$(present az cosmosdb show --name "$COSMOS_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP")
+          DATABASE_STATE=absent
+          CONTAINER_STATE=absent
+          if [ "$ACCOUNT_STATE" = "present" ]; then
+            DATABASE_STATE=$(present az cosmosdb sql database show --account-name "$COSMOS_ACCOUNT_NAME" --name "$COSMOS_DATABASE_NAME" --resource-group "$AZURE_RESOURCE_GROUP")
+            if [ "$DATABASE_STATE" = "present" ]; then
+              CONTAINER_STATE=$(present az cosmosdb sql container show --account-name "$COSMOS_ACCOUNT_NAME" --database-name "$COSMOS_DATABASE_NAME" --name "$COSMOS_CONTAINER_NAME" --resource-group "$AZURE_RESOURCE_GROUP")
+            fi
+          fi
+          MODE="DRY RUN (nothing will be deleted)"
+          if [ "$EXECUTE" = "true" ]; then
+            MODE="DELETE"
+          fi
+          {
+            echo "## Reviewer teardown plan"
+            echo ''
+            echo "Environment: \`$TARGET_ENVIRONMENT\`  |  Mode: **$MODE**  |  Resource group: \`$AZURE_RESOURCE_GROUP\`"
+            echo ''
+            echo '| Order | Resource | Name | Current state |'
+            echo '| --- | --- | --- | --- |'
+            echo "| 1 | Container App | \`$REVIEWER_APP_NAME\` | $APP_STATE |"
+            echo "| 2 | Cosmos SQL container | \`$COSMOS_CONTAINER_NAME\` | $CONTAINER_STATE |"
+            echo "| 3 | Cosmos SQL database | \`$COSMOS_DATABASE_NAME\` | $DATABASE_STATE |"
+            echo "| 4 | Cosmos DB account | \`$COSMOS_ACCOUNT_NAME\` | $ACCOUNT_STATE |"
+            echo "| 5 | User-assigned identity | \`$REVIEWER_IDENTITY_NAME\` | $IDENTITY_STATE |"
+            echo "| 6 | Entra app + service principal | Foundry Quote Preparation Reviewer | opt-in: $REMOVE_ENTRA |"
+            echo ''
+            echo 'Never touched: the resource group, the ACR, the Container Apps managed'
+            echo 'environment, Log Analytics, Application Insights, the Foundry account and'
+            echo 'project, the MCP container apps, and the web-chat container app.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the reviewer Container App
+        if: ${{ inputs.execute }}
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+        run: |
+          set -euo pipefail
+          if az containerapp show --name "$REVIEWER_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+            az containerapp delete --name "$REVIEWER_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --yes
+            echo "Deleted Container App $REVIEWER_APP_NAME."
+          else
+            echo "Container App $REVIEWER_APP_NAME is already absent; nothing to do."
+          fi
+
+      # Container before database before account. Deleting the account alone
+      # would succeed, but the ordered path leaves a comprehensible audit trail
+      # and lets a partially-failed run resume at the right step.
+      - name: Delete the Cosmos container, database, and account
+        if: ${{ inputs.execute }}
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          COSMOS_ACCOUNT_NAME: ${{ steps.names.outputs.cosmos_account_name }}
+          COSMOS_DATABASE_NAME: ${{ steps.names.outputs.cosmos_database_name }}
+          COSMOS_CONTAINER_NAME: ${{ steps.names.outputs.cosmos_container_name }}
+        run: |
+          set -euo pipefail
+          if ! az cosmosdb show --name "$COSMOS_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+            echo "Cosmos account $COSMOS_ACCOUNT_NAME is already absent; nothing to do."
+            exit 0
+          fi
+          if az cosmosdb sql container show --account-name "$COSMOS_ACCOUNT_NAME" --database-name "$COSMOS_DATABASE_NAME" --name "$COSMOS_CONTAINER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+            az cosmosdb sql container delete --account-name "$COSMOS_ACCOUNT_NAME" --database-name "$COSMOS_DATABASE_NAME" --name "$COSMOS_CONTAINER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --yes
+            echo "Deleted Cosmos container $COSMOS_CONTAINER_NAME."
+          else
+            echo "Cosmos container $COSMOS_CONTAINER_NAME is already absent."
+          fi
+          if az cosmosdb sql database show --account-name "$COSMOS_ACCOUNT_NAME" --name "$COSMOS_DATABASE_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+            az cosmosdb sql database delete --account-name "$COSMOS_ACCOUNT_NAME" --name "$COSMOS_DATABASE_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --yes
+            echo "Deleted Cosmos database $COSMOS_DATABASE_NAME."
+          else
+            echo "Cosmos database $COSMOS_DATABASE_NAME is already absent."
+          fi
+          az cosmosdb delete --name "$COSMOS_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --yes
+          echo "Deleted Cosmos account $COSMOS_ACCOUNT_NAME."
+
+      # WI-13. Azure Cosmos DB exposes NO purge operation -- there is no
+      # `az cosmosdb purge` equivalent to `az cognitiveservices account purge`.
+      # A deleted account can keep its globally unique name reserved, and
+      # `cosmos-desjardins-quote-preparation-staging` is 43 of the 44 allowed
+      # characters, so there is no room to sidestep a reservation by renaming.
+      # This step therefore reports the observed availability instead of
+      # pretending to purge.
+      - name: Report Cosmos name availability after deletion
+        if: ${{ inputs.execute }}
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          COSMOS_ACCOUNT_NAME: ${{ steps.names.outputs.cosmos_account_name }}
+        run: |
+          set -uo pipefail
+          NAME_TAKEN=$(az cosmosdb check-name-exists --name "$COSMOS_ACCOUNT_NAME" 2>/dev/null || echo "unknown")
+          RESTORABLE=$(az cosmosdb restorable-database-account list --query "length([?accountName=='$COSMOS_ACCOUNT_NAME'])" -o tsv 2>/dev/null || echo "unknown")
+          {
+            echo '## Cosmos soft-delete status'
+            echo ''
+            echo "Account: \`$COSMOS_ACCOUNT_NAME\`"
+            echo ''
+            echo "* Name still reserved (\`check-name-exists\`): \`$NAME_TAKEN\`"
+            echo "* Restorable (continuous-backup) records matching the name: \`$RESTORABLE\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$NAME_TAKEN" = "true" ]; then
+            echo "::warning::Cosmos account name '$COSMOS_ACCOUNT_NAME' is still reserved after deletion. Azure Cosmos DB provides no purge API, so recreation with the same name will fail until the reservation lapses. The name is 43 of the 44 permitted characters, leaving no headroom to work around it by renaming -- if the environment must be recreated sooner, raise an Azure support request to release the name, or change cosmosAccountName in infra/main.bicep."
+            {
+              echo ''
+              echo 'A purge is required to reuse this name immediately, and **was not performed**:'
+              echo 'Azure Cosmos DB has no purge operation. Wait for the reservation to lapse,'
+              echo 'raise an Azure support request, or change `cosmosAccountName` in'
+              echo '`infra/main.bicep`.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The identity is created by modules/reviewer-app.bicep alongside the
+      # Container App, and its only role assignment is AcrPull scoped to the
+      # shared ACR. The assignment is removed by principal id so the ACR itself
+      # and every other assignment on it are untouched; the GUID check keeps an
+      # empty lookup from widening the `az role assignment` selector.
+      - name: Delete the reviewer identity and its ACR role assignment
+        if: ${{ inputs.execute }}
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+          REVIEWER_IDENTITY_NAME: ${{ steps.names.outputs.reviewer_identity_name }}
+        run: |
+          set -euo pipefail
+          if ! az identity show --name "$REVIEWER_IDENTITY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+            echo "Identity $REVIEWER_IDENTITY_NAME is already absent; nothing to do."
+            exit 0
+          fi
+          PRINCIPAL_ID=$(az identity show --name "$REVIEWER_IDENTITY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query principalId -o tsv)
+          if [[ "$PRINCIPAL_ID" =~ ^[0-9a-fA-F-]{36}$ ]] && [ -n "$MCP_ACR_NAME" ]; then
+            ACR_ID=$(az acr show --name "$MCP_ACR_NAME" --query id -o tsv 2>/dev/null || true)
+            if [ -n "$ACR_ID" ]; then
+              for ASSIGNMENT in $(az role assignment list --assignee "$PRINCIPAL_ID" --scope "$ACR_ID" --query "[].id" -o tsv 2>/dev/null || true); do
+                az role assignment delete --ids "$ASSIGNMENT" \
+                  || echo "::warning::Could not delete role assignment $ASSIGNMENT. Removing role assignments needs Microsoft.Authorization/roleAssignments/delete (User Access Administrator or RBAC Administrator); Contributor is not enough. The assignment is now orphaned and must be removed by hand."
+              done
+            fi
+          fi
+          az identity delete --name "$REVIEWER_IDENTITY_NAME" --resource-group "$AZURE_RESOURCE_GROUP"
+          echo "Deleted identity $REVIEWER_IDENTITY_NAME."
+
+      # Opt-in and continue-on-error by design. Deleting Entra objects needs the
+      # Microsoft Graph application permission Application.ReadWrite.All, which
+      # Azure subscription roles do NOT grant -- the OIDC identity very likely
+      # lacks it. A Graph failure must not abandon the Azure resources deleted
+      # above, so it is reported and the run continues.
+      - name: Delete the reviewer Entra application and service principal
+        id: entra
+        if: ${{ inputs.remove_entra_objects }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{ TenantId = $env:AZURE_TENANT_ID; PurgeDeletedItems = $true }
+          if ($env:EXECUTE -ne 'true') { $arguments['WhatIf'] = $true }
+          ./scripts/remove-reviewer-identity.ps1 @arguments
+
+      - name: Report the Entra teardown outcome
+        if: ${{ always() && inputs.remove_entra_objects }}
+        env:
+          ENTRA_OUTCOME: ${{ steps.entra.outcome }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Entra teardown'
+            echo ''
+            if [ "$ENTRA_OUTCOME" = "success" ]; then
+              if [ "$EXECUTE" = "true" ]; then
+                echo 'The reviewer application and service principal were deleted and purged from'
+                echo 'the Entra recycle bin, so the display name is immediately reusable.'
+              else
+                echo 'Dry run only (`-WhatIf`): the script reported what it would delete and'
+                echo 'changed nothing.'
+              fi
+            else
+              echo '`scripts/remove-reviewer-identity.ps1` did not complete. The most likely'
+              echo 'cause is that the GitHub OIDC identity lacks the Microsoft Graph application'
+              echo 'permission **Application.ReadWrite.All** with tenant administrator consent.'
+              echo 'Azure roles such as Owner or Contributor grant no Graph rights.'
+              echo ''
+              echo 'The Azure resources in this run were still processed. To finish the teardown,'
+              echo 'an administrator can run the identical command from their own workstation:'
+              echo ''
+              echo '```powershell'
+              echo 'az login --tenant <tenant-id>'
+              echo './scripts/remove-reviewer-identity.ps1 -TenantId <tenant-id> -PurgeDeletedItems'
+              echo '```'
+              echo ''
+              echo 'Note: there is one reviewer registration for the whole tenant, shared by'
+              echo 'staging and production. Removing it affects both.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Teardown summary
+        if: always()
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          EXECUTE: ${{ inputs.execute }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Teardown result'
+            echo ''
+            echo "Environment: \`$TARGET_ENVIRONMENT\`  |  Job status: **$JOB_STATUS**"
+            echo ''
+            if [ "$EXECUTE" = "true" ]; then
+              echo 'Deletion mode. Every step is existence-checked, so rerunning this workflow'
+              echo 'after a partial failure is safe and exits 0 once everything is gone.'
+            else
+              echo 'Dry run. Nothing was deleted. Re-dispatch with `execute` checked to apply.'
+            fi
+            echo ''
+            echo 'The resource group was not deleted and cannot be by this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"

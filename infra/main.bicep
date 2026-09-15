@@ -69,7 +69,57 @@ param rulebookMcpImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 @description('MCP resource prefix; staging must not share production tool apps.')
 param mcpNamePrefix string = ''
 
+// Cosmos account names are globally unique across Azure and accept only lowercase
+// letters, digits, and hyphens, 3-44 characters. 'cosmos-' costs 7 of that budget,
+// leaving 37 for environmentName: staging's 'desjardins-quote-preparation-staging'
+// (36) resolves to 43 and production's 'desjardins-quote-preparation' (28) to 35.
+// There is no uniqueString() convention in this repository to fall back on, so the
+// @maxLength below is what turns an over-long environmentName into a parameter
+// validation failure instead of a mid-deployment ARM error.
+@description('Cosmos DB account name backing the shared approval case store. Globally unique, lowercase, 3-44 characters.')
+@minLength(3)
+@maxLength(44)
+param cosmosAccountName string = toLower('cosmos-${environmentName}')
+
+// Container App names are capped at 32 characters, so unlike every other name in this
+// template the reviewer app cannot interpolate environmentName: 'reviewer-' plus
+// staging's 36-character name is 45. The repository already handles this by branching
+// on the '-staging' suffix (see effectiveMcpNamePrefix) and by giving web-chat a short
+// literal name; this follows both, as the sibling of 'foundry-quote-chat-staging'.
+@description('Container App name for the reviewer approval surface. Container App names are limited to 32 characters.')
+@minLength(2)
+@maxLength(32)
+param reviewerAppName string = endsWith(environmentName, '-staging') ? 'foundry-quote-reviewer-staging' : 'foundry-quote-reviewer'
+
+@description('Container image reference for the reviewer app (apps/reviewer-app); digest-pinned by CI')
+param reviewerAppImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
+
+// Empty is the pre-Phase-6 default and deliberately skips the reviewer module rather
+// than deploying a Container App that would crash-loop: Settings.from_env parses this
+// value with uuid.UUID(), so an empty string is a startup failure, not a degraded mode.
+@description('Entra application (client) ID of the reviewer app registration from scripts/setup-reviewer-identity.ps1. Leave empty to skip deploying the reviewer app.')
+param reviewerClientId string = ''
+
+@description('Entra tenant ID authorized to sign in to the reviewer surface')
+param reviewerTenantId string = subscription().tenantId
+
+@description('App role value required to use the reviewer surface')
+param reviewerRole string = 'Reviewer'
+
+@description('Delegated scope required on the reviewer access token')
+param reviewerScope string = 'Review.Access'
+
+// A hosted agent gets its own dedicated per-agent Microsoft Entra identity, created by
+// Foundry at `azd deploy` time -- after this template runs -- and it is explicitly NOT
+// the Foundry project or account system-assigned identity. It therefore cannot be
+// resolved here and must be supplied after the first agent deployment. Leaving this
+// empty skips the grant, and the agent cannot write cases until it is supplied.
+@description('Object ID of the hosted agent\'s Entra agent identity, to receive Cosmos data-plane write access. Leave empty to skip the grant.')
+param agentPrincipalId string = ''
+
 var effectiveMcpNamePrefix = !empty(mcpNamePrefix) ? mcpNamePrefix : (endsWith(environmentName, '-staging') ? 'mcp-staging' : 'mcp')
+var reviewerEnvironment = endsWith(environmentName, '-staging') ? 'staging' : 'production'
+var deployReviewerApp = !empty(reviewerClientId)
 
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
@@ -119,6 +169,52 @@ module mcpContainerApps 'modules/mcp-container-apps.bicep' = {
   }
 }
 
+module cosmos 'modules/cosmos-db.bicep' = {
+  name: 'cosmos-db'
+  params: {
+    location: location
+    accountName: cosmosAccountName
+  }
+}
+
+module reviewerApp 'modules/reviewer-app.bicep' = if (deployReviewerApp) {
+  name: 'reviewer-app'
+  params: {
+    location: location
+    appName: reviewerAppName
+    containerAppsEnvironmentId: mcpContainerApps.outputs.containerAppsEnvironmentId
+    acrName: mcpAcrName
+    image: reviewerAppImage
+    tenantId: reviewerTenantId
+    reviewerClientId: reviewerClientId
+    reviewerRole: reviewerRole
+    reviewerScope: reviewerScope
+    environment: reviewerEnvironment
+    cosmosEndpoint: cosmos.outputs.documentEndpoint
+  }
+}
+
+// Two single-principal instantiations rather than one module over a combined array:
+// building that array would mean a ternary over a conditional module's output, and
+// ARM evaluates both branches of if() eagerly. Each condition here stands alone.
+module cosmosReviewerRbac 'modules/cosmos-rbac.bicep' = if (deployReviewerApp) {
+  name: 'cosmos-rbac-reviewer'
+  params: {
+    accountName: cosmos.outputs.accountName
+    principalIds: [reviewerApp!.outputs.principalId]
+  }
+}
+
+module cosmosAgentRbac 'modules/cosmos-rbac.bicep' = if (!empty(agentPrincipalId)) {
+  name: 'cosmos-rbac-agent'
+  params: {
+    accountName: cosmos.outputs.accountName
+    principalIds: [agentPrincipalId]
+  }
+  // Serialized: concurrent sqlRoleAssignments writes against one account return 409.
+  dependsOn: [cosmosReviewerRbac]
+}
+
 output accountName string = aiFoundry.outputs.accountName
 output accountEndpoint string = aiFoundry.outputs.accountEndpoint
 output projectName string = aiFoundry.outputs.projectName
@@ -131,3 +227,9 @@ output logAnalyticsWorkspaceId string = monitoring.outputs.logAnalyticsWorkspace
 output applicationInsightsConnectionString string = monitoring.outputs.applicationInsightsConnectionString
 output APPLICATION_MCP_URL string = 'https://${mcpContainerApps.outputs.applicationContainerAppFqdn}/mcp'
 output RULEBOOK_MCP_URL string = 'https://${mcpContainerApps.outputs.rulebookContainerAppFqdn}/mcp'
+output cosmosAccountName string = cosmos.outputs.accountName
+// Consumed as the COSMOS_ENDPOINT env var: the case store falls back to SQLite when unset.
+output COSMOS_ENDPOINT string = cosmos.outputs.documentEndpoint
+output REVIEWER_APP_URL string = deployReviewerApp ? reviewerApp!.outputs.url : ''
+output REVIEWER_APP_NAME string = deployReviewerApp ? reviewerAppName : ''
+output reviewerAppPrincipalId string = deployReviewerApp ? reviewerApp!.outputs.principalId : ''

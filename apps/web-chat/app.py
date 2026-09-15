@@ -91,6 +91,14 @@ class Message(BaseModel):
     text: str = Field(min_length=1, max_length=8000)
 
 
+def content_text(content, locale="en-CA"):
+    """The agent emits `content[].text` as a bilingual {"en-CA", "fr-CA"} map."""
+    text = content.get("text")
+    if isinstance(text, dict):
+        text = text.get(locale) or next((value for value in text.values() if isinstance(value, str)), "")
+    return text.strip() if isinstance(text, str) else ""
+
+
 class FoundryClient:
     def __init__(self, settings):
         self.settings = settings
@@ -131,10 +139,10 @@ class FoundryClient:
                         if completion is not None or response.get("status") != "completed":
                             raise ValueError("Invalid completion")
                         texts = [
-                            content["text"] for item in response.get("output", [])
+                            text for item in response.get("output", [])
                             if item.get("type") == "message" and item.get("role") == "assistant"
                             for content in item.get("content", [])
-                            if content.get("type") == "output_text" and content.get("text", "").strip()
+                            if content.get("type") == "output_text" and (text := content_text(content))
                         ]
                         completion = "\n\n".join(texts)
                         if not completion or len(completion) > 64000:

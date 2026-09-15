@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "12010688011338461197"
+    }
+  },
+  "parameters": {
+    "accountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing Cosmos DB account to scope the data-plane role assignments to"
+      }
+    },
+    "principalIds": {
+      "type": "array",
+      "metadata": {
+        "description": "Principal IDs to receive the Cosmos data-plane role"
+      }
+    },
+    "roleDefinitionId": {
+      "type": "string",
+      "defaultValue": "00000000-0000-0000-0000-000000000002",
+      "metadata": {
+        "description": "Built-in Cosmos DB SQL role definition GUID. Not an Azure RBAC role definition GUID."
+      }
+    }
+  },
+  "resources": [
+    {
+      "copy": {
+        "name": "roleAssignments",
+        "count": "[length(parameters('principalIds'))]"
+      },
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}', parameters('accountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName')), parameters('principalIds')[copyIndex()], parameters('roleDefinitionId')))]",
+      "properties": {
+        "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('accountName'), parameters('roleDefinitionId'))]",
+        "principalId": "[parameters('principalIds')[copyIndex()]]",
+        "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+      }
+    }
+  ]
+}

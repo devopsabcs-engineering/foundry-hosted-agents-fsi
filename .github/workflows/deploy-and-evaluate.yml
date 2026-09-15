@@ -82,6 +82,21 @@ jobs:
         with:
           python-version: "3.13"
 
+      # RI-02 / WI-01. Gates the reviewer `az acr build` further down this
+      # workflow: apps/reviewer-app/Dockerfile vendors the agent copy of
+      # approval_repository.py, so a divergence here ships into the image.
+      - name: Assert the vendored approval_repository copies are byte-identical
+        run: |
+          set -euo pipefail
+          AGENT=src/quote-preparation-agent/approval_repository.py
+          WORKSHOP=apps/workshop/approval_repository.py
+          if ! cmp -s "$AGENT" "$WORKSHOP"; then
+            echo "::error file=$AGENT::$AGENT and $WORKSHOP have diverged. They are vendored copies of one another and must stay byte-identical; update both or neither."
+            diff -u "$WORKSHOP" "$AGENT" || true
+            exit 1
+          fi
+          echo "Vendored copies are identical (sha256 $(sha256sum "$AGENT" | cut -d' ' -f1))."
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -146,14 +161,31 @@ jobs:
           MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
           APPLICATION_MCP_IMAGE: ${{ vars.APPLICATION_MCP_IMAGE }}
           RULEBOOK_MCP_IMAGE: ${{ vars.RULEBOOK_MCP_IMAGE }}
+          REVIEWER_APP_IMAGE: ${{ vars.REVIEWER_APP_IMAGE }}
+          REVIEWER_CLIENT_ID: ${{ vars.REVIEWER_CLIENT_ID }}
+          AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
         run: |
           set -euo pipefail
+          # Every reviewer parameter below has a main.bicep default, so this list stays
+          # valid while the repository variables are unset. An empty reviewerClientId
+          # skips the reviewer app and its Cosmos grant; an empty agentPrincipalId skips
+          # the agent's Cosmos grant. reviewerAppImage is the one that must never be
+          # passed empty, so it falls back to the same placeholder main.bicep defaults to.
           az deployment group what-if \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
+            --no-pretty-print \
             --parameters environmentName="$STAGING_AZD_ENV_NAME" location="$AZURE_LOCATION" \
               mcpAcrName="$MCP_ACR_NAME" applicationMcpImage="$APPLICATION_MCP_IMAGE" \
-              rulebookMcpImage="$RULEBOOK_MCP_IMAGE"
+              rulebookMcpImage="$RULEBOOK_MCP_IMAGE" \
+              reviewerAppImage="${REVIEWER_APP_IMAGE:-mcr.microsoft.com/k8se/quickstart:latest}" \
+              reviewerClientId="$REVIEWER_CLIENT_ID" \
+              agentPrincipalId="$AGENT_PRINCIPAL_ID" \
+            > whatif-candidate.json
+          python3 -c "import json,sys;d=json.load(open('whatif-candidate.json'));print(json.dumps(d['changes'],indent=2)[:20000])"
+
+      - name: Assert redeployment is idempotent (no Delete on deployed resources)
+        run: python3 scripts/assert_bicep_idempotent.py --candidate whatif-candidate.json
 
   # ---------------------------------------------------------------------
   # Stage 3: Deploy candidate to staging (MCP services and hosted agent)
@@ -168,6 +200,7 @@ jobs:
       project_endpoint: ${{ steps.deploy.outputs.project_endpoint }}
       application_mcp_image: ${{ steps.build-mcp.outputs.application_mcp_image }}
       rulebook_mcp_image: ${{ steps.build-mcp.outputs.rulebook_mcp_image }}
+      reviewer_app_image: ${{ steps.build-reviewer.outputs.reviewer_app_image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -203,6 +236,11 @@ jobs:
           azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
           azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP }}"
           azd env set MCP_ACR_NAME "${{ vars.MCP_ACR_NAME }}"
+          # Both may legitimately be empty: main.bicep skips the reviewer module
+          # when reviewerClientId is empty and skips the agent's Cosmos grant
+          # when agentPrincipalId is empty. See the agent-identity step below.
+          azd env set REVIEWER_CLIENT_ID "${{ vars.REVIEWER_CLIENT_ID }}"
+          azd env set AGENT_PRINCIPAL_ID "${{ vars.AGENT_PRINCIPAL_ID }}"
 
       - name: Build immutable staging MCP images
         id: build-mcp
@@ -220,6 +258,25 @@ jobs:
             azd env set "${SERVER^^}_MCP_IMAGE" "${REGISTRY}/staging/${SERVER}-mcp@${DIGEST}"
             echo "${SERVER}_mcp_image=${REGISTRY}/staging/${SERVER}-mcp@${DIGEST}" >> "$GITHUB_OUTPUT"
           done
+
+      # WI-12. Same remote-build/digest-pin contract as the MCP images above.
+      # The build context is the repository root because
+      # apps/reviewer-app/Dockerfile copies the case-store modules out of
+      # src/quote-preparation-agent rather than vendoring a third copy.
+      - name: Build immutable staging reviewer image
+        id: build-reviewer
+        env:
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+        run: |
+          set -euo pipefail
+          REGISTRY=$(az acr show --name "$MCP_ACR_NAME" --query loginServer -o tsv)
+          TAG="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          IMAGE="staging/reviewer-app:${TAG}"
+          az acr build --registry "$MCP_ACR_NAME" --image "$IMAGE" --file apps/reviewer-app/Dockerfile .
+          DIGEST=$(az acr repository show --name "$MCP_ACR_NAME" --image "$IMAGE" --query digest -o tsv)
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "::error::Invalid reviewer image digest"; exit 1; }
+          azd env set REVIEWER_APP_IMAGE "${REGISTRY}/staging/reviewer-app@${DIGEST}"
+          echo "reviewer_app_image=${REGISTRY}/staging/reviewer-app@${DIGEST}" >> "$GITHUB_OUTPUT"
 
       - name: Provision staging infrastructure (idempotent)
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
@@ -245,6 +302,63 @@ jobs:
           jq -e '.status == "active"' /tmp/agent-show.json
           echo "Deployed candidate version: $AGENT_VERSION"
           echo "agent_version=$AGENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      # WI-10. Foundry creates the hosted agent's dedicated Entra agent identity
+      # during `azd deploy`, after `azd provision` has already run, so
+      # main.bicep's agentPrincipalId cannot be resolved in-template and the
+      # agent's Cosmos data-plane grant is skipped until it is supplied.
+      #
+      # Microsoft's guidance is to read the agent identity off the Foundry
+      # project's ARM JSON view and use it as the assignee
+      # (learn.microsoft.com/azure/foundry/agents/concepts/agent-identity --
+      # "Shared project identity" and "Assign permissions to the agent
+      # identity"). No `azd`/`az` command is documented to print the identifier
+      # on its own, so this step publishes the project JSON verbatim rather than
+      # guessing at a property path, and never fails the deployment.
+      #
+      # An operator reads `agentIdentityId` out of the artifact once and sets it
+      # as the `AGENT_PRINCIPAL_ID` repository variable; the next run's
+      # `azd provision` then applies the grant. It is deliberately NOT parsed
+      # and auto-applied here: grabbing the wrong GUID (for example the
+      # project's managed-identity principalId) would grant Cosmos write access
+      # to the wrong principal and still leave the agent unable to write.
+      - name: Capture the Foundry project identity JSON (agent identity lookup)
+        if: always() && steps.deploy.outcome == 'success'
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          CONFIGURED_AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
+        run: |
+          set -uo pipefail
+          mkdir -p agent-identity
+          PROJECT_ID=$(azd env get-values --output json | jq -r '.AZURE_AI_PROJECT_ID // empty')
+          if [ -n "$PROJECT_ID" ]; then
+            az resource show --ids "$PROJECT_ID" -o json > agent-identity/foundry-project.json || true
+          fi
+          {
+            echo '## Hosted agent identity (WI-10)'
+            echo ''
+            if [ -n "${CONFIGURED_AGENT_PRINCIPAL_ID:-}" ]; then
+              echo 'The `AGENT_PRINCIPAL_ID` repository variable is set, so `azd provision` applied'
+              echo 'the agent'"'"'s Cosmos data-plane grant on this run.'
+            else
+              echo 'The `AGENT_PRINCIPAL_ID` repository variable is **not set**, so the hosted agent'
+              echo 'currently has no Cosmos data-plane grant and cannot write cases.'
+              echo ''
+              echo 'To fix: download the `agent-identity-staging` artifact from this run, read the'
+              echo 'agent identity out of the Foundry project JSON (the portal shows the same'
+              echo 'document under Overview > JSON View), and set it as the `AGENT_PRINCIPAL_ID`'
+              echo 'repository variable. The next run applies the grant with no template change.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Foundry project identity JSON
+        if: always() && steps.deploy.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: agent-identity-staging
+          path: agent-identity/
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload azd environment state (for the evaluate job)
         uses: actions/upload-artifact@v6
@@ -456,6 +570,9 @@ jobs:
         env:
           APPLICATION_MCP_IMAGE: ${{ needs.deploy-staging.outputs.application_mcp_image }}
           RULEBOOK_MCP_IMAGE: ${{ needs.deploy-staging.outputs.rulebook_mcp_image }}
+          REVIEWER_APP_IMAGE: ${{ needs.deploy-staging.outputs.reviewer_app_image }}
+          REVIEWER_CLIENT_ID: ${{ vars.REVIEWER_CLIENT_ID }}
+          AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
         run: |
           set -euo pipefail
           azd config set auth.useAzCliAuth true
@@ -467,12 +584,24 @@ jobs:
           azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
           azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP }}"
           azd env set MCP_ACR_NAME "${{ vars.MCP_ACR_NAME }}"
+          azd env set REVIEWER_CLIENT_ID "$REVIEWER_CLIENT_ID"
+          azd env set AGENT_PRINCIPAL_ID "$AGENT_PRINCIPAL_ID"
           for SERVER in APPLICATION RULEBOOK; do
             IMAGE_KEY="${SERVER}_MCP_IMAGE"
             IMAGE="${!IMAGE_KEY}"
             [[ "$IMAGE" =~ @sha256:[a-f0-9]{64}$ ]] || { echo "::error::Missing evaluated MCP image digest"; exit 1; }
             azd env set "$IMAGE_KEY" "$IMAGE"
           done
+          # Promote the exact reviewer digest staging evaluated; never rebuild.
+          # Only enforced when the reviewer app is actually in scope for this
+          # environment -- an unset REVIEWER_CLIENT_ID means main.bicep skips
+          # the reviewer module entirely and the image parameter is unused.
+          if [ -n "$REVIEWER_CLIENT_ID" ]; then
+            [[ "$REVIEWER_APP_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]] || { echo "::error::Missing evaluated reviewer image digest"; exit 1; }
+          fi
+          if [ -n "$REVIEWER_APP_IMAGE" ]; then
+            azd env set REVIEWER_APP_IMAGE "$REVIEWER_APP_IMAGE"
+          fi
 
       - name: Provision production infrastructure (idempotent)
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
