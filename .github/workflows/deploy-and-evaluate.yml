@@ -350,20 +350,49 @@ jobs:
           if [ -n "$PROJECT_ID" ]; then
             az resource show --ids "$PROJECT_ID" -o json > agent-identity/foundry-project.json || true
           fi
+          # The grant in modules/cosmos-rbac.bicep targets the agent's own identity,
+          # which Foundry creates when the agent is deployed. Deleting and recreating
+          # the Foundry account mints a new one, leaving the configured variable
+          # pointing at a principal that no longer exists and the agent unable to
+          # write cases. Read the live value so a mismatch is visible on the run
+          # that caused it rather than on the first failed write.
+          PROJECT_ENDPOINT=$(azd env get-values --output json | jq -r '.AZURE_AI_PROJECT_ENDPOINT // empty')
+          LIVE_AGENT_PRINCIPAL_ID=""
+          if [ -n "$PROJECT_ENDPOINT" ]; then
+            TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken --output tsv 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then
+              curl -sS -H "Authorization: Bearer $TOKEN" "${PROJECT_ENDPOINT}/agents?api-version=v1" \
+                > agent-identity/agents.json || true
+              LIVE_AGENT_PRINCIPAL_ID=$(jq -r \
+                '[.data[]?.versions.latest.instance_identity.principal_id] | map(select(. != null)) | first // empty' \
+                agent-identity/agents.json 2>/dev/null || true)
+            fi
+          fi
           {
             echo '## Hosted agent identity (WI-10)'
             echo ''
-            if [ -n "${CONFIGURED_AGENT_PRINCIPAL_ID:-}" ]; then
-              echo 'The `AGENT_PRINCIPAL_ID` repository variable is set, so `azd provision` applied'
-              echo 'the agent'"'"'s Cosmos data-plane grant on this run.'
-            else
-              echo 'The `AGENT_PRINCIPAL_ID` repository variable is **not set**, so the hosted agent'
-              echo 'currently has no Cosmos data-plane grant and cannot write cases.'
+            if [ -n "$LIVE_AGENT_PRINCIPAL_ID" ]; then
+              echo "Live agent principal ID: \`$LIVE_AGENT_PRINCIPAL_ID\`"
               echo ''
-              echo 'To fix: download the `agent-identity-staging` artifact from this run, read the'
-              echo 'agent identity out of the Foundry project JSON (the portal shows the same'
-              echo 'document under Overview > JSON View), and set it as the `AGENT_PRINCIPAL_ID`'
-              echo 'repository variable. The next run applies the grant with no template change.'
+            fi
+            if [ -z "${CONFIGURED_AGENT_PRINCIPAL_ID:-}" ]; then
+              echo 'The `AGENT_PRINCIPAL_ID` environment variable is **not set**, so the hosted'
+              echo 'agent has no Cosmos data-plane grant and cannot write cases.'
+              echo ''
+              echo 'To fix: set the live principal ID above as the `AGENT_PRINCIPAL_ID`'
+              echo 'environment variable. The next run applies the grant with no template change.'
+            elif [ -n "$LIVE_AGENT_PRINCIPAL_ID" ] && [ "$LIVE_AGENT_PRINCIPAL_ID" != "$CONFIGURED_AGENT_PRINCIPAL_ID" ]; then
+              echo "::warning::AGENT_PRINCIPAL_ID is \`$CONFIGURED_AGENT_PRINCIPAL_ID\` but the live agent identity is \`$LIVE_AGENT_PRINCIPAL_ID\`. The Cosmos grant was applied to the wrong principal and the agent cannot write cases. Update the environment variable and rerun."
+              echo '**The configured `AGENT_PRINCIPAL_ID` does not match the live agent identity.**'
+              echo ''
+              echo "Configured: \`$CONFIGURED_AGENT_PRINCIPAL_ID\`"
+              echo ''
+              echo 'Foundry mints a new agent identity whenever the account is recreated, so this'
+              echo 'is the expected state after a network rebuild. Update the environment variable'
+              echo 'to the live value above and rerun to reapply the grant.'
+            else
+              echo 'The `AGENT_PRINCIPAL_ID` environment variable matches the live agent identity,'
+              echo 'so `azd provision` applied the agent'"'"'s Cosmos data-plane grant on this run.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

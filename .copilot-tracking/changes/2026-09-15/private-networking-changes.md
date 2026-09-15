@@ -80,6 +80,15 @@ deployed system rather than the earlier author-only posture.
   * The next provision failed preflight with a soft-deleted name collision
   * The loop now exits only when the account is absent from the resource group
     and absent from the soft-deleted list
+* The production teardown reported success and still left a soft-deleted account
+  * The soft-deleted list is eventually consistent and read empty moments
+    before the account appeared in it
+  * The loop now requires three consecutive clean readings before exiting
+* Production could not be provisioned in place
+  * `ManagedEnvironmentV1SubnetDelegationNotAllowed` on the existing
+    consumption-only environment confirmed the immutability assumption
+  * Staging, which had already been deleted, provisioned cleanly on the first
+    attempt with a workload profile and a delegated subnet
 
 ## Release Summary
 
