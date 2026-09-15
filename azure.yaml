@@ -75,5 +75,9 @@ services:
               value: ${accountEndpoint}
             - name: AZURE_OPENAI_DEPLOYMENT
               value: gpt-4o-mini
+            - name: APPLICATION_MCP_URL
+              value: ${APPLICATION_MCP_URL}
+            - name: RULEBOOK_MCP_URL
+              value: ${RULEBOOK_MCP_URL}
         toolboxes:
             - quote-tools

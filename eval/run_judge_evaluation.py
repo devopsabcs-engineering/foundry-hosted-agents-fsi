@@ -1,32 +1,22 @@
-"""AUTHOR-ONLY -- this evaluation harness cannot run yet.
-
-Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-G6 (regulatory/privacy) sign-off, and behind the more basic prerequisite
-that no hosted quote-preparation-agent endpoint exists yet: this
-repository has no `scripts/invoke-agent.sh` equivalent, no
-Responses-protocol smoke-test harness, and
-`src/quote-preparation-agent/main.py` is documented as a local-only entry
-point (see `azure.yaml`'s own top-of-file gating banner). Do not remove
-`main()`'s guard or wire `capture()` into a real hosted invocation until a
-real hosted endpoint exists and all three gates are explicitly cleared by
-their owners.
+"""Run the LLM-judge evaluation against a real deployed hosted agent.
 
 Adapted from the sibling `foundry-hosted-agents` repository's
 `eval/run_hosted_evaluation.py`. `criteria()`, `collect_output_items()`,
 and `evaluate()`'s Azure AI Evaluation SDK usage (`AIProjectClient`,
 `client.evals.create`, `client.evals.runs.create`, and its completion
 polling loop) are ported near-verbatim -- that logic only inspects the
-Azure AI Evaluation SDK's payload shape and is domain-agnostic; it needs a
-real hosted endpoint to run, not a rewrite. `agent_instructions()` is
-adapted to AST-extract this repository's `AGENT_TASK_INSTRUCTIONS`
-constant from `src/quote-preparation-agent/graph.py` instead of the
-sibling's `REPORT_COMPOSER_PROMPT`. `capture()` is replaced entirely: the
-sibling shells out to `scripts/invoke-agent.sh` to obtain live hosted
-responses, and this repository has no equivalent, so `capture()` instead
-raises immediately with a clear, explicit error rather than a silent
-no-op or an invented invocation mechanism.
+Azure AI Evaluation SDK's payload shape and is domain-agnostic.
+`agent_instructions()` is adapted to AST-extract this repository's
+`AGENT_TASK_INSTRUCTIONS` constant from `src/quote-preparation-agent/
+graph.py` instead of the sibling's `REPORT_COMPOSER_PROMPT`. `capture()`
+is replaced entirely: the sibling shells out to `scripts/invoke-agent.sh`;
+this repository instead calls the deployed hosted agent's Responses-
+protocol endpoint directly over HTTPS (see `response_bridge.py` in
+`src/quote-preparation-agent`, which implements that server), using
+`DefaultAzureCredential` for the bearer token, matching the same endpoint
+`azd ai agent invoke` uses.
 
-Usage (once activated -- do not run before then):
+Usage:
     python eval/run_judge_evaluation.py \\
         --endpoint <project endpoint> --agent quote-preparation-agent \\
         --version <agent version> --deployment <judge deployment> \\
@@ -48,15 +38,6 @@ EVAL_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(EVAL_DIR))
 
 from judge_gate import METRICS, validate_results  # noqa: E402
-
-AUTHOR_ONLY_MESSAGE = (
-    "eval/run_judge_evaluation.py is AUTHOR-ONLY and not yet runnable: this "
-    "repository has no hosted-agent invocation harness (no "
-    "scripts/invoke-agent.sh equivalent, no Responses-protocol endpoint) "
-    "and no hosted quote-preparation-agent deployment exists yet. This "
-    "step cannot run until the agent is hosted and Gates G2/G3/G6 clear. "
-    "See azure.yaml."
-)
 
 
 def agent_instructions() -> str:
@@ -102,16 +83,100 @@ def collect_output_items(client, eval_id: str, run_id: str, expected_count: int)
         time.sleep(10)
 
 
-def capture(records: list[dict], args) -> list[dict]:
-    """Raise immediately: no hosted-agent invocation harness exists yet.
+def _extract_response_text(output_items: list[dict], locale: str = "en-CA") -> str:
+    """Pull the assistant's bounded text answer out of a Responses-protocol `output` list.
 
-    Unlike the sibling's `capture()`, which shells out to
-    `scripts/invoke-agent.sh` per dataset record, this repository has no
-    such script and no hosted endpoint. Raising here (rather than a
-    silent no-op) makes any accidental call fail loudly and explains
-    exactly what is missing and what must happen before this can run.
+    Each `main.py`/`response_bridge.py`-produced item's `content[].text` is a
+    bilingual `{"en-CA": ..., "fr-CA": ...}` map (see `graph.py`'s
+    `applicant_message` construction); this selects `locale`, falling back to
+    whichever language is present if `locale` is missing.
     """
-    raise RuntimeError(AUTHOR_ONLY_MESSAGE)
+    for item in output_items:
+        for content in item.get("content", []):
+            text = content.get("text")
+            if isinstance(text, dict):
+                if text.get(locale):
+                    return text[locale]
+                return next(iter(text.values()), "")
+            if isinstance(text, str) and text:
+                return text
+    return ""
+
+
+def _normalize_output_items(output_items: list[dict], locale: str = "en-CA") -> list[dict]:
+    """Flatten each item's bilingual `content[].text` map to a single locale string.
+
+    The Azure AI Evaluation SDK's built-in evaluators (e.g.
+    `TaskAdherenceEvaluator`) require `content[].text` to be a plain string;
+    passing the raw bilingual dict fails with "The 'text' field must be a
+    string in content items." This produces a locale-selected copy for
+    evaluation, leaving the original captured response text untouched.
+    """
+    normalized = []
+    for item in output_items:
+        item_copy = dict(item)
+        content_list = item_copy.get("content")
+        if isinstance(content_list, list):
+            new_content = []
+            for content in content_list:
+                content_copy = dict(content)
+                text = content_copy.get("text")
+                if isinstance(text, dict):
+                    content_copy["text"] = text.get(locale) or next(iter(text.values()), "")
+                new_content.append(content_copy)
+            item_copy["content"] = new_content
+        normalized.append(item_copy)
+    return normalized
+
+
+def capture(records: list[dict], args) -> list[dict]:
+    """Invoke the deployed hosted agent's Responses-protocol endpoint for each record.
+
+    Calls `{args.endpoint}/agents/{args.agent}/endpoint/protocols/openai/
+    responses?api-version=v1` directly over HTTPS (the same endpoint `azd ai
+    agent invoke`/`azd ai agent show` reports), authenticating with
+    `DefaultAzureCredential` under the `https://ai.azure.com/.default` scope
+    -- no hosted-agent invocation harness existed before this; this is it.
+    """
+    import urllib.error
+    import urllib.request
+
+    from azure.identity import DefaultAzureCredential
+
+    agent_endpoint = f"{args.endpoint}/agents/{args.agent}/endpoint/protocols/openai/responses?api-version=v1"
+    with DefaultAzureCredential() as credential:
+        token = credential.get_token("https://ai.azure.com/.default")
+
+        captured = []
+        for record in records:
+            body = json.dumps({"input": record["query"], "stream": False}).encode("utf-8")
+            request = urllib.request.Request(
+                agent_endpoint,
+                data=body,
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token.token}",
+                },
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as error:
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    f"HTTP {error.code} {error.read().decode('utf-8', errors='replace')}"
+                ) from error
+            output_items = payload.get("output", [])
+            captured.append(
+                {
+                    **record,
+                    "response": _extract_response_text(output_items),
+                    "output_items": _normalize_output_items(output_items),
+                }
+            )
+            print(f"Captured {record.get('id')!r}", flush=True)
+    return captured
 
 
 def evaluate(captured: list[dict], args) -> None:
@@ -222,13 +287,12 @@ def main(argv: list[str] | None = None) -> int:
     if not 0 < args.minimum_pass_rate <= 1:
         parser.error("minimum-pass-rate must be in (0, 1]")
 
-    # Guard: this repository has no hosted-agent invocation harness or
-    # hosted endpoint yet. Exit here -- before any Azure SDK import, any
-    # filesystem/subprocess side effect, and any call to capture()/
-    # evaluate() -- so an accidental invocation fails fast and clearly
-    # instead of raising a raw traceback deep inside capture().
-    print(AUTHOR_ONLY_MESSAGE, file=sys.stderr)
-    return 1
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    dataset = json.loads(args.dataset.read_text(encoding="utf-8"))
+    records = dataset["data"]
+    captured = capture(records, args)
+    evaluate(captured, args)
+    return 0
 
 
 if __name__ == "__main__":

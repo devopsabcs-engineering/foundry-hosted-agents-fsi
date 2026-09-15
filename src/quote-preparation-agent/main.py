@@ -1,11 +1,21 @@
-"""Local entry point for the quote-preparation LangGraph agent (Phase 5).
+"""Entry point for the quote-preparation LangGraph agent (Phase 5).
 
-No Azure/Foundry SDK calls and no hosted-agent deployment code exist in
-this module. `run_case` compiles and invokes the graph from graph.py
-entirely in-process, against the Phase 4 MCP tool functions and the Phase
-2/3 calculator and approval repository (see toolbox.py). Hosted deployment
-(a Foundry Responses-protocol host server, matching the sibling's own
-main.py) is out of scope until Gates G2/G3/G6 are cleared in a later phase.
+`run_case` compiles and invokes the graph from graph.py entirely
+in-process, against the Phase 4 MCP tool functions (in-process locally, or
+over MCP-over-HTTP against the deployed Container Apps -- see toolbox.py)
+and the Phase 2/3 calculator and approval repository.
+
+Two entry modes, selected by whether a `case_input` positional argument is
+given:
+
+* Local/CLI (`python main.py CASE-SYN-001`): runs one case and prints its
+  `applicant_message`, no Azure/Foundry SDK calls.
+* Hosted (`python main.py`, no arguments -- exactly how the Foundry hosted
+  agent runtime invokes this container's entry point per `azure.yaml`'s
+  `codeConfiguration.entryPoint: main.py`): starts a Responses-protocol
+  server (`azure-ai-agentserver-langgraph`, see `response_bridge.py`) that
+  serves this same graph over the required `/readiness`/`/responses`
+  hosted-agent contract.
 """
 
 from __future__ import annotations
@@ -18,6 +28,7 @@ from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from case_input import parse_case_input  # noqa: E402
 from graph import DEFAULT_PREPARER_ID, DEFAULT_RULEBOOK_ID, ModelCallable, build_graph  # noqa: E402
 from toolbox import ApprovalRepository  # noqa: E402
 
@@ -49,32 +60,43 @@ def run_case(
     return graph.invoke(initial_state)
 
 
-def _parse_case_input(raw: str) -> dict[str, Any]:
-    """Accept either a bare case ID string or a JSON object with a caseId field."""
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError:
-        return {"caseId": raw}
-    if isinstance(payload, str):
-        return {"caseId": payload}
-    if isinstance(payload, dict):
-        return payload
-    raise ValueError(f"Unsupported case input: {raw!r}")
+def serve() -> None:
+    """Start the hosted-agent Responses-protocol server (no case_input given).
+
+    Wraps this project's compiled graph with `azure-ai-agentserver-langgraph`
+    (see `response_bridge.py` for why a custom converter is required) and
+    listens on port 8088, matching the Foundry hosted-agent runtime contract
+    (`/readiness`, `/responses`) declared by `azure.yaml`'s
+    `protocols: [{protocol: responses, version: 2.0.0}]`.
+    """
+    from azure.ai.agentserver.langgraph import from_langgraph  # noqa: E402
+
+    from response_bridge import QuotePreparationResponseConverter  # noqa: E402
+
+    graph = build_graph()
+    adapter = from_langgraph(graph, converter=QuotePreparationResponseConverter())
+    adapter.run(port=8088)
 
 
 def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Run the quote-preparation agent locally against one case (no Azure/Foundry calls)."
+        description="Run the quote-preparation agent locally against one case, or serve it as a hosted agent."
     )
     parser.add_argument(
         "case_input",
-        help='Case input: either a bare case ID (e.g. CASE-SYN-001) or a JSON object, e.g. \'{"caseId": "CASE-SYN-001"}\'.',
+        nargs="?",
+        default=None,
+        help='Case input: either a bare case ID (e.g. CASE-SYN-001) or a JSON object, e.g. \'{"caseId": "CASE-SYN-001"}\'. Omit to start the hosted-agent server instead.',
     )
     parser.add_argument("--preparer-id", default=None)
     parser.add_argument("--rulebook-id", default=None)
     args = parser.parse_args(argv)
 
-    payload = _parse_case_input(args.case_input)
+    if args.case_input is None:
+        serve()
+        return
+
+    payload = parse_case_input(args.case_input)
     case_id = payload.get("caseId") or payload.get("case_id") or ""
     preparer_id = payload.get("preparerId") or args.preparer_id
     rulebook_id = payload.get("rulebookId") or args.rulebook_id

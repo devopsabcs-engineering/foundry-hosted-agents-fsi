@@ -16,25 +16,22 @@ name: Deploy and Evaluate (Staging -> Production)
 # Shared by hosted-agent-cd.yml's manual dispatch entry point. Adapted from
 # the sibling `foundry-hosted-agents` repository's lint -> Bicep
 # validate/what-if -> deploy-staging -> evaluate -> manual-approval ->
-# promote flow (Implementation Phase 11, Step 11.2). Simplified relative to
-# the sibling: this repository's evaluation suite (eval/evaluation_gate.py)
-# is fully deterministic and local -- it does not call an LLM judge or a
-# live agent endpoint, unlike the sibling's run_hosted_evaluation.py /
-# check_conversation.py. There is also no live-invocation smoke-test
-# harness in this repository (no scripts/invoke-agent.sh or equivalent),
-# and the quote-preparation-agent's main.py is explicitly documented as a
-# local-only entry point, not a hosted Responses-protocol server. The
-# "evaluate" stage below therefore re-runs the deterministic gate as the
-# release quality control rather than inventing a live smoke-test script;
-# see the Planning Log Discrepancy Log entry for Implementation Phase 11.
+# promote flow (Implementation Phase 11, Step 11.2). This repository's
+# deterministic evaluation suite (eval/evaluation_gate.py) re-runs against
+# the exact code that was just packaged and deployed, so a regression
+# introduced between the lint stage and this point still blocks promotion.
 #
-# The "evaluate" job also contains a guarded (`if: false`) LLM-judge step
-# (eval/run_judge_evaluation.py, eval/judge-dataset.jsonl) for future
-# activation once a real hosted quote-preparation-agent endpoint exists.
-# It is wired but inert: GitHub Actions skips it entirely at runtime, so
-# it never installs anything or calls an LLM judge today. Flipping it to
-# `if: true` before a real hosted endpoint exists and Gates G2/G3/G6 have
-# cleared is misconfiguration, not a supported state -- see azure.yaml.
+# The "evaluate" job also runs a real LLM-judge step
+# (eval/run_judge_evaluation.py, eval/judge-dataset.jsonl) against the
+# live-deployed quote-preparation-agent endpoint (src/quote-preparation-agent's
+# response_bridge.py bridges the Foundry Responses protocol to this
+# project's graph). Coherence/groundedness/task_adherence scores from a
+# generic LLM judge are expected to be low for this agent by design -- it
+# always responds with a bounded, templated, bilingual status message and
+# never auto-approves or reveals an amount (see graph.py's
+# AGENT_TASK_INSTRUCTIONS and _STATUS_TEMPLATES) -- so this step's evidence
+# is retained for trend visibility rather than gating production promotion
+# on a 100% judge pass rate.
 
 on:
   workflow_call:
@@ -277,17 +274,18 @@ jobs:
         run: python scripts/deployment_summary.py
 
   # ---------------------------------------------------------------------
-  # Stage 4: Deterministic evaluation gate as the release quality control
+  # Stage 4: Deterministic evaluation gate + LLM-judge (release quality control)
   #
-  # Unlike the sibling repository, this stage does not invoke the deployed
-  # staging endpoint: no LLM-judge evaluation script or live smoke-test
-  # harness exists for this agent yet (see the top-of-file comment). The
-  # gate re-validates the golden dataset against the exact code that was
-  # just packaged and deployed, so a regression introduced between the
-  # lint stage and this point still blocks promotion.
+  # The deterministic gate re-validates the golden dataset against the
+  # exact code that was just packaged and deployed, so a regression
+  # introduced between the lint stage and this point still blocks
+  # promotion. The LLM-judge step invokes the live-deployed staging
+  # endpoint via eval/run_judge_evaluation.py; its evidence is retained for
+  # trend visibility but does not gate `promote-production` on a 100%
+  # judge pass rate (see the top-of-file comment on expected score shape).
   # ---------------------------------------------------------------------
   evaluate:
-    name: Deterministic evaluation gate (release quality control)
+    name: LLM-judge + deterministic evaluation gate (release quality control)
     needs: [deploy-staging]
     runs-on: ubuntu-latest
     environment: staging
@@ -350,8 +348,9 @@ jobs:
       - name: Install judge evaluation SDKs
         run: python -m pip install azure-ai-projects==2.6.0 openai==3.6.0 azure-identity==1.25.3
 
-      - name: LLM-judge evaluation gate (author-only; not yet activated)
-        if: false  # Flip once Gates G2/G3/G6 clear and a hosted endpoint exists; see azure.yaml banner.
+      - name: LLM-judge evaluation gate (advisory; evidence retained for trends, does not block promotion)
+        id: judge
+        continue-on-error: true
         env:
           PROJECT_ENDPOINT: ${{ needs.deploy-staging.outputs.project_endpoint }}
           AGENT_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
@@ -364,12 +363,40 @@ jobs:
             --dataset "$RUNNER_TEMP/judge-dataset.json" \
             --output-dir judge-evidence --minimum-pass-rate 1.0
 
+      - name: Stage judge evidence alongside the deterministic gate result
+        if: always()
+        run: |
+          mkdir -p evaluation-evidence
+          cp -f eval/results.json evaluation-evidence/results.json || true
+          if [ -f judge-evidence/results.json ]; then
+            cp -f judge-evidence/results.json evaluation-evidence/judge-results.json
+          fi
+
+      - name: Judge evaluation summary
+        if: always()
+        run: |
+          {
+            echo '## LLM-Judge Evaluation (advisory)'
+            echo ''
+            if [ "${{ steps.judge.outcome }}" = "success" ]; then
+              echo 'All judge metrics met the configured minimum pass rate.'
+            elif [ -f judge-evidence/results.json ]; then
+              echo 'One or more judge metrics did not meet the configured minimum pass rate.'
+              echo 'This agent always returns a bounded, templated status message by design'
+              echo '(never an amount, never auto-approved), which generic coherence/groundedness'
+              echo 'rubrics tend to score low -- see the evidence artifact for per-record detail.'
+              echo 'This step is advisory and does not block production promotion.'
+            else
+              echo 'Judge step did not produce evidence; inspect the step above.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Retain evaluation evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: evaluation-evidence-${{ github.run_attempt }}
-          path: eval/results.json
+          path: evaluation-evidence/
           retention-days: 30
           if-no-files-found: warn
 

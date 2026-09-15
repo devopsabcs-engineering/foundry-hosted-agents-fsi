@@ -1,0 +1,7 @@
+{
+  "eval_id": "eval_9a3ebc279d1c4e0993734759e762f3a9",
+  "run_id": "evalrun_204eae04f7af498faf2dbbb1a7fa173b",
+  "endpoint": "https://aif-foundry-hosted-agents-fsi.services.ai.azure.com/api/projects/proj-foundry-hosted-agents-fsi",
+  "agent": "quote-preparation-agent",
+  "version": "5"
+}
