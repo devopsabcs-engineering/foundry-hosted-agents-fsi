@@ -306,7 +306,11 @@ jobs:
           # A purge issued while the account is still settling is accepted and then
           # does nothing, so the only trustworthy exit condition is that the account
           # is absent from the resource group AND absent from the soft-deleted list.
-          for ATTEMPT in $(seq 1 30); do
+          # That list is also eventually consistent and can read empty moments before
+          # the account appears in it, so require the clean reading to hold three
+          # times in a row before believing it.
+          CLEAN_STREAK=0
+          for ATTEMPT in $(seq 1 45); do
             SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME'] | length(@)" --output tsv)
             if az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
               ACTIVE=true
@@ -314,13 +318,20 @@ jobs:
               ACTIVE=false
             fi
             if [ "$ACTIVE" = "false" ] && [ "$SOFT_DELETED" = "0" ]; then
-              echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
-              exit 0
+              CLEAN_STREAK=$((CLEAN_STREAK + 1))
+              if [ "$CLEAN_STREAK" -ge 3 ]; then
+                echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
+                exit 0
+              fi
+              echo "Clean reading $CLEAN_STREAK/3 for '$FOUNDRY_ACCOUNT_NAME'. Waiting 20s to confirm."
+              sleep 20
+              continue
             fi
+            CLEAN_STREAK=0
             if [ "$SOFT_DELETED" != "0" ]; then
               az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null || true
             fi
-            echo "Account is not yet fully removed (active=$ACTIVE, soft-deleted=$SOFT_DELETED, attempt $ATTEMPT/30). Waiting 20s."
+            echo "Account is not yet fully removed (active=$ACTIVE, soft-deleted=$SOFT_DELETED, attempt $ATTEMPT/45). Waiting 20s."
             sleep 20
           done
           echo "::error::Timed out waiting for '$FOUNDRY_ACCOUNT_NAME' to be fully removed. Rerun this workflow; it is safe to repeat."
