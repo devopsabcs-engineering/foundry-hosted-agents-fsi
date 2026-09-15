@@ -129,7 +129,13 @@ jobs:
           if [ -f deployment-links/deployment-links.md ]; then
             cat deployment-links/deployment-links.md >> "$GITHUB_STEP_SUMMARY"
           else
-            python scripts/deployment_summary.py
+            {
+              echo '## Deployment Links'
+              echo ''
+              echo 'This run published no deployment links, because the source workflow does'
+              echo 'not provision infrastructure. The current links stay available on the'
+              echo "[wiki home page](https://github.com/$GITHUB_REPOSITORY/wiki)."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Push trend history to the wiki
@@ -156,10 +162,14 @@ jobs:
             exit 1
           fi
           python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
+          # Only refresh the wiki link table when this run actually carries links
+          # captured with live azd context. Re-deriving them here would produce a
+          # table missing every Azure destination and overwrite the last known
+          # good URLs with that emptier version.
           if [ -f deployment-links/deployment-links.md ]; then
             python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing --from-file deployment-links/deployment-links.md
           else
-            python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing
+            echo "Source run published no deployment links; leaving the wiki link table at its last deployed values."
           fi
           cd wiki
           git config user.name "github-actions[bot]"
