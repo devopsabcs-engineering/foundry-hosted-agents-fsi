@@ -1,7 +1,7 @@
 ---
 permalink: /labs/lab-07-run-agent
 title: "Lab 07 - Run the Agent End to End"
-description: "Run the local agent against a fixture, read its bounded bilingual applicant message, then act as the human reviewer."
+description: "Run the local agent against a fixture, read its bounded bilingual applicant message, then act as the human reviewer in code."
 ---
 
 > 🇫🇷 **[Version française](../fr/labs/lab-07-run-agent)**
@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 * Run the agent's CLI end to end against a fixture, with no Azure or hosted Foundry call
 * Confirm the applicant-facing message never includes an amount, a rulebook table, or a reviewer-only field
-* Act as the human reviewer against the same `ApprovalRepository`, since no reviewer UI exists yet
+* Act as the human reviewer against the same `ApprovalRepository`, before meeting the reviewer interface in Lab 13
 * Confirm an invalid case reference produces a bounded rejection message instead of a raised exception
 
 ## Exercises
@@ -57,7 +57,9 @@ Expected result: `workflow_state` is `PENDING_REVIEW`. The case was created and 
 
 ### Exercise 7.3 (Hands-on): Act as the Human Reviewer
 
-Because no reviewer interface exists yet in this project, a reviewer acts directly against `ApprovalRepository`. Share one repository instance between the agent run and your reviewer step so they operate on the same case.
+A reviewer acts here directly against `ApprovalRepository`, one layer below any user interface. Share one repository instance between the agent run and your reviewer step so they operate on the same case.
+
+[Lab 13](lab-13-reviewer-ui.md) performs this same transition through the reviewer application, against a persistent case store and a verified Entra identity. Doing it in Python first makes the later lab easier to read, because you will already know which call the button is making.
 
 ```powershell
 python -c "

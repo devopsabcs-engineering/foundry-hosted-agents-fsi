@@ -2,7 +2,7 @@
 permalink: /fr/labs/lab-07-run-agent
 lang: fr
 title: "Atelier 07 - Exécuter l'agent de bout en bout"
-description: "Exécuter l'agent local contre une donnée synthétique, lire son message bilingue borné destiné au demandeur, puis agir comme réviseur humain."
+description: "Exécuter l'agent local contre une donnée synthétique, lire son message bilingue borné destiné au demandeur, puis agir comme réviseur humain dans le code."
 ---
 
 > 🇬🇧 **[English version](../../labs/lab-07-run-agent)**
@@ -24,7 +24,7 @@ description: "Exécuter l'agent local contre une donnée synthétique, lire son 
 
 * Exécuter l'interface en ligne de commande de l'agent de bout en bout contre une donnée synthétique, sans appel à Azure ni à Foundry hébergé
 * Confirmer que le message destiné au demandeur ne contient jamais de montant, de table de référentiel ni de champ réservé au réviseur
-* Agir comme réviseur humain contre le même `ApprovalRepository`, puisqu'aucune interface de révision n'existe encore
+* Agir comme réviseur humain contre le même `ApprovalRepository`, avant de rencontrer l'interface de révision à l'atelier 13
 * Confirmer qu'une référence de dossier invalide produit un message de refus borné plutôt qu'une exception levée
 
 ## Exercices
@@ -58,7 +58,9 @@ Résultat attendu : `workflow_state` vaut `PENDING_REVIEW`. Le dossier a été c
 
 ### Exercice 7.3 (pratique) : Agir comme réviseur humain
 
-Comme aucune interface de révision n'existe encore dans ce projet, une personne réviseure agit directement contre `ApprovalRepository`. Partagez une même instance de dépôt entre l'exécution de l'agent et votre étape de révision afin qu'elles opèrent sur le même dossier.
+Une personne réviseure agit ici directement contre `ApprovalRepository`, une couche sous toute interface utilisateur. Partagez une même instance de dépôt entre l'exécution de l'agent et votre étape de révision afin qu'elles opèrent sur le même dossier.
+
+L'[atelier 13](lab-13-reviewer-ui.md) effectue cette même transition par l'application de révision, contre un magasin de dossiers persistant et une identité Entra vérifiée. Le faire d'abord en Python rend l'atelier ultérieur plus facile à lire, car vous saurez déjà quel appel le bouton effectue.
 
 ```powershell
 python -c "

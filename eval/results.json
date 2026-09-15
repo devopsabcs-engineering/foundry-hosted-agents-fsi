@@ -234,7 +234,7 @@
   "bilingual_parity": {
     "name": "bilingual_parity",
     "passed": true,
-    "message": "docs/labs and docs/fr/labs have matching file names (11 each)."
+    "message": "docs/labs and docs/fr/labs have matching file names (16 each)."
   },
   "passed": true
 }

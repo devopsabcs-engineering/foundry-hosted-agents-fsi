@@ -1,7 +1,7 @@
 ---
 permalink: /labs/lab-09-teardown
 title: "Lab 09 - Teardown"
-description: "Stop the local processes you started, clean up any on-disk state, and confirm there is nothing to delete in Azure."
+description: "Stop the local processes you started, clean up any on-disk state, and confirm the local labs provisioned nothing in Azure."
 ---
 
 > 🇫🇷 **[Version française](../fr/labs/lab-09-teardown)**
@@ -19,7 +19,7 @@ By the end of this lab, you will be able to:
 
 * Stop any MCP server process you started in Labs 04 and 05
 * Remove any on-disk state you created while experimenting with the approval repository
-* Confirm this workshop provisioned no Azure resources, so there is no cloud teardown to run
+* Confirm Labs 00 through 08 provisioned no Azure resources, so there is no cloud teardown to run yet
 
 ## Exercises
 
@@ -54,22 +54,24 @@ if (Test-Path .\lab-approvals.db) { Remove-Item .\lab-approvals.db -Force }
 
 Adjust the path if you used a different file name during Labs 03 or 07.
 
-### Exercise 9.4: Confirm There Is No Cloud Teardown
+### Exercise 9.4: Confirm There Is No Cloud Teardown Yet
 
-This workshop never provisions Azure infrastructure. Every component in Labs 00 through 08 runs locally: the calculator and approval repository are pure Python and SQLite, the MCP servers run as local processes, and the agent runs in-process with no hosted Foundry call. There is no resource group, subscription resource, or `azd` environment created by this workshop to delete.
+Labs 00 through 08 never provision Azure infrastructure. Every component runs locally: the calculator and approval repository are pure Python and SQLite, the MCP servers run as local processes, and the agent runs in-process with no hosted Foundry call. There is no resource group, subscription resource, or `azd` environment created by those labs to delete.
+
+That changes from Lab 10 onward, where the pilot surfaces introduce an Azure foundation, an Entra app registration, and a dedicated teardown workflow. Each of those labs cleans up after itself.
 
 ## Validation Checklist
 
 * [ ] Every MCP server process you started in Labs 04-05 has been stopped
 * [ ] Your Python virtual environment is deactivated
 * [ ] Any on-disk SQLite file you created for approval-repository experiments has been removed
-* [ ] You confirmed there are no Azure resources for this workshop to delete
+* [ ] You confirmed the local labs created no Azure resources to delete
 
 ## Knowledge Check
 
 * Why does `ApprovalRepository` default to `:memory:` rather than a file path?
-* If a future phase of this project adds a hosted deployment, what would this teardown lab need to gain that it does not need today?
+* Lab 14 introduces a teardown workflow that refuses to delete its own resource group. What does that suggest about how the pilot's resources are grouped?
 
 ## Next Steps
 
-You have completed the bilingual quote-preparation workshop. Return to the [labs index](index.md) or the [workshop home page](../index.md) for the full curriculum.
+You have completed the local half of the workshop. Continue to [Lab 10: Provision the Azure Foundation](lab-10-azure-foundation.md), which introduces the pilot surfaces and the infrastructure behind them.

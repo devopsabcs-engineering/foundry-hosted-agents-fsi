@@ -2,7 +2,7 @@
 permalink: /fr/labs/lab-09-teardown
 lang: fr
 title: "Atelier 09 - Démantèlement"
-description: "Arrêter les processus locaux démarrés, nettoyer tout état sur disque et confirmer qu'il n'y a rien à supprimer dans Azure."
+description: "Arrêter les processus locaux démarrés, nettoyer tout état sur disque et confirmer que les ateliers locaux n'ont rien provisionné dans Azure."
 ---
 
 > 🇬🇧 **[English version](../../labs/lab-09-teardown)**
@@ -20,7 +20,7 @@ Prévoyez 10 minutes. Complétez ce laboratoire même si l'exercice d'un laborat
 
 * Arrêter tout processus de serveur MCP démarré aux ateliers 04 et 05
 * Retirer tout état sur disque créé pendant vos expérimentations avec le dépôt d'approbation
-* Confirmer que cet atelier n'a provisionné aucune ressource Azure, et qu'il n'y a donc aucun démantèlement infonuagique à exécuter
+* Confirmer que les ateliers 00 à 08 n'ont provisionné aucune ressource Azure, et qu'il n'y a donc encore aucun démantèlement infonuagique à exécuter
 
 ## Exercices
 
@@ -55,22 +55,24 @@ if (Test-Path .\lab-approvals.db) { Remove-Item .\lab-approvals.db -Force }
 
 Ajustez le chemin si vous avez utilisé un autre nom de fichier aux ateliers 03 ou 07.
 
-### Exercice 9.4 : Confirmer qu'il n'y a aucun démantèlement infonuagique
+### Exercice 9.4 : Confirmer qu'il n'y a pas encore de démantèlement infonuagique
 
-Cet atelier ne provisionne jamais d'infrastructure Azure. Chaque composant des ateliers 00 à 08 s'exécute localement : le calculateur et le dépôt d'approbation sont du Python pur avec SQLite, les serveurs MCP s'exécutent comme processus locaux, et l'agent s'exécute en processus sans aucun appel à Foundry hébergé. Il n'existe aucun groupe de ressources, ressource d'abonnement ni environnement `azd` créé par cet atelier à supprimer.
+Les ateliers 00 à 08 ne provisionnent jamais d'infrastructure Azure. Chaque composant s'exécute localement : le calculateur et le dépôt d'approbation sont du Python pur avec SQLite, les serveurs MCP s'exécutent comme processus locaux, et l'agent s'exécute en processus sans aucun appel à Foundry hébergé. Il n'existe aucun groupe de ressources, ressource d'abonnement ni environnement `azd` créé par ces ateliers à supprimer.
+
+Cela change à partir de l'atelier 10, où les surfaces du pilote introduisent une fondation Azure, un enregistrement d'application Entra et un flux de démantèlement dédié. Chacun de ces ateliers nettoie ce qu'il a créé.
 
 ## Liste de vérification
 
 * [ ] Tout processus de serveur MCP démarré aux ateliers 04-05 a été arrêté
 * [ ] Votre environnement virtuel Python est désactivé
 * [ ] Tout fichier SQLite sur disque créé pour vos expérimentations avec le dépôt d'approbation a été retiré
-* [ ] Vous avez confirmé qu'il n'existe aucune ressource Azure pour cet atelier à supprimer
+* [ ] Vous avez confirmé que les ateliers locaux n'ont créé aucune ressource Azure à supprimer
 
 ## Vérification des connaissances
 
 * Pourquoi `ApprovalRepository` utilise-t-il `:memory:` par défaut plutôt qu'un chemin de fichier ?
-* Si une phase future de ce projet ajoute un déploiement hébergé, qu'est-ce que ce laboratoire de démantèlement devrait acquérir qu'il n'a pas besoin aujourd'hui ?
+* L'atelier 14 introduit un flux de démantèlement qui refuse de supprimer son propre groupe de ressources. Qu'est-ce que cela suggère sur le regroupement des ressources du pilote ?
 
 ## Étapes suivantes
 
-Vous avez terminé l'atelier bilingue de préparation de soumissions. Retournez à l'[index des ateliers](index.md) ou à la [page d'accueil de l'atelier](../index.md) pour le programme complet.
+Vous avez terminé la moitié locale de l'atelier. Poursuivez avec l'[Atelier 10 : Provisionner la fondation Azure](lab-10-azure-foundation.md), qui introduit les surfaces du pilote et l'infrastructure qui les soutient.
