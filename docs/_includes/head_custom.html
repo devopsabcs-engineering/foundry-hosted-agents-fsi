@@ -18,6 +18,18 @@
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
   }
+
+  /* Just the Docs pins the sidebar header to a fixed height at desktop widths, which
+     clips a title that needs more than one line. Let it grow instead; the nav below it
+     is `flex: 1 1 auto`, so it reclaims whatever space is left. */
+  .site-header {
+    height: auto;
+    max-height: none;
+  }
+
+  .site-title {
+    height: auto;
+  }
 </style>
 <script>
   // Fallback for browsers without CSS :has() support.
