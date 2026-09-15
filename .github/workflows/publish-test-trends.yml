@@ -13,9 +13,17 @@ name: Publish Test Trends
 # uses. If WIKI_PUSH_TOKEN is not configured, the wiki-push step fails
 # loudly (::error:: annotation, $GITHUB_STEP_SUMMARY message, exit 1)
 # rather than silently skipping. There is also no equivalent of the
-# sibling's web-chat-build.yml in the trigger list below, because this
-# repository has no apps/web-chat (see the Planning Log Discrepancy Log
-# entry for Implementation Phase 11).
+# sibling's web-chat-build.yml in the trigger list below: `apps/web-chat`
+# exists in this repository, but it is authored/code-only and gated behind
+# G2/G3/G6 sign-off (see infra/README.md), so its build workflow does not
+# trigger a wiki publish here.
+#
+# This job has no `azd`/Azure login context of its own, so it cannot
+# re-derive real deployment links -- it downloads the `deployment-links-*`
+# artifact that `deploy-and-evaluate.yml` uploads from a job that DID have
+# that context (preferring `-production`, the most recently promoted
+# environment, over `-staging`), and republishes that file's content
+# verbatim instead of guessing or omitting the links.
 
 on:
   workflow_run:
@@ -102,9 +110,26 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Download deployment links from the source run
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-links
+          for KIND in deployment-links-production deployment-links-staging; do
+            if gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$KIND" --dir deployment-links; then
+              break
+            fi
+          done
+          find deployment-links -maxdepth 1 -type f
+
       - name: Deployment links summary
         if: always()
-        run: python scripts/deployment_summary.py
+        run: |
+          if [ -f deployment-links/deployment-links.md ]; then
+            cat deployment-links/deployment-links.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            python scripts/deployment_summary.py
+          fi
 
       - name: Push trend history to the wiki
         if: always() && steps.report.outcome == 'success'
@@ -127,7 +152,11 @@ jobs:
           git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
             clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.wiki.git" wiki
           python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
-          python scripts/update_wiki_deployment_links.py wiki/Home.md
+          if [ -f deployment-links/deployment-links.md ]; then
+            python scripts/update_wiki_deployment_links.py wiki/Home.md --from-file deployment-links/deployment-links.md
+          else
+            python scripts/update_wiki_deployment_links.py wiki/Home.md
+          fi
           cd wiki
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

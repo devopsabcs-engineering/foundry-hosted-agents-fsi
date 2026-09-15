@@ -48,6 +48,14 @@
   * This repo's `eval/evaluation_gate.py` implements: a deterministic golden-dataset gate (`evaluate()`/`main()` built on `deterministic-tests/checks.py`) that does not expose `METRICS` or `validate_results` at all.
   * Plan implements: `ci_results.py`'s import wrapped in `try/except ImportError`, falling back to `METRICS = []` and a `validate_results()` that raises `ValueError` if invoked -- safe because `web-chat-build.yml` only invokes `ci_results.py --junit web-chat-evidence`, which never calls the evaluation-trend functions.
   * Rationale: A verbatim port would raise `ImportError` at import time, breaking the workflow's JUnit-only usage. Full evaluation-trend wiring against this repo's deterministic gate is a larger, separate piece of work -- see WI-01 below (extends the existing DR-02 scope).
+* DR-06 (found and fixed 2026-09-15): `scripts/deployment_summary.py`'s Foundry account/project name lookup checked env var names (`AZURE_AI_ACCOUNT_NAME`/`AZURE_AI_PROJECT_NAME`) that `infra/main.bicep`'s azd outputs never actually use (it outputs literal `accountName`/`projectName`), so the "Foundry project" link always silently fell back to a wrong hardcoded staging-only guess in every job that ran the script, including `promote-production`.
+  * Source: local `.azure/foundry-hosted-agents-fsi/.env` inspection (real `accountName=aif-foundry-hosted-agents-fsi`) versus `deployment_summary.py`'s prior lookup keys.
+  * Fixed: see hosted-agents-sibling-parity-changes.md "Follow-On Changes (2026-09-15)".
+* DR-07 (found and fixed 2026-09-15): `publish-test-trends.yml` (the job that refreshes the wiki's Deployment Links table) had no `azd`/Azure login context of its own, so every wiki refresh showed only the unconditional "Repository" row -- the direct cause of the user's "ensure we see chatbot url link" / "AI Foundry visible clickable" complaint.
+  * Fixed: `deploy-staging`/`promote-production` now upload a rendered `deployment-links.md` artifact that `publish-test-trends.yml` downloads and republishes verbatim; see changes log for detail.
+* DR-08 (identified, NOT resolved 2026-09-15): `deploy-and-evaluate.yml`'s top-of-file banner reads "This repository has never been deployed to Azure... Do not dispatch it... until all three gates are explicitly cleared by their owners," yet this workflow has been dispatched successfully multiple times against real Azure infrastructure in this and the prior session (e.g. runs 34914841304, 34917865121, and a user-triggered run around 34928520968).
+  * Impact: medium -- either the banner is stale (gates were cleared out-of-band and nobody updated the comment) or there is a real unresolved process gap; this needs the user/gate-owners to clarify, not an agent assumption either way.
+  * Not changed pending that clarification.
 
 ## Implementation Paths Considered
 
@@ -74,9 +82,11 @@
 * WI-01: Deploy the ported web-chat app to a real staging Container App -- run the operator runbook (`az acr build`, `az deployment group create --template-file infra/web-chat.bicep`, `./scripts/setup-web-chat-identity.ps1`) once real Entra tenant/client/pilot-group IDs exist for the Desjardins tenant, and add a `Web-Chat-Pilot.md` wiki page documenting the live URL. (medium priority)
   * Source: DD-01, DR-01
   * Dependency: Entra app-registration values for the Desjardins tenant; sign-off consistent with the repo's existing gating model.
+  * Status (2026-09-15): still not deployed -- unblocked pending Entra tenant ID + pilot-group ID + explicit gate sign-off from the user. Groundwork completed instead: once deployed, the resulting URL will surface automatically in the wiki's Deployment Links table (DR-06/DR-07 fixes) and the README's new "Deployment links" section requires no further edits.
 * WI-02: Extend `publish-test-trends.yml` to push a `Continuous-Test-Trends.md` wiki page, matching the sibling's trend-publishing behavior. (low priority)
   * Source: DR-02
   * Dependency: Decision on whether wiki-push trend publishing is desired for this repo at all.
+  * Status: resolved by the separate `continuous-test-trends-llm-judge` plan (2026-09-14) -- `Continuous-Test-Trends.md` is live and refreshed after every run.
 * WI-03: Port and rewrite `scripts/build-release-evidence.js` against this repo's actual eval metrics/dataset, pairing it with the already-ported `scripts/capture-release-evidence.ps1`. (medium priority)
   * Source: DR-03
   * Dependency: A completed, evidence-worthy staging-to-production release run to capture.

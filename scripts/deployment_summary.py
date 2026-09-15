@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -61,11 +62,21 @@ def render() -> str:
 
     subscription_id = value(values, "AZURE_SUBSCRIPTION_ID")
     resource_group = value(values, "AZURE_RESOURCE_GROUP", "RESOURCE_GROUP")
-    web_app_name = value(values, "WEB_CHAT_APP_NAME") or "foundry-quote-chat-staging"
+    web_app_name = value(values, "WEB_CHAT_APP_NAME")
     web_url = value(values, "WEB_CHAT_URL")
     acr_name = value(values, "MCP_ACR_NAME", "AZURE_CONTAINER_REGISTRY_NAME")
-    account_name = value(values, "AZURE_AI_ACCOUNT_NAME") or "aif-desjardins-quote-preparation-staging"
-    project_name = value(values, "AZURE_AI_PROJECT_NAME") or "proj-desjardins-quote-preparation-staging"
+    # infra/main.bicep's azd outputs land as the literal `accountName`/
+    # `projectName` keys (not `AZURE_AI_ACCOUNT_NAME`/`AZURE_AI_PROJECT_NAME`);
+    # fall back to the `aif-<env>`/`proj-<env>` naming convention it derives
+    # its defaults from (see infra/main.bicep) rather than a fixed guess, so
+    # this also resolves correctly for the production environment.
+    env_name = value(values, "AZURE_ENV_NAME")
+    account_name = value(values, "AZURE_AI_ACCOUNT_NAME", "accountName") or (
+        f"aif-{env_name}" if env_name else None
+    )
+    project_name = value(values, "AZURE_AI_PROJECT_NAME", "projectName") or (
+        f"proj-{env_name}" if env_name else None
+    )
     project_endpoint = value(values, "FOUNDRY_PROJECT_ENDPOINT")
     application_mcp_url = value(values, "APPLICATION_MCP_URL")
     rulebook_mcp_url = value(values, "RULEBOOK_MCP_URL")
@@ -80,12 +91,13 @@ def render() -> str:
     if web_url:
         links.append(("Try staging web chatbot", web_url, "Same-tenant pilot members only"))
         links.append(("Web app health", f"{web_url}/healthz", "Public process health; not an agent-invocation test"))
+        if resource_group_id and web_app_name:
+            links.append((
+                "Web app in Azure",
+                portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{web_app_name}"),
+                "Revisions, logs and metrics",
+            ))
     if resource_group_id:
-        links.append((
-            "Web app in Azure",
-            portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{web_app_name}"),
-            "Revisions, logs and metrics",
-        ))
         links.append(("Resource group", portal(resource_group_id), "Azure access required"))
     if resource_group_id and acr_name:
         links.append((
@@ -124,3 +136,9 @@ if __name__ == "__main__":
             output.write("\n" + summary)
     else:
         print(summary)
+    # Optional: also persist the rendered table to a file so a later,
+    # credential-less job (e.g. the wiki-publish job, which has no azd/Azure
+    # context of its own) can republish the same real links without
+    # re-deriving them.
+    if len(sys.argv) > 1 and sys.argv[1] == "--out":
+        Path(sys.argv[2]).write_text(summary + "\n", encoding="utf-8")

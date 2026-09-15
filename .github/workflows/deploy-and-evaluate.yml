@@ -271,7 +271,19 @@ jobs:
       - name: Deployment links summary
         if: always() && steps.deploy.outcome == 'success'
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
-        run: python scripts/deployment_summary.py
+        run: python scripts/deployment_summary.py --out ${{ github.workspace }}/deployment-links.md
+
+      # publish-test-trends.yml (triggered by workflow_run) has no azd/Azure
+      # context of its own, so it cannot re-derive these links -- it
+      # downloads this artifact instead of guessing or omitting them.
+      - name: Upload deployment links for the wiki-publish job
+        if: always() && steps.deploy.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: deployment-links-staging
+          path: deployment-links.md
+          retention-days: 14
+          if-no-files-found: warn
 
   # ---------------------------------------------------------------------
   # Stage 4: Deterministic evaluation gate + LLM-judge (release quality control)
@@ -503,4 +515,16 @@ jobs:
       - name: Deployment links summary
         if: always() && steps.deploy.outcome == 'success'
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
-        run: python scripts/deployment_summary.py
+        run: python scripts/deployment_summary.py --out ${{ github.workspace }}/deployment-links.md
+
+      # publish-test-trends.yml (triggered by workflow_run) has no azd/Azure
+      # context of its own, so it cannot re-derive these links -- it
+      # downloads this artifact instead of guessing or omitting them.
+      - name: Upload deployment links for the wiki-publish job
+        if: always() && steps.deploy.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: deployment-links-production
+          path: deployment-links.md
+          retention-days: 14
+          if-no-files-found: warn

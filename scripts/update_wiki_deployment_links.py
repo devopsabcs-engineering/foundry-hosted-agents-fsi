@@ -8,6 +8,13 @@ in the given file with the current output of
 `scripts.deployment_summary.render()`, leaving the rest of the page
 untouched. Fails loudly (non-zero exit) if the markers are not both
 present, rather than silently appending or skipping.
+
+The wiki-publish job has no `azd`/Azure login context of its own, so
+`render()` there would only ever show the unconditional "Repository" row.
+Pass `--from-file <path>` (pointing at a `deployment_summary.py --out ...`
+file produced by a job that DID have real deployment context, e.g.
+`deploy-staging`/`promote-production`) to republish those real links
+instead of re-deriving (and losing) them here.
 """
 
 from __future__ import annotations
@@ -24,20 +31,27 @@ START = "<!-- deployment-links:start -->"
 END = "<!-- deployment-links:end -->"
 
 
-def update(text: str) -> str:
+def update(text: str, content: str) -> str:
     pattern = re.compile(re.escape(START) + r".*?" + re.escape(END), re.DOTALL)
     if not pattern.search(text):
         raise ValueError(f"Could not find {START} ... {END} markers to update")
-    replacement = f"{START}\n{render().rstrip()}\n{END}"
+    replacement = f"{START}\n{content.rstrip()}\n{END}"
     return pattern.sub(replacement, text, count=1)
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("usage: update_wiki_deployment_links.py <path-to-wiki-page>", file=sys.stderr)
+    args = sys.argv[1:]
+    from_file: str | None = None
+    if "--from-file" in args:
+        index = args.index("--from-file")
+        from_file = args[index + 1]
+        del args[index:index + 2]
+    if len(args) != 1:
+        print("usage: update_wiki_deployment_links.py <path-to-wiki-page> [--from-file <path>]", file=sys.stderr)
         raise SystemExit(2)
-    path = Path(sys.argv[1])
-    path.write_text(update(path.read_text(encoding="utf-8")), encoding="utf-8")
+    path = Path(args[0])
+    content = Path(from_file).read_text(encoding="utf-8") if from_file else render()
+    path.write_text(update(path.read_text(encoding="utf-8"), content), encoding="utf-8")
 
 
 if __name__ == "__main__":
