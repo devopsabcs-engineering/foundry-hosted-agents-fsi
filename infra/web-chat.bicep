@@ -1,20 +1,13 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
+// DEPLOYED OUT-OF-BAND.
 //
 // Standalone Container App hosting the internal pilot web-chat frontend
 // (apps/web-chat). Deliberately NOT wired into infra/main.bicep or
-// azure.yaml -- it is deployed out-of-band via a manual
-// `az deployment group create` against this file, into the *existing*
-// Container Apps environment, ACR, and Foundry project that
-// infra/main.bicep already provisions. See infra/README.md and
-// scripts/setup-web-chat-identity.ps1 for the associated Entra app
-// registration.
+// azure.yaml -- it is deployed via a manual `az deployment group create`
+// against this file, into the *existing* Container Apps environment, ACR,
+// and Foundry project that infra/main.bicep already provisions. See
+// infra/README.md and scripts/setup-web-chat-identity.ps1 for the
+// associated Entra app registration.
 // ============================================================================
 
 @description('Azure region for the web-chat Container App and its identity')
@@ -46,6 +39,10 @@ param foundryAccountName string = 'aif-desjardins-quote-preparation-staging'
 
 @description('Existing Foundry project name (matches infra/main.bicep\'s projectName = proj-<environmentName> pattern)')
 param foundryProjectName string = 'proj-desjardins-quote-preparation-staging'
+
+@description('Deployment label reported by /api/config and used as the resource tag; distinct from environmentName, which is the Container Apps managed environment')
+@allowed(['staging', 'production'])
+param deploymentLabel string = 'staging'
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
@@ -93,7 +90,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
   location: location
   tags: {
-    environment: 'staging'
+    environment: deploymentLabel
     purpose: 'internal-pilot-web-chat'
   }
   identity: {
@@ -124,6 +121,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'ENTRA_TENANT_ID', value: tenantId }
           { name: 'ENTRA_CLIENT_ID', value: clientId }
           { name: 'PILOT_GROUP_ID', value: pilotGroupId }
+          { name: 'ENVIRONMENT', value: deploymentLabel }
           { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
           { name: 'AGENT_ENDPOINT', value: 'https://${foundryAccountName}.services.ai.azure.com/api/projects/${foundryProjectName}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1' }
         ]

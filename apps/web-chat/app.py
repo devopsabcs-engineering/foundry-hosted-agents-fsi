@@ -31,6 +31,7 @@ class Settings:
     session_ttl: int = 3600
     max_sessions: int = 128
     max_turns: int = 20
+    environment: str = "staging"
 
     @classmethod
     def from_env(cls):
@@ -44,6 +45,7 @@ class Settings:
             pilot_group_id=str(uuid.UUID(os.environ["PILOT_GROUP_ID"])),
             agent_endpoint=endpoint,
             managed_identity_client_id=os.environ.get("AZURE_CLIENT_ID"),
+            environment=os.environ.get("ENVIRONMENT", "staging"),
         )
 
 
@@ -199,7 +201,7 @@ def create_app(settings=None, verifier=None, upstream=None):
     @application.get("/api/config")
     async def config():
         return {"tenantId": settings.tenant_id, "clientId": settings.client_id,
-                "scope": f"api://{settings.client_id}/Chat.Access", "environment": "staging"}
+                "scope": f"api://{settings.client_id}/Chat.Access", "environment": settings.environment}
 
     @application.get("/api/me")
     async def me(owner: Identity = Depends(identity)):

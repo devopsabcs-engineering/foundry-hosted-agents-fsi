@@ -26,15 +26,20 @@ function Premium({ record, detailed = false }) {
   return <span className="premium">{view.amount}{detailed && view.period ? <span className="period"> per {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
 }
 
-function Queue({ cases, onOpen, onRefresh, busy, headingRef }) {
+function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed }) {
   return <section className="panel">
     <div className="panel-head">
       <div><span className="overline">DESJARDINS / CASE REVIEW</span><h1 ref={headingRef} tabIndex={-1}>Pending review</h1></div>
       <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />Refresh</button>
     </div>
     <Notice />
+    {/* An empty list after a failed load means the queue is unknown, not empty.
+        Saying "no cases" there tells a reviewer nothing is waiting when the
+        backend could not be reached, which is the one wrong answer to give. */}
     {!cases.length
-      ? <p className="empty-queue">No cases are waiting for review.</p>
+      ? (failed
+        ? <p className="empty-queue">The queue could not be loaded, so it is not known whether any cases are waiting. See the message above and use Refresh to try again.</p>
+        : <p className="empty-queue">No cases are waiting for review.</p>)
       : <div className="queue-scroll" role="region" aria-label="Case queue" tabIndex={0}>
         <table className="queue">
           <caption className="visually-hidden">Cases awaiting review</caption>
@@ -295,6 +300,7 @@ function Workspace({ auth, config, initialAccount }) {
           ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef}
             onBack={() => run(loadQueue)} />
           : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} headingRef={headingRef}
+            failed={Boolean(error)}
             onOpen={caseId => run(() => loadCase(caseId))} />}
     </main>
     <footer className="disclaimer">{NOTICE}</footer>

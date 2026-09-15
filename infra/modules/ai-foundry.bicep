@@ -1,15 +1,13 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
+// Foundry account and project for the quote-preparation hosted agent.
 //
-// Model name/version/SKU defaults below are placeholders pending Gate G2
-// (platform/security) and G3 (reproducible compatibility) discovery -- do
-// not treat them as an approved model selection.
+// The account keeps publicNetworkAccess enabled while also declaring
+// networkInjections. That combination is not documented but is accepted by the
+// 2025-06-01 API and was verified against a throwaway account: the injection
+// array persists alongside "publicNetworkAccess": "Enabled". It is what lets
+// the agent runtime egress into the VNet to reach the Cosmos private endpoint
+// without forcing every deployment, CI run, and workshop attendee onto a
+// self-hosted runner inside the network.
 // ============================================================================
 
 @description('Azure region for the Foundry account and project')
@@ -58,6 +56,9 @@ param applicationInsightsResourceId string
 @description('Application Insights ingestion connection string')
 param applicationInsightsConnectionString string
 
+@description('Resource ID of the subnet dedicated to this account\'s agent runtime (infra/network.bicep output agentStagingSubnetId or agentProductionSubnetId). One subnet per account, never shared.')
+param agentSubnetId string
+
 // Basic Agent Setup: Microsoft-managed conversation/file/vector storage — no capabilityHosts.
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: accountName
@@ -74,6 +75,14 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     allowProjectManagement: true
     disableLocalAuth: false
     publicNetworkAccess: 'Enabled'
+    // Immutable after creation: changing or removing this requires a new account.
+    networkInjections: [
+      {
+        scenario: 'agent'
+        subnetArmId: agentSubnetId
+        useMicrosoftManagedNetwork: false
+      }
+    ]
   }
 }
 

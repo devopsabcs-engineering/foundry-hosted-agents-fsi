@@ -1,12 +1,4 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
-//
 // Serverless Cosmos DB account backing the shared approval case store that the
 // hosted agent writes and the reviewer app reads and decides on
 // (src/quote-preparation-agent/cosmos_case_store.py). The database, container,
@@ -37,6 +29,12 @@ param containerName string = 'cases'
 @description('Partition key path for the cases container (matches COSMOS_PARTITION_KEY_PATH in src/quote-preparation-agent/case_store.py)')
 param partitionKeyPath string = '/caseId'
 
+@description('Resource ID of the subnet hosting the Cosmos private endpoint (infra/network.bicep output privateEndpointSubnetId)')
+param privateEndpointSubnetId string
+
+@description('Resource ID of the privatelink.documents.azure.com zone linked to the VNet (infra/network.bicep output cosmosPrivateDnsZoneId)')
+param privateDnsZoneId string
+
 resource account 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
   name: accountName
   location: location
@@ -63,8 +61,49 @@ resource account 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     // accepts an account key, so key-based access is switched off at the account.
     // This intentionally diverges from the Foundry account's disableLocalAuth: false.
     disableLocalAuth: true
-    publicNetworkAccess: 'Enabled'
+    // Tenant-root policy assignment 'mcapsgovdeploypolicies' applies a modify effect that
+    // forces this to Disabled on every write. Declaring Enabled here produced permanent
+    // drift and a data-plane outage; all Cosmos traffic goes through the private endpoint.
+    publicNetworkAccess: 'Disabled'
     minimalTlsVersion: 'Tls12'
+  }
+}
+
+resource privateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
+  name: 'pe-${accountName}'
+  location: location
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'cosmos-sql'
+        properties: {
+          privateLinkServiceId: account.id
+          groupIds: [
+            'Sql'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+// Without this group the A records are never written and callers inside the VNet keep
+// resolving the account's public IP, which the firewall then rejects.
+resource privateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = {
+  parent: privateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'documents'
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
+      }
+    ]
   }
 }
 

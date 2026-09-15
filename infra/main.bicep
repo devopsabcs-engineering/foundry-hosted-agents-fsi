@@ -1,11 +1,12 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
+// Per-environment stack for the quote-preparation workshop. Deployed twice into
+// one resource group, once for staging and once for production.
+//
+// The VNet, its subnets, and the Cosmos private DNS zone are NOT declared here.
+// They live in infra/network.bicep and are deployed once for the whole resource
+// group, because an ARM write of a VNet that omits `subnets` deletes the subnets
+// it does not name, so a template that runs twice cannot own that resource.
+// Deploy infra/network.bicep first; this template consumes it with `existing`.
 // ============================================================================
 
 targetScope = 'resourceGroup'
@@ -117,9 +118,38 @@ param reviewerScope string = 'Review.Access'
 @description('Object ID of the hosted agent\'s Entra agent identity, to receive Cosmos data-plane write access. Leave empty to skip the grant.')
 param agentPrincipalId string = ''
 
-var effectiveMcpNamePrefix = !empty(mcpNamePrefix) ? mcpNamePrefix : (endsWith(environmentName, '-staging') ? 'mcp-staging' : 'mcp')
-var reviewerEnvironment = endsWith(environmentName, '-staging') ? 'staging' : 'production'
+@description('Name of the shared virtual network deployed by infra/network.bicep')
+param vnetName string = 'vnet-desjardins-quote-preparation'
+
+@description('Name of the private DNS zone for Cosmos SQL private endpoints, linked to the shared VNet by infra/network.bicep')
+param cosmosPrivateDnsZoneName string = 'privatelink.documents.azure.com'
+
+var isStaging = endsWith(environmentName, '-staging')
+var effectiveMcpNamePrefix = !empty(mcpNamePrefix) ? mcpNamePrefix : (isStaging ? 'mcp-staging' : 'mcp')
+var reviewerEnvironment = isStaging ? 'staging' : 'production'
 var deployReviewerApp = !empty(reviewerClientId)
+var acaSubnetName = isStaging ? 'snet-aca-staging' : 'snet-aca-production'
+var agentSubnetName = isStaging ? 'snet-agent-staging' : 'snet-agent-production'
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: vnetName
+
+  resource acaSubnet 'subnets' existing = {
+    name: acaSubnetName
+  }
+
+  resource agentSubnet 'subnets' existing = {
+    name: agentSubnetName
+  }
+
+  resource privateEndpointSubnet 'subnets' existing = {
+    name: 'snet-private-endpoints'
+  }
+}
+
+resource cosmosPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
+  name: cosmosPrivateDnsZoneName
+}
 
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
@@ -146,6 +176,7 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
     modelSkuCapacity: modelSkuCapacity
     applicationMcpUrl: 'https://${mcpContainerApps.outputs.applicationContainerAppFqdn}/mcp'
     rulebookMcpUrl: 'https://${mcpContainerApps.outputs.rulebookContainerAppFqdn}/mcp'
+    agentSubnetId: vnet::agentSubnet.id
   }
 }
 
@@ -166,6 +197,7 @@ module mcpContainerApps 'modules/mcp-container-apps.bicep' = {
     acrName: mcpAcrName
     applicationImage: applicationMcpImage
     rulebookImage: rulebookMcpImage
+    infrastructureSubnetId: vnet::acaSubnet.id
   }
 }
 
@@ -174,6 +206,8 @@ module cosmos 'modules/cosmos-db.bicep' = {
   params: {
     location: location
     accountName: cosmosAccountName
+    privateEndpointSubnetId: vnet::privateEndpointSubnet.id
+    privateDnsZoneId: cosmosPrivateDnsZone.id
   }
 }
 

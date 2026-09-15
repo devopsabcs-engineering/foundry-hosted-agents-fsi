@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "6782662651637108432"
+      "templateHash": "8772189422588115792"
     }
   },
   "parameters": {
@@ -198,12 +198,29 @@
       "metadata": {
         "description": "Object ID of the hosted agent's Entra agent identity, to receive Cosmos data-plane write access. Leave empty to skip the grant."
       }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnet-desjardins-quote-preparation",
+      "metadata": {
+        "description": "Name of the shared virtual network deployed by infra/network.bicep"
+      }
+    },
+    "cosmosPrivateDnsZoneName": {
+      "type": "string",
+      "defaultValue": "privatelink.documents.azure.com",
+      "metadata": {
+        "description": "Name of the private DNS zone for Cosmos SQL private endpoints, linked to the shared VNet by infra/network.bicep"
+      }
     }
   },
   "variables": {
-    "effectiveMcpNamePrefix": "[if(not(empty(parameters('mcpNamePrefix'))), parameters('mcpNamePrefix'), if(endsWith(parameters('environmentName'), '-staging'), 'mcp-staging', 'mcp'))]",
-    "reviewerEnvironment": "[if(endsWith(parameters('environmentName'), '-staging'), 'staging', 'production')]",
-    "deployReviewerApp": "[not(empty(parameters('reviewerClientId')))]"
+    "isStaging": "[endsWith(parameters('environmentName'), '-staging')]",
+    "effectiveMcpNamePrefix": "[if(not(empty(parameters('mcpNamePrefix'))), parameters('mcpNamePrefix'), if(variables('isStaging'), 'mcp-staging', 'mcp'))]",
+    "reviewerEnvironment": "[if(variables('isStaging'), 'staging', 'production')]",
+    "deployReviewerApp": "[not(empty(parameters('reviewerClientId')))]",
+    "acaSubnetName": "[if(variables('isStaging'), 'snet-aca-staging', 'snet-aca-production')]",
+    "agentSubnetName": "[if(variables('isStaging'), 'snet-agent-staging', 'snet-agent-production')]"
   },
   "resources": [
     {
@@ -370,6 +387,9 @@
           },
           "rulebookMcpUrl": {
             "value": "[format('https://{0}/mcp', reference(resourceId('Microsoft.Resources/deployments', 'mcp-container-apps'), '2025-04-01').outputs.rulebookContainerAppFqdn.value)]"
+          },
+          "agentSubnetId": {
+            "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), variables('agentSubnetName'))]"
           }
         },
         "template": {
@@ -379,7 +399,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.46.1.21595",
-              "templateHash": "2495564181008049297"
+              "templateHash": "16897003641506186221"
             }
           },
           "parameters": {
@@ -483,6 +503,12 @@
               "metadata": {
                 "description": "Application Insights ingestion connection string"
               }
+            },
+            "agentSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet dedicated to this account's agent runtime (infra/network.bicep output agentStagingSubnetId or agentProductionSubnetId). One subnet per account, never shared."
+              }
             }
           },
           "resources": [
@@ -502,7 +528,14 @@
                 "customSubDomainName": "[parameters('accountName')]",
                 "allowProjectManagement": true,
                 "disableLocalAuth": false,
-                "publicNetworkAccess": "Enabled"
+                "publicNetworkAccess": "Enabled",
+                "networkInjections": [
+                  {
+                    "scenario": "agent",
+                    "subnetArmId": "[parameters('agentSubnetId')]",
+                    "useMicrosoftManagedNetwork": false
+                  }
+                ]
               }
             },
             {
@@ -776,6 +809,9 @@
           },
           "rulebookImage": {
             "value": "[parameters('rulebookMcpImage')]"
+          },
+          "infrastructureSubnetId": {
+            "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), variables('acaSubnetName'))]"
           }
         },
         "template": {
@@ -785,7 +821,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.46.1.21595",
-              "templateHash": "14824513106600418030"
+              "templateHash": "13507075049091591542"
             }
           },
           "parameters": {
@@ -829,6 +865,12 @@
               "defaultValue": 8000,
               "metadata": {
                 "description": "Port exposed by each MCP server container (matches PORT env var in mcp/*/main.py)."
+              }
+            },
+            "infrastructureSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the delegated infrastructure subnet for this environment (infra/network.bicep output acaStagingSubnetId or acaProductionSubnetId)"
               }
             }
           },
@@ -885,7 +927,17 @@
                     "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').customerId]",
                     "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').primarySharedKey]"
                   }
-                }
+                },
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[parameters('infrastructureSubnetId')]",
+                  "internal": false
+                },
+                "workloadProfiles": [
+                  {
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ]
               },
               "dependsOn": [
                 "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
@@ -1014,6 +1066,12 @@
           },
           "accountName": {
             "value": "[parameters('cosmosAccountName')]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'snet-private-endpoints')]"
+          },
+          "privateDnsZoneId": {
+            "value": "[resourceId('Microsoft.Network/privateDnsZones', parameters('cosmosPrivateDnsZoneName'))]"
           }
         },
         "template": {
@@ -1023,7 +1081,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.46.1.21595",
-              "templateHash": "10492641748506538746"
+              "templateHash": "10679943816034739698"
             }
           },
           "parameters": {
@@ -1062,6 +1120,18 @@
               "metadata": {
                 "description": "Partition key path for the cases container (matches COSMOS_PARTITION_KEY_PATH in src/quote-preparation-agent/case_store.py)"
               }
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet hosting the Cosmos private endpoint (infra/network.bicep output privateEndpointSubnetId)"
+              }
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the privatelink.documents.azure.com zone linked to the VNet (infra/network.bicep output cosmosPrivateDnsZoneId)"
+              }
             }
           },
           "resources": [
@@ -1089,9 +1159,52 @@
                   "defaultConsistencyLevel": "Session"
                 },
                 "disableLocalAuth": true,
-                "publicNetworkAccess": "Enabled",
+                "publicNetworkAccess": "Disabled",
                 "minimalTlsVersion": "Tls12"
               }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('pe-{0}', parameters('accountName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "cosmos-sql",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]",
+                      "groupIds": [
+                        "Sql"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('accountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('pe-{0}', parameters('accountName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "documents",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('accountName')))]"
+              ]
             },
             {
               "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",

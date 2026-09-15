@@ -1,25 +1,15 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
-//
 // Container Apps environment and two apps hosting the decoupled, read-only
 // MCP tool servers (application-server: get_application, rulebook-server:
 // get_rulebook). Self-contained: this module provisions its own Log
 // Analytics workspace and does not reference infra/modules/ai-foundry.bicep
-// or any other module, so it compiles and (once gates clear) could be
-// deployed independently.
+// or any other module, so it compiles and deploys independently.
 //
-// Ingress is external (public HTTPS) for both apps: this workshop targets
-// Basic (public, no-VNet) Foundry Agent Setup, so the Foundry-managed
-// hosted-agent runtime has no private path into an internal-only Container
-// Apps FQDN. Standard Agent Setup with VNet integration would allow
-// internal-only ingress instead -- revisit if/when Gate G2 requires network
-// isolation.
+// Ingress stays external (public HTTPS) even though the environment is now
+// VNet-integrated: the Foundry account keeps publicNetworkAccess enabled, and
+// the agent runtime reaches these FQDNs the same way a browser does. The VNet
+// exists so workloads in this environment can resolve and reach the Cosmos
+// private endpoint, which tenant policy makes the only reachable path.
 // Images are intended to be built and pushed via `az acr build` (see
 // acrName param) rather than the public placeholder image below.
 // ============================================================================
@@ -41,6 +31,9 @@ param rulebookImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 
 @description('Port exposed by each MCP server container (matches PORT env var in mcp/*/main.py).')
 param containerPort int = 8000
+
+@description('Resource ID of the delegated infrastructure subnet for this environment (infra/network.bicep output acaStagingSubnetId or acaProductionSubnetId)')
+param infrastructureSubnetId string
 
 var useAcr = !empty(acrName)
 // Every environment (staging and production) gets its own pull identity with an
@@ -93,6 +86,22 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
         sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
       }
     }
+    // internal: false keeps ingress on a public FQDN; only egress moves into the VNet.
+    // This whole block is immutable, so switching it on an existing environment
+    // requires deleting and recreating the environment and every app inside it.
+    vnetConfiguration: {
+      infrastructureSubnetId: infrastructureSubnetId
+      internal: false
+    }
+    // The infrastructure subnet is delegated to Microsoft.App/environments, which
+    // Consumption-only environments reject; a workload profile environment is the
+    // shape that accepts a delegated subnet.
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
   }
 }
 

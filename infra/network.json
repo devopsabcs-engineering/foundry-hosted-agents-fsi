@@ -1,0 +1,208 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "11523786685890543426"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the virtual network. Must match the Foundry account region."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnet-desjardins-quote-preparation",
+      "metadata": {
+        "description": "Virtual network name"
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.0.0/16",
+      "metadata": {
+        "description": "Address space for the virtual network"
+      }
+    },
+    "acaProductionSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.0.0/23",
+      "metadata": {
+        "description": "Subnet prefix for the production Container Apps environment"
+      }
+    },
+    "acaStagingSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.2.0/23",
+      "metadata": {
+        "description": "Subnet prefix for the staging Container Apps environment"
+      }
+    },
+    "agentProductionSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.4.0/24",
+      "metadata": {
+        "description": "Subnet prefix for the production Foundry agent injection subnet"
+      }
+    },
+    "agentStagingSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.5.0/24",
+      "metadata": {
+        "description": "Subnet prefix for the staging Foundry agent injection subnet"
+      }
+    },
+    "privateEndpointSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.6.0/24",
+      "metadata": {
+        "description": "Subnet prefix hosting every private endpoint in this resource group"
+      }
+    }
+  },
+  "variables": {
+    "containerAppsDelegation": "Microsoft.App/environments"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-05-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "snet-aca-production",
+            "properties": {
+              "addressPrefix": "[parameters('acaProductionSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "aca-delegation",
+                  "properties": {
+                    "serviceName": "[variables('containerAppsDelegation')]"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "snet-aca-staging",
+            "properties": {
+              "addressPrefix": "[parameters('acaStagingSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "aca-delegation",
+                  "properties": {
+                    "serviceName": "[variables('containerAppsDelegation')]"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "snet-agent-production",
+            "properties": {
+              "addressPrefix": "[parameters('agentProductionSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "agent-delegation",
+                  "properties": {
+                    "serviceName": "[variables('containerAppsDelegation')]"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "snet-agent-staging",
+            "properties": {
+              "addressPrefix": "[parameters('agentStagingSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "agent-delegation",
+                  "properties": {
+                    "serviceName": "[variables('containerAppsDelegation')]"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "snet-private-endpoints",
+            "properties": {
+              "addressPrefix": "[parameters('privateEndpointSubnetPrefix')]",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.documents.azure.com",
+      "location": "global"
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.documents.azure.com', format('{0}-link', parameters('vnetName')))]",
+      "location": "global",
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.documents.azure.com')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+    },
+    "vnetName": {
+      "type": "string",
+      "value": "[parameters('vnetName')]"
+    },
+    "acaProductionSubnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').subnets[0].id]"
+    },
+    "acaStagingSubnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').subnets[1].id]"
+    },
+    "agentProductionSubnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').subnets[2].id]"
+    },
+    "agentStagingSubnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').subnets[3].id]"
+    },
+    "privateEndpointSubnetId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').subnets[4].id]"
+    },
+    "cosmosPrivateDnsZoneId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.documents.azure.com')]"
+    }
+  }
+}

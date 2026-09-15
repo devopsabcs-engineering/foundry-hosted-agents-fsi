@@ -1,16 +1,11 @@
 name: Deploy and Evaluate (Staging -> Production)
 
 # ============================================================================
-# AUTHOR-ONLY / DO NOT DISPATCH UNTIL GATES CLEAR.
-# Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-# G6 (regulatory/privacy) sign-off. This workflow runs `azd provision`,
-# `azd deploy`, and `az deployment group create` (via `what-if` and the
-# real apply performed by `azd provision`/`azd deploy`) against a real
-# Azure subscription. Do not dispatch it -- directly or via
-# hosted-agent-cd.yml -- until all three gates are explicitly cleared by
-# their owners. This repository has never been deployed to Azure. See
-# infra/README.md for the gate definitions and infra/modules/*.bicep for
-# the matching author-only banner on the templates this workflow deploys.
+# DEPLOYS TO A REAL AZURE SUBSCRIPTION.
+# This workflow runs `az deployment group create`, `azd provision`, and
+# `azd deploy` against the shared resource group. Staging is deployed and
+# evaluated first; promotion to production is gated by the required reviewers
+# configured on the `production` GitHub Environment.
 # ============================================================================
 #
 # Shared by hosted-agent-cd.yml's manual dispatch entry point. Adapted from
@@ -153,6 +148,27 @@ jobs:
 
       - name: az bicep build (full module graph)
         run: az bicep build --file infra/main.bicep
+
+      # Runs before every what-if and provision because main.bicep resolves the
+      # VNet, its subnets, and the Cosmos private DNS zone with `existing`, which
+      # fails outright when they are absent. It is a separate deployment rather
+      # than part of main.bicep because main.bicep is applied once per
+      # environment into one shared resource group, and an ARM write of a VNet
+      # that omits `subnets` deletes the subnets belonging to the other
+      # environment. Idempotent, so both jobs can run it.
+      - name: Deploy shared network foundation (idempotent)
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name network-foundation \
+            --template-file infra/network.bicep \
+            --parameters location="$AZURE_LOCATION" \
+            --output none
+          echo "Shared network foundation is in place."
 
       - name: az deployment group what-if (staging resource group; preview only, no apply)
         env:
@@ -602,6 +618,20 @@ jobs:
           if [ -n "$REVIEWER_APP_IMAGE" ]; then
             azd env set REVIEWER_APP_IMAGE "$REVIEWER_APP_IMAGE"
           fi
+
+      - name: Deploy shared network foundation (idempotent)
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name network-foundation \
+            --template-file infra/network.bicep \
+            --parameters location="$AZURE_LOCATION" \
+            --output none
+          echo "Shared network foundation is in place."
 
       - name: Provision production infrastructure (idempotent)
         working-directory: ${{ env.AGENT_PROJECT_DIR }}

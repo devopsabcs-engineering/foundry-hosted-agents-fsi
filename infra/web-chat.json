@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "10082384767405025932"
+      "templateHash": "4193200962102401710"
     }
   },
   "parameters": {
@@ -73,6 +73,17 @@
       "metadata": {
         "description": "Existing Foundry project name (matches infra/main.bicep's projectName = proj-<environmentName> pattern)"
       }
+    },
+    "deploymentLabel": {
+      "type": "string",
+      "defaultValue": "staging",
+      "allowedValues": [
+        "staging",
+        "production"
+      ],
+      "metadata": {
+        "description": "Deployment label reported by /api/config and used as the resource tag; distinct from environmentName, which is the Container Apps managed environment"
+      }
     }
   },
   "resources": [
@@ -116,7 +127,7 @@
       "name": "[parameters('appName')]",
       "location": "[parameters('location')]",
       "tags": {
-        "environment": "staging",
+        "environment": "[parameters('deploymentLabel')]",
         "purpose": "internal-pilot-web-chat"
       },
       "identity": {
@@ -163,6 +174,10 @@
                 {
                   "name": "PILOT_GROUP_ID",
                   "value": "[parameters('pilotGroupId')]"
+                },
+                {
+                  "name": "ENVIRONMENT",
+                  "value": "[parameters('deploymentLabel')]"
                 },
                 {
                   "name": "AZURE_CLIENT_ID",

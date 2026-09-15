@@ -1,0 +1,337 @@
+name: Network Rebuild Teardown
+
+# ============================================================================
+# DESTRUCTIVE / MANUAL DISPATCH ONLY.
+#
+# Deletes exactly the resources whose network configuration is immutable and
+# therefore cannot be converted in place to VNet integration:
+#
+#   1. Container Apps in the environment   reviewer, chat, application-server,
+#                                          rulebook-server
+#   2. Container Apps managed environment  <prefix>-mcp-env
+#   3. Foundry account (delete + purge)    aif-<azd-env-name>
+#
+# `vnetConfiguration` on a managed environment and `networkInjections` on a
+# Foundry account are both set-at-creation-only. Re-running `azd provision`
+# against the existing resources silently leaves them on the public network, so
+# the rebuild has to start from an absent resource.
+#
+# THIS WORKFLOW NEVER DELETES THE RESOURCE GROUP. `vars.AZURE_RESOURCE_GROUP`
+# is a SINGLE resource group shared by the staging AND production azd
+# environments, so `az group delete` would take production down while tearing
+# down staging.
+#
+# NEVER deleted, because these survive the rebuild intact:
+#   * The resource group itself
+#   * The shared VNet, its subnets, and the Cosmos private DNS zone
+#     (infra/network.bicep -- deleting these would strand every environment)
+#   * The Azure Container Registry (vars.MCP_ACR_NAME) and its images
+#   * Cosmos DB accounts, databases, containers, and the case data in them;
+#     a private endpoint is added to the existing account, not a new one
+#   * Log Analytics and Application Insights, so telemetry history is kept
+#   * Entra app registrations for the reviewer and chat surfaces
+#
+# Safety posture matches reviewer-app-teardown.yml:
+#   * workflow_dispatch only -- never push, schedule, or pull_request.
+#   * The operator must type the target environment name into `confirm`.
+#   * `execute` defaults to false, so a run with no inputs changed is a DRY RUN.
+#   * `environment:` binds to the matching GitHub Environment, so required
+#     reviewers configured on `production` gate this too.
+#   * Every delete is existence-checked, so a rerun after a partial failure
+#     succeeds and a run against already-absent resources exits 0.
+#
+# After this completes, run Deploy and Evaluate against the same environment to
+# rebuild. Container App FQDNs change, so the reviewer and chat Entra redirect
+# URIs must be refreshed with scripts/setup-reviewer-identity.ps1 and
+# scripts/setup-web-chat-identity.ps1.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which deployment to tear down for the network rebuild
+        type: choice
+        required: true
+        default: staging
+        options:
+          - staging
+          - production
+      confirm:
+        description: Type the environment name exactly (staging or production) to confirm
+        type: string
+        required: true
+      execute:
+        description: Actually delete. Leave unchecked for a dry run that only reports.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# Shared with deploy-and-evaluate.yml so a teardown can never interleave with
+# an in-flight `azd provision` against the same resource group.
+concurrency:
+  group: desjardins-quote-preparation-shared-environments
+  queue: max
+
+jobs:
+  teardown:
+    name: Tear down for network rebuild (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # Inputs are read through `env:` rather than interpolated into the script
+      # body, so a crafted input string cannot become shell code.
+      - name: Verify typed confirmation
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          TYPED_CONFIRMATION: ${{ inputs.confirm }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ENVIRONMENT" in
+            staging|production) ;;
+            *) echo "::error::Unsupported environment '$TARGET_ENVIRONMENT'."; exit 1 ;;
+          esac
+          if [ "$TYPED_CONFIRMATION" != "$TARGET_ENVIRONMENT" ]; then
+            echo "::error::Confirmation mismatch. Type '$TARGET_ENVIRONMENT' exactly to proceed. Nothing was deleted."
+            exit 1
+          fi
+          if [ "$EXECUTE" = "true" ]; then
+            echo "::warning::Running in DELETE mode against '$TARGET_ENVIRONMENT'."
+          else
+            echo "Running in DRY RUN mode. Nothing will be deleted."
+          fi
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Names are derived with the same expressions main.bicep uses, so the
+      # teardown targets exactly what the template provisions. They are NOT
+      # discovered by wildcard or tag, which would sweep up shared resources.
+      - name: Resolve resource names
+        id: names
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          if [ "$TARGET_ENVIRONMENT" = "staging" ]; then
+            AZD_ENV_NAME="desjardins-quote-preparation-staging"
+            MCP_NAME_PREFIX="mcp-staging"
+            REVIEWER_APP_NAME="foundry-quote-reviewer-staging"
+            CHAT_APP_NAME="foundry-quote-chat-staging"
+          else
+            AZD_ENV_NAME="desjardins-quote-preparation-poc"
+            MCP_NAME_PREFIX="mcp"
+            REVIEWER_APP_NAME="foundry-quote-reviewer"
+            CHAT_APP_NAME="foundry-quote-chat"
+          fi
+          {
+            echo "azd_env_name=$AZD_ENV_NAME"
+            echo "mcp_name_prefix=$MCP_NAME_PREFIX"
+            echo "reviewer_app_name=$REVIEWER_APP_NAME"
+            echo "chat_app_name=$CHAT_APP_NAME"
+            echo "managed_environment_name=${MCP_NAME_PREFIX}-mcp-env"
+            echo "foundry_account_name=aif-${AZD_ENV_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      # Belt and braces behind the derivation above: if a future rename ever
+      # makes a target collide with something the rebuild depends on, stop here
+      # rather than deleting the registry or the shared network.
+      - name: Guard protected names
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+          AZD_ENV_NAME: ${{ steps.names.outputs.azd_env_name }}
+          MANAGED_ENVIRONMENT_NAME: ${{ steps.names.outputs.managed_environment_name }}
+          FOUNDRY_ACCOUNT_NAME: ${{ steps.names.outputs.foundry_account_name }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+          CHAT_APP_NAME: ${{ steps.names.outputs.chat_app_name }}
+        run: |
+          set -euo pipefail
+          [ -n "$AZURE_RESOURCE_GROUP" ] || { echo "::error::AZURE_RESOURCE_GROUP is not configured."; exit 1; }
+          COSMOS_ACCOUNT_NAME=$(echo "cosmos-${AZD_ENV_NAME}" | tr '[:upper:]' '[:lower:]')
+          PROTECTED=(
+            "$AZURE_RESOURCE_GROUP"
+            "$MCP_ACR_NAME"
+            "$COSMOS_ACCOUNT_NAME"
+            "vnet-desjardins-quote-preparation"
+            "privatelink.documents.azure.com"
+            "log-${AZD_ENV_NAME}"
+            "appi-${AZD_ENV_NAME}"
+          )
+          TARGETS=(
+            "$MANAGED_ENVIRONMENT_NAME"
+            "$FOUNDRY_ACCOUNT_NAME"
+            "$REVIEWER_APP_NAME"
+            "$CHAT_APP_NAME"
+          )
+          for TARGET in "${TARGETS[@]}"; do
+            [ -n "$TARGET" ] || { echo "::error::Refusing to proceed: a deletion target resolved to an empty name."; exit 1; }
+            for GUARDED in "${PROTECTED[@]}"; do
+              if [ -n "$GUARDED" ] && [ "$TARGET" = "$GUARDED" ]; then
+                echo "::error::Refusing to proceed: deletion target '$TARGET' collides with protected resource '$GUARDED'."
+                exit 1
+              fi
+            done
+          done
+          echo "All deletion targets are environment-scoped and distinct from preserved infrastructure."
+
+      - name: Report the teardown plan
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          EXECUTE: ${{ inputs.execute }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MCP_NAME_PREFIX: ${{ steps.names.outputs.mcp_name_prefix }}
+          MANAGED_ENVIRONMENT_NAME: ${{ steps.names.outputs.managed_environment_name }}
+          FOUNDRY_ACCOUNT_NAME: ${{ steps.names.outputs.foundry_account_name }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+          CHAT_APP_NAME: ${{ steps.names.outputs.chat_app_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Network rebuild teardown plan"
+            echo ""
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Environment | \`$TARGET_ENVIRONMENT\` |"
+            echo "| Resource group | \`$AZURE_RESOURCE_GROUP\` |"
+            echo "| Mode | $([ "$EXECUTE" = "true" ] && echo 'DELETE' || echo 'DRY RUN') |"
+            echo ""
+            echo "Deletion order:"
+            echo ""
+            echo "1. Container App \`$REVIEWER_APP_NAME\`"
+            echo "2. Container App \`$CHAT_APP_NAME\`"
+            echo "3. Container App \`${MCP_NAME_PREFIX}-application-server\`"
+            echo "4. Container App \`${MCP_NAME_PREFIX}-rulebook-server\`"
+            echo "5. Managed environment \`$MANAGED_ENVIRONMENT_NAME\`"
+            echo "6. Foundry account \`$FOUNDRY_ACCOUNT_NAME\` (delete, then purge)"
+            echo ""
+            echo "Preserved: resource group, VNet and subnets, Cosmos account and case data, ACR, Log Analytics, Application Insights, Entra registrations."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Apps first: a managed environment with apps still in it fails to delete.
+      - name: Delete Container Apps
+        env:
+          EXECUTE: ${{ inputs.execute }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MCP_NAME_PREFIX: ${{ steps.names.outputs.mcp_name_prefix }}
+          REVIEWER_APP_NAME: ${{ steps.names.outputs.reviewer_app_name }}
+          CHAT_APP_NAME: ${{ steps.names.outputs.chat_app_name }}
+        run: |
+          set -euo pipefail
+          APPS=(
+            "$REVIEWER_APP_NAME"
+            "$CHAT_APP_NAME"
+            "${MCP_NAME_PREFIX}-application-server"
+            "${MCP_NAME_PREFIX}-rulebook-server"
+          )
+          for APP in "${APPS[@]}"; do
+            if ! az containerapp show --name "$APP" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+              echo "Container App '$APP' is already absent."
+              continue
+            fi
+            if [ "$EXECUTE" != "true" ]; then
+              echo "DRY RUN: would delete Container App '$APP'."
+              continue
+            fi
+            echo "Deleting Container App '$APP'."
+            az containerapp delete --name "$APP" --resource-group "$AZURE_RESOURCE_GROUP" --yes --output none
+          done
+
+      - name: Delete Container Apps managed environment
+        env:
+          EXECUTE: ${{ inputs.execute }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MANAGED_ENVIRONMENT_NAME: ${{ steps.names.outputs.managed_environment_name }}
+        run: |
+          set -euo pipefail
+          if ! az containerapp env show --name "$MANAGED_ENVIRONMENT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+            echo "Managed environment '$MANAGED_ENVIRONMENT_NAME' is already absent."
+            exit 0
+          fi
+          if [ "$EXECUTE" != "true" ]; then
+            echo "DRY RUN: would delete managed environment '$MANAGED_ENVIRONMENT_NAME'."
+            exit 0
+          fi
+          echo "Deleting managed environment '$MANAGED_ENVIRONMENT_NAME'."
+          az containerapp env delete --name "$MANAGED_ENVIRONMENT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --yes --output none
+
+      # Purge matters twice over: a soft-deleted account keeps the name reserved,
+      # and it keeps a service association link on the agent subnet, which blocks
+      # any later change to that subnet until the purge completes.
+      - name: Delete and purge the Foundry account
+        env:
+          EXECUTE: ${{ inputs.execute }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          FOUNDRY_ACCOUNT_NAME: ${{ steps.names.outputs.foundry_account_name }}
+        run: |
+          set -euo pipefail
+          LOCATION=$(az group show --name "$AZURE_RESOURCE_GROUP" --query location --output tsv)
+          if az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+            if [ "$EXECUTE" != "true" ]; then
+              echo "DRY RUN: would delete and purge Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+              exit 0
+            fi
+            echo "Deleting Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+            az cognitiveservices account delete --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none
+          else
+            echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is already absent."
+            if [ "$EXECUTE" != "true" ]; then
+              echo "DRY RUN: would purge any soft-deleted copy of '$FOUNDRY_ACCOUNT_NAME'."
+              exit 0
+            fi
+          fi
+          # Deletion reports success before the resource leaves its Deleting state,
+          # and purge is rejected until it does, so poll rather than purge once.
+          for ATTEMPT in $(seq 1 30); do
+            if az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null; then
+              echo "Purged soft-deleted Foundry account '$FOUNDRY_ACCOUNT_NAME'."
+              exit 0
+            fi
+            if ! az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+              if ! az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME'] | length(@)" --output tsv | grep -qv '^0$'; then
+                echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
+                exit 0
+              fi
+            fi
+            echo "Account is not yet purgeable (attempt $ATTEMPT/30). Waiting 20s."
+            sleep 20
+          done
+          echo "::error::Timed out waiting for '$FOUNDRY_ACCOUNT_NAME' to become purgeable. Rerun this workflow; it is safe to repeat."
+          exit 1
+
+      - name: Report the result
+        if: always()
+        env:
+          EXECUTE: ${{ inputs.execute }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            if [ "$EXECUTE" = "true" ]; then
+              echo "### Next steps"
+              echo ""
+              echo "1. Run **Deploy and Evaluate** against \`$TARGET_ENVIRONMENT\` to rebuild on the VNet."
+              echo "2. Refresh redirect URIs with \`scripts/setup-reviewer-identity.ps1\` and \`scripts/setup-web-chat-identity.ps1\`; the Container App FQDNs changed."
+              echo "3. Set \`AGENT_PRINCIPAL_ID\` for the environment after the first agent deploy, then redeploy so the agent gets Cosmos write access."
+            else
+              echo "### Dry run complete"
+              echo ""
+              echo "Nothing was deleted. Rerun with \`execute\` checked to apply this plan."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

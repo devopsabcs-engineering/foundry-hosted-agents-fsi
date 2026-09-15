@@ -1,11 +1,6 @@
 // ============================================================================
-// AUTHOR-ONLY / NOT DEPLOYED.
-// Gated behind G2 (platform/security), G3 (reproducible compatibility), and
-// G6 (regulatory/privacy) sign-off. Do not run `azd provision`, `azd deploy`,
-// `azd up`, `az deployment group create`, or any apply command against this
-// template until all three gates are explicitly cleared by their owners.
-// This file has only been authored and lint/compile-checked with
-// `bicep build` / `az bicep build`. See infra/README.md.
+// Control-plane role assignments on the Foundry account. Cosmos data-plane
+// access is a separate RBAC system; see modules/cosmos-rbac.bicep.
 // ============================================================================
 
 @description('Name of the existing Foundry (Microsoft.CognitiveServices/accounts) resource to scope role assignments to')
