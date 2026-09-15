@@ -66,6 +66,11 @@
   * Source: research document, Recommended next research
   * Priority: low.
 
+* WI-06 (new): `context.json` is never written to the `evaluation-evidence` artifact by any step in `deploy-and-evaluate.yml`, so `collect()`'s lineage columns (`Staging agent version`, `environment`, `agent_content_hash`, etc.) always render `N/A` on the wiki trend page even when judge/deterministic data is populated.
+  * Source: continuation session, confirmed via run 34918603998's generated summary (`Judge cases judged: 10` but `Staging agent version: N/A`)
+  * Dependency: none; requires adding a step to the `evaluate` (or `deploy-staging`) job that writes `evaluation-evidence/context.json` with `{"environment": "staging", "agent_version": ..., ...}` before the `Retain evaluation evidence` upload step.
+  * Priority: low -- cosmetic/lineage-only; does not affect the real Judge cases judged/Judge checks/Deterministic gate columns, which are confirmed populated and correct.
+
 ## User Decisions
 
 * ID-01: Add all three sibling metrics (coherence, groundedness, task_adherence) and author a real system-prompt/instructions constant now, rather than deferring or scoping to two metrics.
