@@ -327,18 +327,31 @@ jobs:
           # A purge issued while the account is still settling is accepted and then
           # does nothing, so the only trustworthy exit condition is that the account
           # is absent from the resource group AND absent from the soft-deleted list.
-          # That list is also eventually consistent and can read empty moments before
-          # the account appears in it, so require the clean reading to hold three
-          # times in a row before believing it.
+          # That list is also eventually consistent and can read empty for over a
+          # minute before the account appears in it, so a clean reading only counts
+          # once the account has been gone from the resource group for a while, and
+          # a purge is attempted on every pass through that window.
           CLEAN_STREAK=0
+          GONE_SINCE=0
           for ATTEMPT in $(seq 1 45); do
             SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME'] | length(@)" --output tsv)
             if az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
               ACTIVE=true
+              GONE_SINCE=0
             else
               ACTIVE=false
+              if [ "$GONE_SINCE" -eq 0 ]; then
+                GONE_SINCE=$(date +%s)
+              fi
             fi
-            if [ "$ACTIVE" = "false" ] && [ "$SOFT_DELETED" = "0" ]; then
+            if [ "$SOFT_DELETED" != "0" ]; then
+              az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null || true
+            fi
+            SETTLED=false
+            if [ "$ACTIVE" = "false" ] && [ "$GONE_SINCE" -ne 0 ] && [ $(( $(date +%s) - GONE_SINCE )) -ge 120 ]; then
+              SETTLED=true
+            fi
+            if [ "$ACTIVE" = "false" ] && [ "$SOFT_DELETED" = "0" ] && [ "$SETTLED" = "true" ]; then
               CLEAN_STREAK=$((CLEAN_STREAK + 1))
               if [ "$CLEAN_STREAK" -ge 3 ]; then
                 echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is fully removed."
@@ -349,10 +362,7 @@ jobs:
               continue
             fi
             CLEAN_STREAK=0
-            if [ "$SOFT_DELETED" != "0" ]; then
-              az cognitiveservices account purge --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$LOCATION" --output none 2>/dev/null || true
-            fi
-            echo "Account is not yet fully removed (active=$ACTIVE, soft-deleted=$SOFT_DELETED, attempt $ATTEMPT/45). Waiting 20s."
+            echo "Account is not yet fully removed (active=$ACTIVE, soft-deleted=$SOFT_DELETED, settled=$SETTLED, attempt $ATTEMPT/45). Waiting 20s."
             sleep 20
           done
           echo "::error::Timed out waiting for '$FOUNDRY_ACCOUNT_NAME' to be fully removed. Rerun this workflow; it is safe to repeat."
