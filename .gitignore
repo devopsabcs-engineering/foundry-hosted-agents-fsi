@@ -7,3 +7,6 @@ __pycache__/
 
 # Scratch directory the lab instructions use for the local SQLite case store.
 .local/
+
+# Local prep materials not meant for version control.
+assets/Hackathon - Rencontre prep des coachs.pdf
