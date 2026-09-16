@@ -132,7 +132,9 @@ class FakeCosmosContainer:
         self._items[item] = stored
         return deepcopy(stored)
 
-    def query_items(self, query: str, parameters: list[dict[str, Any]]):
+    def query_items(
+        self, query: str, parameters: list[dict[str, Any]], enable_cross_partition_query: bool = False
+    ):
         wanted = {parameter["name"]: parameter["value"] for parameter in parameters}["@state"]
         matching = [item for item in self._items.values() if item["state"] == wanted]
         matching.sort(key=lambda item: (item["updatedAt"], item["caseId"]), reverse=True)

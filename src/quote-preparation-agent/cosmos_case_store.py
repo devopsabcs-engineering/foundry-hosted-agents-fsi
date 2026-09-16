@@ -331,9 +331,13 @@ class CosmosCaseStore:
         """Return cases in `state`, most recently updated first."""
         state = validate_state(state)
         limit = validate_limit(limit)
+        # The container is partitioned on /caseId, so this filter-by-state query
+        # always spans partitions; without this flag the SDK raises BadRequest
+        # instead of fanning the query out.
         results: Iterator[dict[str, Any]] = self._container.query_items(
             query="SELECT * FROM c WHERE c.state = @state ORDER BY c.updatedAt DESC",
             parameters=[{"name": "@state", "value": state}],
+            enable_cross_partition_query=True,
         )
         return tuple(_record_from_document(item) for item in islice(results, limit))
 
