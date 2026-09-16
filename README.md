@@ -43,10 +43,10 @@ experience.
 * `apps/workshop/` will hold the deterministic calculator, approval
   repository, and applicant/reviewer views.
 * `apps/web-chat/` holds an internal-pilot web chatbot for the hosted
-  agent, ported from the sibling repository. It is code-complete but
-  gated behind the G2/G3/G6 sign-off described in
-  [infra/README.md](infra/README.md) -- see
-  [Deployment links](#deployment-links) below.
+  agent, ported from the sibling repository. It is deployed out of band
+  ([infra/web-chat.bicep](infra/web-chat.bicep)) alongside
+  `apps/reviewer-app/` -- see [Deployment links](#deployment-links) below
+  for both UIs' current URLs.
 * `data/synthetic/` will hold the synthetic fixtures and JSON Schema for
   the quote-preparation contract.
 * `eval/` will hold the evaluation harness for arithmetic, approval,
@@ -66,9 +66,9 @@ content is published as a browsable site at
 
 ## Try the web chatbot
 
-The chat UI in `apps/web-chat/` is not hosted anywhere yet (see the gate
-note under [Deployment links](#deployment-links)), so the supported way to
-see and use it today is to run it locally against the real deployed agent:
+The chat UI in `apps/web-chat/` is deployed out of band to production (see
+[Deployment links](#deployment-links) for the current URL). To run it
+locally instead, against the real deployed agent:
 
 ```powershell
 cd apps/web-chat/frontend
@@ -102,13 +102,20 @@ environment-specific and can be re-provisioned. Instead, the
 carries an always-current **Deployment Links** table -- refreshed
 automatically after every staging or production run of
 [`Deploy and Evaluate (Staging -> Production)`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/workflows/deploy-and-evaluate.yml)
--- with clickable links to whatever is genuinely deployed right now:
+-- with clickable links to whatever is genuinely deployed right now, including
+both pilot UIs:
 
+* **the reviewer app** (case approval queue) and **the web chatbot** (applicant-facing chat UI)
 * the hosted agent's Foundry project (Azure Portal, sign-in required)
 * the agent's Responses API endpoint
 * the `application-server` and `rulebook-server` MCP endpoints
 * the resource group and container registry
 * the published workshop site on GitHub Pages
+
+Always follow the [wiki Home page](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home)
+for the current UI URLs rather than any link recorded elsewhere -- both
+container apps can be re-provisioned with a new hostname, and the wiki page
+is the only copy that is refreshed on every deploy.
 
 See also the
 [Continuous Test Trends](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Continuous-Test-Trends)
@@ -124,4 +131,8 @@ of the hosted agent) is deployed out of band rather than by
 from [scripts/setup-web-chat-identity.ps1](scripts/setup-web-chat-identity.ps1).
 Because the managed environment is recreated whenever its network
 configuration changes, redeploy the chat and rerun the identity script after
-any network rebuild.
+any network rebuild. Its URL is not an `azd` output, so
+`deploy-and-evaluate.yml`'s `promote-production` job reads it from the
+`WEB_CHAT_APP_NAME`/`WEB_CHAT_URL` repository variables (production
+environment) to include it in the wiki's Deployment Links table -- update
+those variables after redeploying the chat to a new hostname.
