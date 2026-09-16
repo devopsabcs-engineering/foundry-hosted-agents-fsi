@@ -36,21 +36,19 @@ Test-Path eval/golden-dataset.jsonl
 Test-Path eval/evaluation_gate.py
 ```
 
-`eval/` contient le jeu de données de référence bilingue et la porte d'évaluation qui le vérifie contre le calculateur, le dépôt d'approbation et les serveurs MCP de ce projet. Si l'un des chemins retourne `False` dans votre copie, la suite d'évaluation n'est pas encore arrivée ; poursuivez avec l'exercice 8.3, qui n'en dépend pas.
+Résultat attendu : les deux chemins retournent `True`. `eval/` contient le jeu de données de référence bilingue et la porte d'évaluation qui le vérifie contre le calculateur, le dépôt d'approbation et les serveurs MCP de ce projet.
 
 ### Exercice 8.2 : Exécuter la porte d'évaluation
 
-Si les deux chemins de l'exercice 8.1 ont retourné `True` :
-
 ```powershell
-python eval/evaluation_gate.py --dataset eval/golden-dataset.jsonl
+python eval/evaluation_gate.py
 ```
 
-Résultat attendu : la porte rapporte la réussite de chaque vérification requise. Elle est conçue pour qu'un juge de qualité ne puisse jamais annuler un échec arithmétique ou d'état d'approbation ; un cas requis manquant ou ignoré fait échouer l'exécution d'emblée.
+Résultat attendu : la porte rapporte la réussite de chaque vérification requise et écrit une copie exploitable par machine du même rapport dans `eval/results.json`. La porte ne prend aucun argument en ligne de commande ; le chemin du jeu de données (`eval/golden-dataset.jsonl`) est fixé dans `eval/deterministic-tests/checks.py`. Elle est conçue pour qu'un juge de qualité ne puisse jamais annuler un échec arithmétique ou d'état d'approbation ; un cas requis manquant ou ignoré fait échouer l'exécution d'emblée.
 
 ### Exercice 8.3 (pratique) : Écrire votre propre vérification arithmétique
 
-Que `eval/` existe déjà ou non dans votre copie, vous pouvez écrire le même type de vérification que la porte d'évaluation effectue pour l'arithmétique, à l'échelle des données de l'atelier 01.
+Vous pouvez écrire le même type de vérification que la porte d'évaluation effectue pour l'arithmétique, à l'échelle des données de l'atelier 01.
 
 ```powershell
 python -c "
@@ -78,8 +76,8 @@ Résultat attendu : chaque donnée correspond exactement à son `expectedCalcula
 
 ## Liste de vérification
 
-* [ ] Vous avez repéré, ou confirmé l'absence de, `eval/golden-dataset.jsonl` et `eval/evaluation_gate.py`
-* [ ] S'il est présent, `eval/evaluation_gate.py` a rapporté la réussite de chaque vérification requise
+* [ ] Vous avez repéré `eval/golden-dataset.jsonl` et `eval/evaluation_gate.py`
+* [ ] `python eval/evaluation_gate.py` a rapporté la réussite de chaque vérification requise
 * [ ] Votre vérification de l'exercice 8.3 confirme que `calculate_quote` correspond à `expectedCalculation` pour chaque donnée
 * [ ] Vous pouvez nommer les sept catégories que la porte d'évaluation complète est conçue pour couvrir
 

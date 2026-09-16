@@ -147,11 +147,13 @@ Envoyer un message exige deux choses dont votre exécution locale ne dispose pas
 
 Le clavardage déployé dispose des deux. `scripts/setup-web-chat-identity.ps1` enregistre les origines déployées aux côtés de `http://localhost:8000`, la connexion fonctionne donc sur l'adresse déployée alors que les valeurs d'identité fictives de l'exercice 11.2 ne le permettent pas.
 
+`infra/web-chat.bicep` est appliqué hors bande (pas via `deploy-and-evaluate.yml`), et uniquement dans le groupe de ressources de production -- il n'existe aucun déploiement de clavardage en préproduction (staging).
+
 ```powershell
-az containerapp show --name foundry-quote-chat-staging --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
+az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 
-Résultat attendu : un nom d'hôte se terminant par `azurecontainerapps.io`. Ouvrez-le dans un navigateur et connectez-vous avec un compte membre du groupe pilote.
+Résultat attendu : un nom d'hôte se terminant par `azurecontainerapps.io`. Ouvrez-le dans un navigateur et connectez-vous avec un compte membre du groupe pilote. L'URL courante est aussi toujours tenue à jour dans le [tableau des liens de déploiement du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home).
 
 > [!NOTE]
 > Le nom d'hôte change chaque fois que l'environnement d'applications conteneurisées est recréé, ce que couvre l'atelier 14. Si la connexion échoue avec une discordance d'URI de redirection, l'enregistrement est périmé plutôt que mal configuré ; réexécutez `scripts/setup-web-chat-identity.ps1` avec le nom de domaine courant.
