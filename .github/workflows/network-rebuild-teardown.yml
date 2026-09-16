@@ -295,6 +295,19 @@ jobs:
               echo "Deleting nested Foundry project '${PROJECT_ID##*/}'."
               az resource delete --ids "$PROJECT_ID" --output none
             done
+            # Deleting a project leaves the account non-terminal for a while, and
+            # a delete issued in that window fails with RequestConflict.
+            for ATTEMPT in $(seq 1 30); do
+              STATE=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
+              case "$STATE" in
+                Absent|Succeeded|Failed|Canceled|Deleting)
+                  echo "Account state '$STATE' is terminal enough to delete."
+                  break
+                  ;;
+              esac
+              echo "Account state is '$STATE'; waiting for it to settle (attempt $ATTEMPT/30)."
+              sleep 10
+            done
             az cognitiveservices account delete --name "$FOUNDRY_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --output none
           else
             echo "Foundry account '$FOUNDRY_ACCOUNT_NAME' is already absent."
