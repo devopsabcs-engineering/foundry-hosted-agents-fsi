@@ -2,6 +2,8 @@
 // rules that matter most: a null premium must never render as a number, and
 // an API status must map to a message that tells the reviewer what to do.
 
+import { DEFAULT_LANGUAGE, translate } from './i18n.js';
+
 export const UNPRICED = null;
 
 /**
@@ -10,7 +12,7 @@ export const UNPRICED = null;
  * reached PENDING_REVIEW. Callers must render that as an explicit unpriced
  * state rather than substituting a zero.
  */
-export function formatAmount(amountCents, currency) {
+export function formatAmount(amountCents, currency, language = DEFAULT_LANGUAGE) {
   if (amountCents === null || amountCents === undefined) return UNPRICED;
   if (typeof amountCents !== 'number' || !Number.isFinite(amountCents)) return UNPRICED;
   // An amount with no currency is not a figure a reviewer can approve against,
@@ -20,7 +22,7 @@ export function formatAmount(amountCents, currency) {
   try {
     // currencyDisplay 'code' avoids implying a dollar sign for a currency the
     // server chose; the code travels with the number instead.
-    return new Intl.NumberFormat('en-CA', {
+    return new Intl.NumberFormat(language, {
       style: 'currency', currency, currencyDisplay: 'code',
     }).format(amount);
   } catch {
@@ -28,20 +30,20 @@ export function formatAmount(amountCents, currency) {
   }
 }
 
-export function formatTimestamp(value) {
-  if (!value) return 'Unknown';
+export function formatTimestamp(value, language = DEFAULT_LANGUAGE) {
+  if (!value) return translate(language, 'format.unknown');
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return String(value);
-  return parsed.toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
+  return parsed.toLocaleString(language, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function formatList(values) {
-  return Array.isArray(values) && values.length ? values.join(', ') : 'None';
+export function formatList(values, language = DEFAULT_LANGUAGE) {
+  return Array.isArray(values) && values.length ? values.join(', ') : translate(language, 'format.none');
 }
 
 /** Human label for a persisted calculation status, including the absent case. */
-export function calculationLabel(status) {
-  return status ? status.replace(/_/g, ' ').toLowerCase() : 'not calculated';
+export function calculationLabel(status, language = DEFAULT_LANGUAGE) {
+  return status ? status.replace(/_/g, ' ').toLowerCase() : translate(language, 'format.notCalculated');
 }
 
 /**
@@ -54,17 +56,17 @@ export function calculationLabel(status) {
  * `unpriced`     - no amount at all, which is legitimate for UNSUPPORTED and
  *                  INCOMPLETE calculations that still reached PENDING_REVIEW.
  */
-export function premiumView(record) {
+export function premiumView(record, language = DEFAULT_LANGUAGE) {
   const source = record ?? {};
-  const amount = formatAmount(source.amountCents, source.currency);
+  const amount = formatAmount(source.amountCents, source.currency, language);
   if (amount !== null) return { kind: 'amount', amount, period: source.period ?? null };
   const issues = Array.isArray(source.issues) && source.issues.length
-    ? ` \u2014 ${formatList(source.issues)}` : '';
+    ? ` \u2014 ${formatList(source.issues, language)}` : '';
   const priced = typeof source.amountCents === 'number' && Number.isFinite(source.amountCents);
   if (priced) {
-    return { kind: 'unverifiable', label: 'Amount unverifiable', reason: `no currency recorded${issues}` };
+    return { kind: 'unverifiable', label: translate(language, 'format.amountUnverifiable'), reason: `${translate(language, 'format.noCurrencyRecorded')}${issues}` };
   }
-  return { kind: 'unpriced', label: 'Not priced', reason: `${calculationLabel(source.calculationStatus)}${issues}` };
+  return { kind: 'unpriced', label: translate(language, 'format.notPriced'), reason: `${calculationLabel(source.calculationStatus, language)}${issues}` };
 }
 
 /** Error code the server sets on the one 403 that means self-approval. */
@@ -91,30 +93,31 @@ export class ApiError extends Error {
  * server's own remediation verbatim, because telling a reviewer whose role was
  * revoked that they prepared the case hides the fix.
  */
-export function decisionFailure(status, detail, code = null) {
+export function decisionFailure(status, detail, code = null, language = DEFAULT_LANGUAGE) {
   if (status === 403) {
     if (code === SELF_APPROVAL) {
       return {
-        message: 'You prepared this case, so you cannot decide it. Another reviewer must act.',
+        message: translate(language, 'format.decisionFailure.selfApproval'),
         refresh: 'case',
       };
     }
     const reason = typeof detail === 'string' && detail
-      ? detail : 'You are not authorized to decide this case.';
+      ? detail : translate(language, 'format.decisionFailure.authGenericFallback');
     return { message: reason, refresh: 'none' };
   }
   if (status === 409) {
     return {
-      message: 'Another reviewer acted on this case first. It has been reloaded — review the current state before deciding again.',
+      message: translate(language, 'format.decisionFailure.conflict'),
       refresh: 'case',
     };
   }
   if (status === 404) {
-    return { message: 'This case no longer exists. Returning to the queue.', refresh: 'queue' };
+    return { message: translate(language, 'format.decisionFailure.caseGone'), refresh: 'queue' };
   }
   if (status === 401) {
-    return { message: 'Your sign-in is no longer valid. Sign out and sign in again.', refresh: 'none' };
+    return { message: translate(language, 'format.decisionFailure.sessionExpired'), refresh: 'none' };
   }
-  const fallback = typeof detail === 'string' && detail ? detail : `Request failed (${status}).`;
+  const fallback = typeof detail === 'string' && detail
+    ? detail : translate(language, 'format.decisionFailure.fallback', { status });
   return { message: fallback, refresh: 'none' };
 }

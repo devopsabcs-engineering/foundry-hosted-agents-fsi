@@ -6,46 +6,52 @@ import '@fontsource-variable/dm-sans';
 import './style.css';
 import { ApiError, decisionFailure, formatList, formatTimestamp, premiumView } from './format';
 import { decisionRequest } from './request';
+import { DEFAULT_LANGUAGE, translate } from './i18n';
+import { useLanguage } from './useLanguage';
 
-const NOTICE = 'Training simulation. Synthetic data only. Not an insurance quote and not a real underwriting decision.';
 const REASON_PATTERN = /^[A-Z0-9_]{1,64}$/;
 
-function Notice() {
-  return <div className="notice" role="note"><AlertTriangle size={15} aria-hidden="true" /><span>{NOTICE}</span></div>;
+function readStoredLanguage() {
+  try { return window.localStorage.getItem('fhaf-ui-language') || DEFAULT_LANGUAGE; }
+  catch { return DEFAULT_LANGUAGE; }
+}
+
+function Notice({ language }) {
+  return <div className="notice" role="note"><AlertTriangle size={15} aria-hidden="true" /><span>{translate(language, 'disclaimer.notice')}</span></div>;
 }
 
 /** Renders the premium, or the state that explains why there is no figure. */
-function Premium({ record, detailed = false }) {
-  const view = premiumView(record);
+function Premium({ record, detailed = false, language, t }) {
+  const view = premiumView(record, language);
   if (view.kind !== 'amount') {
     return <span className="unpriced">
       <span className="unpriced-label">{view.label}</span>
       <span className="unpriced-reason">{view.reason}</span>
     </span>;
   }
-  return <span className="premium">{view.amount}{detailed && view.period ? <span className="period"> per {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
+  return <span className="premium">{view.amount}{detailed && view.period ? <span className="period"> {t('detail.perPeriod')} {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
 }
 
-function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed }) {
+function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed, language, t }) {
   return <section className="panel">
     <div className="panel-head">
-      <div><span className="overline">DESJARDINS / CASE REVIEW</span><h1 ref={headingRef} tabIndex={-1}>Pending review</h1></div>
-      <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />Refresh</button>
+      <div><span className="overline">{t('topbar.overline')}</span><h1 ref={headingRef} tabIndex={-1}>{t('queue.heading')}</h1></div>
+      <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />{t('queue.refresh')}</button>
     </div>
-    <Notice />
+    <Notice language={language} />
     {/* An empty list after a failed load means the queue is unknown, not empty.
         Saying "no cases" there tells a reviewer nothing is waiting when the
         backend could not be reached, which is the one wrong answer to give. */}
     {!cases.length
       ? (failed
-        ? <p className="empty-queue">The queue could not be loaded, so it is not known whether any cases are waiting. See the message above and use Refresh to try again.</p>
-        : <p className="empty-queue">No cases are waiting for review.</p>)
-      : <div className="queue-scroll" role="region" aria-label="Case queue" tabIndex={0}>
+        ? <p className="empty-queue">{t('queue.emptyFailed')}</p>
+        : <p className="empty-queue">{t('queue.emptyNone')}</p>)
+      : <div className="queue-scroll" role="region" aria-label={t('queue.regionLabel')} tabIndex={0}>
         <table className="queue">
-          <caption className="visually-hidden">Cases awaiting review</caption>
+          <caption className="visually-hidden">{t('queue.caption')}</caption>
           <thead><tr>
-            <th scope="col">Case</th><th scope="col">State</th><th scope="col">Rev</th>
-            <th scope="col">Preparer</th><th scope="col">Submitted</th><th scope="col">Premium</th><th scope="col"><span className="visually-hidden">Open</span></th>
+            <th scope="col">{t('queue.headers.case')}</th><th scope="col">{t('queue.headers.state')}</th><th scope="col">{t('queue.headers.rev')}</th>
+            <th scope="col">{t('queue.headers.preparer')}</th><th scope="col">{t('queue.headers.submitted')}</th><th scope="col">{t('queue.headers.premium')}</th><th scope="col"><span className="visually-hidden">{t('queue.headers.open')}</span></th>
           </tr></thead>
           <tbody>
             {cases.map(record => <tr key={record.caseId}>
@@ -53,11 +59,11 @@ function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed }) {
               <td><span className="state">{record.state}</span></td>
               <td>{record.revision}</td>
               <td className="actor">{record.preparerId}</td>
-              <td>{formatTimestamp(record.updatedAt)}</td>
-              <td><Premium record={record} /></td>
+              <td>{formatTimestamp(record.updatedAt, language)}</td>
+              <td><Premium record={record} language={language} t={t} /></td>
               <td><button className="secondary" type="button" disabled={busy}
-                aria-label={`Review case ${record.caseId}`}
-                onClick={() => onOpen(record.caseId)}>Review</button></td>
+                aria-label={t('queue.reviewAria', { caseId: record.caseId })}
+                onClick={() => onOpen(record.caseId)}>{t('queue.reviewButton')}</button></td>
             </tr>)}
           </tbody>
         </table>
@@ -65,33 +71,34 @@ function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed }) {
   </section>;
 }
 
-function ReasonPrompt({ command, value, onChange, onConfirm, onCancel, busy }) {
+function ReasonPrompt({ command, value, onChange, onConfirm, onCancel, busy, t }) {
   const invalid = value !== '' && !REASON_PATTERN.test(value);
+  const commandWord = t(`reason.commands.${command}`);
   return <form className="reason" onSubmit={event => { event.preventDefault(); if (!invalid) onConfirm(); }}>
-    <label htmlFor="reason-code">Reason code for {command} (optional)</label>
-    <input id="reason-code" value={value} maxLength={64} autoComplete="off" placeholder="MISSING_PLAN"
+    <label htmlFor="reason-code">{t('reason.label', { command: commandWord })}</label>
+    <input id="reason-code" value={value} maxLength={64} autoComplete="off" placeholder={t('reason.placeholder')}
       aria-describedby="reason-help" aria-invalid={invalid}
       onChange={event => onChange(event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))} />
-    <span id="reason-help" className="reason-help">{invalid ? 'Use up to 64 characters: A-Z, 0-9, underscore.' : 'Leave blank to record no reason.'}</span>
+    <span id="reason-help" className="reason-help">{invalid ? t('reason.helpInvalid') : t('reason.helpBlank')}</span>
     <div className="reason-actions">
-      <button className="primary" type="submit" disabled={busy || invalid}>Confirm {command}</button>
-      <button className="secondary" type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+      <button className="primary" type="submit" disabled={busy || invalid}>{t('reason.confirm', { command: commandWord })}</button>
+      <button className="secondary" type="button" disabled={busy} onClick={onCancel}>{t('reason.cancel')}</button>
     </div>
   </form>;
 }
 
 // Approve carries no reason code, but it is irreversible, so it still confirms.
-function ApproveConfirm({ onConfirm, onCancel, busy }) {
-  return <div className="reason" role="group" aria-label="Confirm approval">
-    <p className="reason-help">Approving records the premium decision against this case and cannot be undone.</p>
+function ApproveConfirm({ onConfirm, onCancel, busy, t }) {
+  return <div className="reason" role="group" aria-label={t('approve.groupLabel')}>
+    <p className="reason-help">{t('approve.warning')}</p>
     <div className="reason-actions">
-      <button className="primary" type="button" disabled={busy} onClick={onConfirm}>Confirm approve</button>
-      <button className="secondary" type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+      <button className="primary" type="button" disabled={busy} onClick={onConfirm}>{t('approve.confirmButton')}</button>
+      <button className="secondary" type="button" disabled={busy} onClick={onCancel}>{t('reason.cancel')}</button>
     </div>
   </div>;
 }
 
-function Detail({ detail, onBack, onDecide, busy, headingRef }) {
+function Detail({ detail, onBack, onDecide, busy, headingRef, language, t }) {
   const [pending, setPending] = useState(null);
   const [reason, setReason] = useState('');
   const record = detail.case;
@@ -101,59 +108,60 @@ function Detail({ detail, onBack, onDecide, busy, headingRef }) {
 
   return <section className="panel">
     <div className="panel-head">
-      <div><span className="overline">DESJARDINS / CASE REVIEW</span><h1 ref={headingRef} tabIndex={-1}>{record.caseId}</h1></div>
-      <button className="secondary" type="button" onClick={onBack} disabled={busy}><ArrowLeft size={16} aria-hidden="true" />Queue</button>
+      <div><span className="overline">{t('topbar.overline')}</span><h1 ref={headingRef} tabIndex={-1}>{record.caseId}</h1></div>
+      <button className="secondary" type="button" onClick={onBack} disabled={busy}><ArrowLeft size={16} aria-hidden="true" />{t('detail.queueButton')}</button>
     </div>
-    <Notice />
+    <Notice language={language} />
 
     <dl className="facts">
-      <div><dt>State</dt><dd><span className="state">{record.state}</span></dd></div>
-      <div><dt>Revision</dt><dd>{record.revision}</dd></div>
-      <div><dt>Preparer</dt><dd className="actor">{record.preparerId}</dd></div>
-      <div><dt>Reviewer</dt><dd className="actor">{record.reviewerId ?? 'Not assigned'}</dd></div>
-      <div><dt>Created</dt><dd>{formatTimestamp(record.createdAt)}</dd></div>
-      <div><dt>Submitted</dt><dd>{formatTimestamp(record.updatedAt)}</dd></div>
+      <div><dt>{t('detail.facts.state')}</dt><dd><span className="state">{record.state}</span></dd></div>
+      <div><dt>{t('detail.facts.revision')}</dt><dd>{record.revision}</dd></div>
+      <div><dt>{t('detail.facts.preparer')}</dt><dd className="actor">{record.preparerId}</dd></div>
+      <div><dt>{t('detail.facts.reviewer')}</dt><dd className="actor">{record.reviewerId ?? t('detail.reviewerUnassigned')}</dd></div>
+      <div><dt>{t('detail.facts.created')}</dt><dd>{formatTimestamp(record.createdAt, language)}</dd></div>
+      <div><dt>{t('detail.facts.submitted')}</dt><dd>{formatTimestamp(record.updatedAt, language)}</dd></div>
     </dl>
 
-    <h2>Calculation</h2>
+    <h2>{t('detail.calculationHeading')}</h2>
     <dl className="facts">
-      <div><dt>Premium</dt><dd><Premium record={record} detailed /></dd></div>
-      <div><dt>Currency</dt><dd>{record.currency ?? 'Not recorded'}</dd></div>
-      <div><dt>Period</dt><dd>{record.period ?? 'Not recorded'}</dd></div>
-      <div><dt>Status</dt><dd>{record.calculationStatus ?? 'Not calculated'}</dd></div>
-      <div><dt>Rule ids</dt><dd>{formatList(record.ruleIds)}</dd></div>
-      <div><dt>Issues</dt><dd>{formatList(record.issues)}</dd></div>
-      <div><dt>Rulebook version</dt><dd>{record.rulebookVersion ?? 'Not recorded'}</dd></div>
+      <div><dt>{t('detail.facts.premium')}</dt><dd><Premium record={record} detailed language={language} t={t} /></dd></div>
+      <div><dt>{t('detail.facts.currency')}</dt><dd>{record.currency ?? t('detail.notRecorded')}</dd></div>
+      <div><dt>{t('detail.facts.period')}</dt><dd>{record.period ?? t('detail.notRecorded')}</dd></div>
+      <div><dt>{t('detail.facts.status')}</dt><dd>{record.calculationStatus ?? t('detail.notCalculated')}</dd></div>
+      <div><dt>{t('detail.facts.ruleIds')}</dt><dd>{formatList(record.ruleIds, language)}</dd></div>
+      <div><dt>{t('detail.facts.issues')}</dt><dd>{formatList(record.issues, language)}</dd></div>
+      <div><dt>{t('detail.facts.rulebookVersion')}</dt><dd>{record.rulebookVersion ?? t('detail.notRecorded')}</dd></div>
     </dl>
 
-    <h2>Decision</h2>
+    <h2>{t('detail.decisionHeading')}</h2>
     {!decidable
-      ? <p className="settled">This case is {record.state.toLowerCase()} and can no longer be decided.</p>
+      ? <p className="settled">{t('detail.settled', { state: record.state.toLowerCase() })}</p>
       : pending === 'approve'
-        ? <ApproveConfirm busy={busy} onCancel={() => setPending(null)}
+        ? <ApproveConfirm busy={busy} t={t} onCancel={() => setPending(null)}
           onConfirm={() => { setPending(null); onDecide('approve'); }} />
         : pending
-          ? <ReasonPrompt command={pending} value={reason} busy={busy}
+          ? <ReasonPrompt command={pending} value={reason} busy={busy} t={t}
             onChange={setReason} onCancel={() => setPending(null)}
             onConfirm={() => { const command = pending; setPending(null); onDecide(command, reason); }} />
           : <div className="decisions">
-            <button className="primary" type="button" disabled={busy} onClick={() => start('approve')}><Check size={16} aria-hidden="true" />Approve</button>
-            <button className="danger" type="button" disabled={busy} onClick={() => start('reject')}><X size={16} aria-hidden="true" />Reject</button>
-            <button className="secondary" type="button" disabled={busy} onClick={() => start('revise')}><RotateCcw size={16} aria-hidden="true" />Send back for revision</button>
+            <button className="primary" type="button" disabled={busy} onClick={() => start('approve')}><Check size={16} aria-hidden="true" />{t('decisions.approve')}</button>
+            <button className="danger" type="button" disabled={busy} onClick={() => start('reject')}><X size={16} aria-hidden="true" />{t('decisions.reject')}</button>
+            <button className="secondary" type="button" disabled={busy} onClick={() => start('revise')}><RotateCcw size={16} aria-hidden="true" />{t('decisions.revise')}</button>
           </div>}
 
-    <h2>Audit trail</h2>
+    <h2>{t('detail.auditHeading')}</h2>
     <ol className="audit">
       {detail.auditTrail.map(event => <li key={event.sequence}>
         <span className="audit-command">{event.command}</span>
-        <span className="audit-transition">{event.fromState ?? 'NEW'} to {event.toState}</span>
-        <span className="audit-meta">rev {event.revision} · {event.actorId} · {formatTimestamp(event.at)}</span>
+        <span className="audit-transition">{t('audit.transition', { from: event.fromState ?? t('audit.newState'), to: event.toState })}</span>
+        <span className="audit-meta">{t('audit.meta', { revision: event.revision, actor: event.actorId, at: formatTimestamp(event.at, language) })}</span>
       </li>)}
     </ol>
   </section>;
 }
 
 function Workspace({ auth, config, initialAccount }) {
+  const { language, setLanguage, t } = useLanguage();
   const [account, setAccount] = useState(initialAccount);
   const [allowed, setAllowed] = useState(false);
   const [checking, setChecking] = useState(Boolean(initialAccount));
@@ -170,24 +178,24 @@ function Workspace({ auth, config, initialAccount }) {
       accessToken = (await auth.acquireTokenSilent({ account, scopes: [config.scope] })).accessToken;
     } catch (failure) {
       if (failure instanceof InteractionRequiredAuthError) {
-        throw new ApiError(401, 'Your sign-in needs attention. Sign out and sign in again.');
+        throw new ApiError(401, t('errors.signInNeedsAttention'));
       }
       throw failure;
     }
     const response = await fetch(path, { ...options, headers: {
       ...options.headers,
-      'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, 'X-UI-Language': language,
     } });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new ApiError(
         response.status,
-        typeof body.detail === 'string' ? body.detail : `Request failed (${response.status}).`,
+        typeof body.detail === 'string' ? body.detail : t('errors.requestFailed', { status: response.status }),
         typeof body.code === 'string' ? body.code : null,
       );
     }
     return response.json();
-  }, [auth, account, config.scope]);
+  }, [auth, account, config.scope, language, t]);
 
   const loadQueue = useCallback(async () => {
     const body = await api('/api/cases');
@@ -223,7 +231,7 @@ function Workspace({ auth, config, initialAccount }) {
     if (!detail) return;
     const caseId = detail.case.caseId;
     const body = decisionRequest(detail.case.revision, command, reasonCode);
-    setBusy(true); setError(''); setStatus(''); setActivity('Recording decision...');
+    setBusy(true); setError(''); setStatus(''); setActivity(t('activity.recordingDecision'));
     let recorded = null;
     try {
       const result = await api(`/api/cases/${encodeURIComponent(caseId)}/${command}`, {
@@ -233,7 +241,7 @@ function Workspace({ auth, config, initialAccount }) {
     } catch (failure) {
       const status_ = failure instanceof ApiError ? failure.status : 0;
       const code = failure instanceof ApiError ? failure.code : null;
-      const outcome = decisionFailure(status_, failure.message, code);
+      const outcome = decisionFailure(status_, failure.message, code, language);
       setError(outcome.message);
       // A conflict means someone acted first; reload rather than retrying.
       if (outcome.refresh === 'case') await loadCase(caseId).catch(() => loadQueue().catch(() => {}));
@@ -245,12 +253,12 @@ function Workspace({ auth, config, initialAccount }) {
     // try above so a failed refresh is never reported as a failed decision --
     // that would prompt a resubmit and earn a 409.
     setDetail(previous => ({ ...previous, case: recorded }));
-    setStatus(`Case ${caseId} recorded as ${recorded.state}.`);
+    setStatus(t('status.recorded', { caseId, state: recorded.state }));
     try {
       await loadQueue();
       await loadCase(caseId).catch(() => {});
     } catch {
-      setError(`Case ${caseId} was recorded as ${recorded.state}, but the list could not be refreshed. Use Refresh to reload it. Do not decide again.`);
+      setError(t('errors.refreshFailedAfterDecision', { caseId, state: recorded.state }));
     } finally { setActivity(''); setBusy(false); }
   }
 
@@ -279,10 +287,14 @@ function Workspace({ auth, config, initialAccount }) {
 
   return <div className="shell">
     <header className="topbar">
-      <div className="brand"><ClipboardCheck size={24} aria-hidden="true" /><span>Foundry<span className="brand-sub">CASE REVIEW</span></span></div>
-      <span className="environment"><span aria-hidden="true" />{config.environment} pilot</span>
-      <span className="identity">{account?.name ?? 'Not signed in'}</span>
-      {account && <button className="secondary" type="button" onClick={signOut} disabled={busy}><LogOut size={16} aria-hidden="true" />Sign out</button>}
+      <div className="brand"><ClipboardCheck size={24} aria-hidden="true" /><span>{t('topbar.brand')}<span className="brand-sub">{t('topbar.brandSub')}</span></span></div>
+      <span className="environment"><span aria-hidden="true" />{t('topbar.pilotBadge', { env: config.environment })}</span>
+      <span className="identity">{account?.name ?? t('topbar.notSignedIn')}</span>
+      <button className="secondary" type="button" onClick={() => setLanguage(language === 'en-CA' ? 'fr-CA' : 'en-CA')}
+        title={t('topbar.languageToggleAria')} aria-label={t('topbar.languageToggleAria')}>
+        {language === 'en-CA' ? 'FR' : 'EN'}
+      </button>
+      {account && <button className="secondary" type="button" onClick={signOut} disabled={busy}><LogOut size={16} aria-hidden="true" />{t('topbar.signOut')}</button>}
     </header>
     <main>
       {error && <div className="error" role="alert">{error}</div>}
@@ -290,26 +302,26 @@ function Workspace({ auth, config, initialAccount }) {
       {activity && <div className="pending" role="status"><span className="pulse" aria-hidden="true" />{activity}</div>}
       {!allowed
         ? <section className="panel gate">
-          <span className="overline">QUOTE REVIEW</span>
-          <h1 ref={headingRef} tabIndex={-1}>Reviews start with access.</h1>
-          <Notice />
-          <p className="status-label">{checking ? 'Verifying reviewer access...' : 'Internal pilot / reviewers only'}</p>
-          {!account && <button className="primary" type="button" onClick={signIn}><LogIn size={18} aria-hidden="true" />Sign in with Microsoft</button>}
+          <span className="overline">{t('gate.overline')}</span>
+          <h1 ref={headingRef} tabIndex={-1}>{t('gate.heading')}</h1>
+          <Notice language={language} />
+          <p className="status-label">{checking ? t('gate.checking') : t('gate.restricted')}</p>
+          {!account && <button className="primary" type="button" onClick={signIn}><LogIn size={18} aria-hidden="true" />{t('gate.signIn')}</button>}
         </section>
         : detail
-          ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef}
+          ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef} language={language} t={t}
             onBack={() => run(loadQueue)} />
-          : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} headingRef={headingRef}
+          : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} headingRef={headingRef} language={language} t={t}
             failed={Boolean(error)}
             onOpen={caseId => run(() => loadCase(caseId))} />}
     </main>
-    <footer className="disclaimer">{NOTICE}</footer>
+    <footer className="disclaimer">{translate(language, 'disclaimer.notice')}</footer>
   </div>;
 }
 
 async function start() {
   const response = await fetch('/api/config');
-  if (!response.ok) throw new Error('Configuration is unavailable.');
+  if (!response.ok) throw new Error(translate(readStoredLanguage(), 'errors.configUnavailable'));
   const config = await response.json();
   const auth = new PublicClientApplication({
     auth: { clientId: config.clientId, authority: `https://login.microsoftonline.com/${config.tenantId}`, redirectUri: window.location.origin },
@@ -325,8 +337,9 @@ async function start() {
 start().catch(() => {
   // The notice belongs on every view, including the one that renders when
   // nothing else could load.
+  const language = readStoredLanguage();
   createRoot(document.getElementById('root')).render(<div className="startup-error">
-    <p role="alert">The review workspace could not load. Refresh to try again.</p>
-    <Notice />
+    <p role="alert">{translate(language, 'errors.startupFailed')}</p>
+    <Notice language={language} />
   </div>);
 });

@@ -26,6 +26,7 @@ from fastapi import HTTPException  # noqa: E402
 
 import auth as auth_module  # noqa: E402
 from auth import ReviewerAuth  # noqa: E402
+from messages import message  # noqa: E402
 
 TENANT = "11111111-1111-4111-8111-111111111111"
 CLIENT = "22222222-2222-4222-8222-222222222222"
@@ -178,7 +179,8 @@ def test_a_token_without_the_review_scope_is_rejected(build_verifier, scp):
         build_verifier(claims).verify(TOKEN)
 
     assert failure.value.status_code == 403
-    assert "Review permission" in failure.value.detail
+    assert "Review permission" in failure.value.detail["detail"]
+    assert failure.value.detail["code"] == "SCOPE_REQUIRED"
 
 
 def test_a_missing_scope_claim_is_rejected(build_verifier):
@@ -213,7 +215,8 @@ def test_a_token_without_the_reviewer_role_is_rejected(build_verifier, roles):
         build_verifier(claims).verify(TOKEN)
 
     assert failure.value.status_code == 403
-    assert "Reviewer role" in failure.value.detail
+    assert "Reviewer role" in failure.value.detail["detail"]
+    assert failure.value.detail["code"] == "ROLE_REQUIRED"
 
 
 def test_a_missing_roles_claim_is_rejected(build_verifier):
@@ -253,7 +256,8 @@ def test_a_rejected_token_surfaces_as_401(build_verifier):
         verifier.verify(TOKEN)
 
     assert failure.value.status_code == 401
-    assert "bad signature" not in failure.value.detail
+    assert "bad signature" not in failure.value.detail["detail"]
+    assert failure.value.detail["code"] == "INVALID_TOKEN"
 
 
 def test_an_expired_token_surfaces_as_401(build_verifier):
@@ -285,3 +289,43 @@ def test_the_configured_role_is_not_normalised_as_a_guid():
     assert verifier.required_role == "Reviewer"
     assert verifier.required_scope == "Review.Access"
     assert verifier.issuer == f"https://login.microsoftonline.com/{TENANT}/v2.0"
+
+
+def test_verify_returns_french_text_and_code_when_requested(build_verifier):
+    claims = valid_claims()
+    claims["scp"] = ""
+
+    with pytest.raises(HTTPException) as failure:
+        build_verifier(claims).verify(TOKEN, language="fr-CA")
+
+    assert failure.value.status_code == 403
+    assert failure.value.detail == {
+        "detail": message("SCOPE_REQUIRED", "fr-CA"),
+        "code": "SCOPE_REQUIRED",
+    }
+
+
+def test_an_unrecognized_language_falls_back_to_english(build_verifier):
+    claims = valid_claims()
+    claims["scp"] = ""
+
+    with pytest.raises(HTTPException) as failure:
+        build_verifier(claims).verify(TOKEN, language="de-DE")
+
+    assert failure.value.detail == {
+        "detail": message("SCOPE_REQUIRED", "en-CA"),
+        "code": "SCOPE_REQUIRED",
+    }
+
+
+def test_authorize_localizes_the_missing_bearer_token_error(build_verifier):
+    verifier = build_verifier(valid_claims())
+
+    with pytest.raises(HTTPException) as failure:
+        asyncio.run(verifier.authorize(None, language="fr-CA"))
+
+    assert failure.value.status_code == 401
+    assert failure.value.detail == {
+        "detail": message("SIGNIN_REQUIRED", "fr-CA"),
+        "code": "SIGNIN_REQUIRED",
+    }

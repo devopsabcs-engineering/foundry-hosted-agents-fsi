@@ -17,6 +17,7 @@ from httpx_sse import aconnect_sse
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Identity, PilotAuth
+from messages import DEFAULT_LANGUAGE, message as localize, pick_language
 
 logger = logging.getLogger("web_chat")
 
@@ -63,27 +64,29 @@ class SessionStore:
         self.settings = settings
         self.sessions: dict[str, Conversation] = {}
 
-    def create(self, owner):
+    def create(self, owner, language=DEFAULT_LANGUAGE):
         now = time.monotonic()
         self.sessions = {
             key: value for key, value in self.sessions.items()
             if value.busy or now - value.touched < self.settings.session_ttl
         }
         if len(self.sessions) >= self.settings.max_sessions:
-            raise HTTPException(429, "Pilot capacity reached. Try again later.")
+            raise HTTPException(429, {"detail": localize("PILOT_CAPACITY", language), "code": "PILOT_CAPACITY"})
         if sum(session.owner == owner for session in self.sessions.values()) >= 5:
-            raise HTTPException(429, "Close an existing conversation before starting another.")
+            raise HTTPException(429, {"detail": localize("SESSION_LIMIT", language), "code": "SESSION_LIMIT"})
         identifier = str(uuid.uuid4())
         self.sessions[identifier] = Conversation(owner)
         return identifier
 
-    def get(self, identifier, owner):
+    def get(self, identifier, owner, language=DEFAULT_LANGUAGE):
         session = self.sessions.get(identifier)
         if session is None or session.owner != owner:
-            raise HTTPException(404, "Conversation not found. Start a new conversation.")
+            raise HTTPException(404, {"detail": localize("CONVERSATION_NOT_FOUND", language),
+                                       "code": "CONVERSATION_NOT_FOUND"})
         if not session.busy and time.monotonic() - session.touched >= self.settings.session_ttl:
             del self.sessions[identifier]
-            raise HTTPException(404, "Conversation expired. Start a new conversation.")
+            raise HTTPException(404, {"detail": localize("CONVERSATION_EXPIRED", language),
+                                       "code": "CONVERSATION_EXPIRED"})
         session.touched = time.monotonic()
         return session
 
@@ -113,7 +116,7 @@ class FoundryClient:
         await self.http.aclose()
         await self.credential.close()
 
-    async def events(self, messages):
+    async def events(self, messages, locale=DEFAULT_LANGUAGE):
         token = await self.credential.get_token("https://ai.azure.com/.default")
         completion = None
         byte_count = 0
@@ -144,7 +147,7 @@ class FoundryClient:
                             text for item in response.get("output", [])
                             if item.get("type") == "message" and item.get("role") == "assistant"
                             for content in item.get("content", [])
-                            if content.get("type") == "output_text" and (text := content_text(content))
+                            if content.get("type") == "output_text" and (text := content_text(content, locale=locale))
                         ]
                         completion = "\n\n".join(texts)
                         if not completion or len(completion) > 64000:
@@ -174,14 +177,22 @@ def create_app(settings=None, verifier=None, upstream=None):
     application = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     application.state.store = store
 
-    async def identity(authorization: str | None = Header(default=None)):
-        return await verifier.authorize(authorization)
+    @application.exception_handler(HTTPException)
+    async def flatten_http_exception(request: Request, exc: HTTPException):
+        body = exc.detail if isinstance(exc.detail, dict) else {"detail": exc.detail}
+        return JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
+
+    async def identity(authorization: str | None = Header(default=None),
+                       ui_language: str | None = Header(alias="X-UI-Language", default=None)):
+        return await verifier.authorize(authorization, pick_language(ui_language))
 
     @application.middleware("http")
     async def security_headers(request: Request, call_next):
         if request.headers.get("content-length", "").isdigit():
             if int(request.headers["content-length"]) > 40000:
-                return JSONResponse({"detail": "Request too large."}, status_code=413)
+                language = pick_language(request.headers.get("X-UI-Language"))
+                return JSONResponse({"detail": localize("REQUEST_TOO_LARGE", language),
+                                     "code": "REQUEST_TOO_LARGE"}, status_code=413)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -208,25 +219,32 @@ def create_app(settings=None, verifier=None, upstream=None):
         return {"objectId": owner.object_id}
 
     @application.post("/api/conversations", status_code=201)
-    async def create(owner: Identity = Depends(identity)):
-        return {"id": store.create(owner)}
+    async def create(owner: Identity = Depends(identity),
+                     ui_language: str | None = Header(alias="X-UI-Language", default=None)):
+        return {"id": store.create(owner, pick_language(ui_language))}
 
     @application.delete("/api/conversations/{identifier}", status_code=204)
-    async def delete(identifier: uuid.UUID, owner: Identity = Depends(identity)):
-        session = store.get(str(identifier), owner)
+    async def delete(identifier: uuid.UUID, owner: Identity = Depends(identity),
+                     ui_language: str | None = Header(alias="X-UI-Language", default=None)):
+        language = pick_language(ui_language)
+        session = store.get(str(identifier), owner, language)
         if session.busy:
-            raise HTTPException(409, "Stop the current response first.")
+            raise HTTPException(409, {"detail": localize("RESPONSE_IN_PROGRESS", language),
+                                       "code": "RESPONSE_IN_PROGRESS"})
         del store.sessions[str(identifier)]
 
     @application.post("/api/conversations/{identifier}/messages")
     async def message(identifier: uuid.UUID, body: Message, owner: Identity = Depends(identity),
-                      idempotency_key: uuid.UUID | None = Header(default=None)):
-        session = store.get(str(identifier), owner)
+                      idempotency_key: uuid.UUID | None = Header(default=None),
+                      ui_language: str | None = Header(alias="X-UI-Language", default=None)):
+        language = pick_language(ui_language)
+        session = store.get(str(identifier), owner, language)
         request_id = str(idempotency_key or uuid.uuid4())
         if request_id in session.completed:
             original, answer = session.completed[request_id]
             if original != body.text:
-                raise HTTPException(409, "This request key was already used for a different message.")
+                raise HTTPException(409, {"detail": localize("IDEMPOTENCY_KEY_REUSED", language),
+                                           "code": "IDEMPOTENCY_KEY_REUSED"})
             return StreamingResponse(iter([
                 sse({"type": "status", "text": "Complete", "requestId": request_id}),
                 sse({"type": "answer", "text": answer, "requestId": request_id}),
@@ -234,11 +252,12 @@ def create_app(settings=None, verifier=None, upstream=None):
             ]), media_type="text/event-stream",
                 headers={"X-Accel-Buffering": "no", "X-Request-ID": request_id})
         if session.busy:
-            raise HTTPException(409, "A response is already in progress.")
+            raise HTTPException(409, {"detail": localize("RESPONSE_BUSY", language), "code": "RESPONSE_BUSY"})
         if len(session.messages) >= settings.max_turns * 2:
-            raise HTTPException(409, "Conversation limit reached. Start a new conversation.")
+            raise HTTPException(409, {"detail": localize("CONVERSATION_LIMIT", language),
+                                       "code": "CONVERSATION_LIMIT"})
         if slots.locked():
-            raise HTTPException(429, "The pilot is busy. Try again shortly.")
+            raise HTTPException(429, {"detail": localize("PILOT_BUSY", language), "code": "PILOT_BUSY"})
         session.busy = True
         await slots.acquire()
 
@@ -253,7 +272,7 @@ def create_app(settings=None, verifier=None, upstream=None):
 
                 async def result():
                     answer = None
-                    async for event in application.state.upstream.events(messages):
+                    async for event in application.state.upstream.events(messages, locale=language):
                         if event["type"] == "answer":
                             answer = event["text"]
                     if not answer:
@@ -273,11 +292,11 @@ def create_app(settings=None, verifier=None, upstream=None):
                 outcome = "success"
             except (httpx.HTTPError, ValueError, TimeoutError) as exc:
                 outcome = type(exc).__name__
-                yield sse({"type": "error", "text": "The assessment could not complete. Try again.",
+                yield sse({"type": "error", "text": localize("ASSESSMENT_FAILED", language),
                            "requestId": request_id})
             except Exception as exc:
                 outcome = type(exc).__name__
-                yield sse({"type": "error", "text": "The service is temporarily unavailable.",
+                yield sse({"type": "error", "text": localize("SERVICE_UNAVAILABLE", language),
                            "requestId": request_id})
             finally:
                 if task is not None and not task.done():

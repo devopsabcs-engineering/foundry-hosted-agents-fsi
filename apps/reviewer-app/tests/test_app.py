@@ -59,7 +59,7 @@ class FakeAuth:
     """Stands in for `ReviewerAuth`. `norole` models a valid token whose
     `roles` claim does not carry the reviewer role."""
 
-    async def authorize(self, header):
+    async def authorize(self, header, language="en-CA"):
         if header == "Bearer reviewer":
             return Identity("tenant", REVIEWER, "Reviewer")
         if header == "Bearer preparer":
@@ -309,5 +309,38 @@ def test_store_failures_return_a_generic_500():
         test_client.headers["Authorization"] = "Bearer reviewer"
         response = test_client.get("/api/cases")
     assert response.status_code == 500
-    assert response.json() == {"detail": "The case store is unavailable."}
+    assert response.json() == {"detail": "The case store is unavailable.", "code": "STORE_UNAVAILABLE"}
     assert "secret-value-do-not-leak" not in response.text
+
+
+def test_store_failures_are_localized_when_french_is_requested():
+    application = create_app(SETTINGS, FakeAuth(), BrokenStore())
+    with TestClient(application, raise_server_exceptions=False) as test_client:
+        test_client.headers["Authorization"] = "Bearer reviewer"
+        test_client.headers["X-UI-Language"] = "fr-CA"
+        response = test_client.get("/api/cases")
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Le magasin de dossiers est indisponible.",
+        "code": "STORE_UNAVAILABLE",
+    }
+
+
+def test_a_domain_error_is_localized_when_french_is_requested(client):
+    test_client, _ = client
+    test_client.headers["X-UI-Language"] = "fr-CA"
+
+    response = test_client.get("/api/cases/CASE-SYN-404")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Dossier introuvable.", "code": "CASE_NOT_FOUND"}
+
+
+def test_an_unrecognized_ui_language_header_falls_back_to_english(client):
+    test_client, _ = client
+    test_client.headers["X-UI-Language"] = "de-DE"
+
+    response = test_client.get("/api/cases/CASE-SYN-404")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Case not found.", "code": "CASE_NOT_FOUND"}

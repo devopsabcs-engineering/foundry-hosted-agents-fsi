@@ -1,3 +1,4 @@
+import asyncio
 import time
 from types import SimpleNamespace
 
@@ -53,9 +54,39 @@ def test_group_overage_fails_closed(auth_fixture):
         auth.verify(jwt.encode(claims, key, algorithm="RS256"))
 
 
+def test_error_defaults_to_english_and_includes_code(auth_fixture):
+    auth, key, claims = auth_fixture
+    claims["groups"] = []
+    with pytest.raises(HTTPException) as failure:
+        auth.verify(jwt.encode(claims, key, algorithm="RS256"))
+    assert failure.value.detail == {
+        "detail": "Pilot membership is required. Contact the pilot administrator.",
+        "code": "MEMBERSHIP_REQUIRED",
+    }
+
+
+def test_error_localizes_to_french_when_requested(auth_fixture):
+    auth, key, claims = auth_fixture
+    claims["groups"] = []
+    with pytest.raises(HTTPException) as failure:
+        auth.verify(jwt.encode(claims, key, algorithm="RS256"), language="fr-CA")
+    assert failure.value.detail == {
+        "detail": "L'adhésion au programme pilote est requise. "
+                  "Communiquez avec l'administrateur du programme pilote.",
+        "code": "MEMBERSHIP_REQUIRED",
+    }
+
+
 def test_forged_signature_denied(auth_fixture):
     auth, _, claims = auth_fixture
     other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     with pytest.raises(HTTPException) as failure:
         auth.verify(jwt.encode(claims, other_key, algorithm="RS256"))
     assert failure.value.status_code == 401
+
+
+def test_authorize_missing_header_localizes_to_french(auth_fixture):
+    auth, _, _ = auth_fixture
+    with pytest.raises(HTTPException) as failure:
+        asyncio.run(auth.authorize(None, language="fr-CA"))
+    assert failure.value.detail == {"detail": "Connectez-vous pour continuer.", "code": "SIGNIN_REQUIRED"}

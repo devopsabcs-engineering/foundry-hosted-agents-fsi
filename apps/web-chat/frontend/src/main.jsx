@@ -10,20 +10,23 @@ import './style.css';
 import { consumeResponse } from './stream';
 import { messageRequest } from './request';
 import { sampleQueries } from './samples';
+import { useLanguage } from './useLanguage';
+import { translate, LANGUAGES, DEFAULT_LANGUAGE } from './i18n';
 
 function ToolButton({ label, children, ...props }) {
   return <button className="tool" title={label} aria-label={label} {...props}>{children}</button>;
 }
 
-function CopyAnswer({ text }) {
+function CopyAnswer({ text, t }) {
   const [copied, setCopied] = useState(false);
-  return <ToolButton label={copied ? 'Copied' : 'Copy answer'} onClick={async () => {
+  return <ToolButton label={copied ? t('message.copied') : t('message.copyAnswer')} onClick={async () => {
     try { await navigator.clipboard.writeText(text); setCopied(true); }
     catch { setCopied(false); }
   }}>{copied ? <Check size={16} /> : <Copy size={16} />}</ToolButton>;
 }
 
 function Chat({ auth, config, initialAccount }) {
+  const { language, setLanguage, t } = useLanguage();
   const [account, setAccount] = useState(initialAccount);
   const [allowed, setAllowed] = useState(false);
   const [checking, setChecking] = useState(Boolean(initialAccount));
@@ -44,7 +47,7 @@ function Chat({ auth, config, initialAccount }) {
       return (await auth.acquireTokenSilent({ account, scopes: [config.scope] })).accessToken;
     } catch (failure) {
       if (failure instanceof InteractionRequiredAuthError) {
-        throw new Error('Your sign-in needs attention. Sign out and sign in again.');
+        throw new Error(t('errors.signInNeedsAttention'));
       }
       throw failure;
     }
@@ -55,10 +58,11 @@ function Chat({ auth, config, initialAccount }) {
     const response = await fetch(path, { ...options, headers: {
       ...options.headers,
       'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`,
+      'X-UI-Language': language,
     } });
     if (!response.ok) {
       const detail = await response.json().catch(() => ({}));
-      throw new Error(typeof detail.detail === 'string' ? detail.detail : `Request failed (${response.status}).`);
+      throw new Error(typeof detail.detail === 'string' ? detail.detail : t('errors.requestFailed', { status: response.status }));
     }
     return response;
   }
@@ -132,7 +136,7 @@ function Chat({ auth, config, initialAccount }) {
         }
       });
     } catch (failure) {
-      setError(failure.name === 'AbortError' ? 'Response stopped.' : failure.message);
+      setError(failure.name === 'AbortError' ? t('errors.responseStopped') : failure.message);
       if (!answered) {
         setDraft(text);
         if (appended) setSessions(previous => previous.map(session => session.id === identifier
@@ -143,66 +147,75 @@ function Chat({ auth, config, initialAccount }) {
 
   return <div className="workspace">
     <aside className="sidebar">
-      <div className="brand"><ClipboardList size={28} /><span>Foundry<span className="brand-sub">QUOTE WORKSPACE</span></span></div>
-      <button className="new-chat" disabled={!allowed || busy} onClick={() => { setActive(null); setDraft(''); setError(''); }}><Plus size={18} />New quote</button>
-      <div className="section-label">THIS SESSION</div>
-      <nav aria-label="Conversations" className="conversations">
+      <div className="brand"><ClipboardList size={28} /><span>{t('sidebar.brand')}<span className="brand-sub">{t('sidebar.brandSub')}</span></span></div>
+      <button className="new-chat" disabled={!allowed || busy} onClick={() => { setActive(null); setDraft(''); setError(''); }}><Plus size={18} />{t('sidebar.newQuote')}</button>
+      <div className="section-label">{t('sidebar.thisSession')}</div>
+      <nav aria-label={t('sidebar.conversationsLabel')} className="conversations">
         {sessions.map(session => <div className={`session ${session.id === active ? 'selected' : ''}`} key={session.id}>
           <button className="session-select" disabled={busy} onClick={() => { setActive(session.id); setDraft(''); setError(''); }}><MessageSquare size={16} /><span>{session.title}</span></button>
-          <ToolButton label="Delete conversation" disabled={busy} onClick={() => removeSession(session.id)}><Trash2 size={15} /></ToolButton>
+          <ToolButton label={t('sidebar.deleteConversation')} disabled={busy} onClick={() => removeSession(session.id)}><Trash2 size={15} /></ToolButton>
         </div>)}
       </nav>
-      <div className="identity"><span className="identity-label">{account?.name ?? 'Not signed in'}</span>{account && <ToolButton label="Sign out" disabled={busy} onClick={signOut}><LogOut size={18} /></ToolButton>}</div>
+      <div className="identity"><span className="identity-label">{account?.name ?? t('sidebar.notSignedIn')}</span>{account && <ToolButton label={t('sidebar.signOut')} disabled={busy} onClick={signOut}><LogOut size={18} /></ToolButton>}</div>
     </aside>
     <main>
-      <header className="topbar"><div><span className="overline">DESJARDINS / QUOTE PREPARATION</span><h1>Quote preparation</h1></div><span className="environment"><span />Staging pilot</span></header>
+      <header className="topbar"><div><span className="overline">{t('topbar.overline')}</span><h1>{t('topbar.title')}</h1></div><div className="topbar-actions"><button type="button" className="language-toggle" onClick={() => setLanguage(language === 'en-CA' ? 'fr-CA' : 'en-CA')} title={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')} aria-label={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')}>{language === 'en-CA' ? 'FR' : 'EN'}</button><span className="environment"><span />{t('topbar.pilotBadge', { env: 'Staging' })}</span></div></header>
       <div className="chat-scroll">
         {!messages.length && <section className="empty">
           <div className="agent-mark"><ClipboardList size={38} strokeWidth={1.4} /></div>
-          <span className="overline">QUOTE PREPARATION AGENT</span>
-          <h2>{allowed ? 'A new quote.' : 'Quotes start with access.'}</h2>
-          <div className="status-label">{checking ? 'Verifying pilot access...' : allowed ? 'Ready' : 'Internal pilot / authorized members only'}</div>
-          {!account && <button className="primary sign-in" onClick={signIn}><LogIn size={18} />Sign in with Microsoft</button>}
+          <span className="overline">{t('gate.agentOverline')}</span>
+          <h2>{allowed ? t('gate.newQuoteHeading') : t('gate.needsAccessHeading')}</h2>
+          <div className="status-label">{checking ? t('gate.verifying') : allowed ? t('gate.ready') : t('gate.restricted')}</div>
+          {!account && <button className="primary sign-in" onClick={signIn}><LogIn size={18} />{t('gate.signIn')}</button>}
         </section>}
-        <div className="messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+        <div className="messages" role="log" aria-label={t('message.conversationLabel')} aria-live="polite" aria-relevant="additions">
           {messages.map((message, index) => <article className={`message ${message.role}`} key={index}>
-            <div className="message-heading"><span>{message.role === 'user' ? 'YOU' : 'QUOTE AGENT'}</span>{message.role === 'assistant' && <CopyAnswer text={message.text} />}</div>
+            <div className="message-heading"><span>{message.role === 'user' ? t('message.you') : t('message.agent')}</span>{message.role === 'assistant' && <CopyAnswer text={message.text} t={t} />}</div>
             {message.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]} skipHtml components={{
               a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
               img: () => null,
             }}>{message.text}</Markdown> : <p className="user-text">{message.text}</p>}
           </article>)}
-          {busy && <div className="pending" role="status"><span className="pulse" />Preparing quote</div>}
+          {busy && <div className="pending" role="status"><span className="pulse" />{t('message.preparingQuote')}</div>}
           <div ref={end} />
         </div>
       </div>
       <footer className="composer-area">
         {error && <div className="error" role="alert">{error}</div>}
         {allowed && <details className="demo-queries" open={!messages.length}>
-          <summary>Synthetic demo queries</summary>
+          <summary>{t('composer.demoQueriesSummary')}</summary>
           <div className="demo-query-list">
             {sampleQueries.map(sample => <button key={sample.id} type="button" disabled={busy || Boolean(draft)}
-              title={sample.prompt} onClick={() => { setDraft(sample.prompt); composer.current?.focus(); }}>
-              <MessageSquare size={16} aria-hidden="true" /><span>{sample.title}</span>
+              title={sample.prompt[language]} onClick={() => { setDraft(sample.prompt[language]); composer.current?.focus(); }}>
+              <MessageSquare size={16} aria-hidden="true" /><span>{sample.title[language]}</span>
             </button>)}
           </div>
         </details>}
         <form className="composer" onSubmit={send}>
-          <textarea ref={composer} aria-label="Quote message" placeholder="Describe the quote request or ask a follow-up..." value={draft} maxLength={8000} rows={3} disabled={!allowed || busy}
+          <textarea ref={composer} aria-label={t('composer.messageAriaLabel')} placeholder={t('composer.placeholder')} value={draft} maxLength={8000} rows={3} disabled={!allowed || busy}
             onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(event); } }} />
           <div className="composer-bottom"><span>{draft.length.toLocaleString()} / 8,000</span>{busy
-            ? <ToolButton label="Stop response" onClick={() => abort.current?.abort()} type="button"><Square size={18} /></ToolButton>
-            : <button className="send" title="Send message" aria-label="Send message" disabled={!allowed || !draft.trim()} type="submit"><ArrowUp size={21} /></button>}</div>
+            ? <ToolButton label={t('composer.stopResponse')} onClick={() => abort.current?.abort()} type="button"><Square size={18} /></ToolButton>
+            : <button className="send" title={t('composer.sendMessage')} aria-label={t('composer.sendMessage')} disabled={!allowed || !draft.trim()} type="submit"><ArrowUp size={21} /></button>}</div>
         </form>
-        <div className="disclaimer">Synthetic training data only. Not an insurance quote. Verify calculations before any decision.</div>
+        <div className="disclaimer">{t('disclaimer.text')}</div>
       </footer>
     </main>
   </div>;
 }
 
+function initialLanguage() {
+  try {
+    const stored = window.localStorage.getItem('fhaf-ui-language');
+    return LANGUAGES.includes(stored) ? stored : DEFAULT_LANGUAGE;
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
+
 async function start() {
   const response = await fetch('/api/config');
-  if (!response.ok) throw new Error('Configuration is unavailable.');
+  if (!response.ok) throw new Error(translate(initialLanguage(), 'errors.configUnavailable'));
   const config = await response.json();
   const auth = new PublicClientApplication({
     auth: { clientId: config.clientId, authority: `https://login.microsoftonline.com/${config.tenantId}`, redirectUri: window.location.origin },
@@ -216,5 +229,5 @@ async function start() {
 }
 
 start().catch(() => {
-  createRoot(document.getElementById('root')).render(<div className="startup-error" role="alert">The quote workspace could not load. Refresh to try again.</div>);
+  createRoot(document.getElementById('root')).render(<div className="startup-error" role="alert">{translate(initialLanguage(), 'errors.workspaceLoadFailed')}</div>);
 });

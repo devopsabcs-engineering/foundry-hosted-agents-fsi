@@ -5,6 +5,8 @@ import jwt
 from fastapi import HTTPException
 from jwt import PyJWKClient
 
+from messages import DEFAULT_LANGUAGE, message
+
 
 @dataclass(frozen=True)
 class Identity:
@@ -23,7 +25,7 @@ class PilotAuth:
             timeout=10,
         )
 
-    def verify(self, token: str) -> Identity:
+    def verify(self, token: str, language: str = DEFAULT_LANGUAGE) -> Identity:
         try:
             key = self.keys.get_signing_key_from_jwt(token).key
             claims = jwt.decode(
@@ -36,20 +38,27 @@ class PilotAuth:
                 leeway=30,
             )
         except jwt.PyJWKClientConnectionError as exc:
-            raise HTTPException(503, "Sign-in verification is temporarily unavailable.") from exc
+            raise HTTPException(503, {"detail": message("SIGNIN_UNAVAILABLE", language),
+                                       "code": "SIGNIN_UNAVAILABLE"}) from exc
         except jwt.PyJWTError as exc:
-            raise HTTPException(401, "A valid access token is required.") from exc
+            raise HTTPException(401, {"detail": message("INVALID_TOKEN", language),
+                                       "code": "INVALID_TOKEN"}) from exc
         if claims.get("tid") != self.tenant_id or claims.get("azp") != self.client_id:
-            raise HTTPException(403, "This application is not authorized.")
+            raise HTTPException(403, {"detail": message("APP_NOT_AUTHORIZED", language),
+                                       "code": "APP_NOT_AUTHORIZED"})
         if "Chat.Access" not in claims.get("scp", "").split():
-            raise HTTPException(403, "Chat permission is required.")
+            raise HTTPException(403, {"detail": message("SCOPE_REQUIRED", language),
+                                       "code": "SCOPE_REQUIRED"})
         if self.group_id not in claims.get("groups", []):
-            raise HTTPException(403, "Pilot membership is required. Contact the pilot administrator.")
+            raise HTTPException(403, {"detail": message("MEMBERSHIP_REQUIRED", language),
+                                       "code": "MEMBERSHIP_REQUIRED"})
         if not isinstance(claims["oid"], str) or not claims["oid"]:
-            raise HTTPException(401, "A user identity is required.")
+            raise HTTPException(401, {"detail": message("IDENTITY_REQUIRED", language),
+                                       "code": "IDENTITY_REQUIRED"})
         return Identity(claims["tid"], claims["oid"])
 
-    async def authorize(self, authorization: str | None) -> Identity:
+    async def authorize(self, authorization: str | None, language: str = DEFAULT_LANGUAGE) -> Identity:
         if not authorization or not authorization.startswith("Bearer ") or len(authorization) > 32768:
-            raise HTTPException(401, "Sign in to continue.")
-        return await asyncio.to_thread(self.verify, authorization[7:])
+            raise HTTPException(401, {"detail": message("SIGNIN_REQUIRED", language),
+                                       "code": "SIGNIN_REQUIRED"})
+        return await asyncio.to_thread(self.verify, authorization[7:], language)

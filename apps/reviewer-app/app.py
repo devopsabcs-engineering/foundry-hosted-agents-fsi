@@ -31,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Identity, ReviewerAuth
+from messages import message, pick_language
 
 
 def _agent_source_dir() -> Path | None:
@@ -160,8 +161,11 @@ def create_app(settings=None, verifier=None, store=None):
 
     application = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
-    async def identity(authorization: str | None = Header(default=None)):
-        return await verifier.authorize(authorization)
+    async def identity(
+        authorization: str | None = Header(default=None),
+        x_ui_language: str | None = Header(default=None, alias="X-UI-Language"),
+    ):
+        return await verifier.authorize(authorization, pick_language(x_ui_language))
 
     def case_store() -> CaseStore:
         return application.state.store
@@ -170,7 +174,11 @@ def create_app(settings=None, verifier=None, store=None):
     async def security_headers(request: Request, call_next):
         if request.headers.get("content-length", "").isdigit():
             if int(request.headers["content-length"]) > 8000:
-                return JSONResponse({"detail": "Request too large."}, status_code=413)
+                language = pick_language(request.headers.get("X-UI-Language"))
+                return JSONResponse(
+                    {"detail": message("REQUEST_TOO_LARGE", language), "code": "REQUEST_TOO_LARGE"},
+                    status_code=413,
+                )
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -183,11 +191,20 @@ def create_app(settings=None, verifier=None, store=None):
         )
         return response
 
+    @application.exception_handler(HTTPException)
+    async def flatten_http_exception(request: Request, exc: HTTPException):
+        if isinstance(exc.detail, dict):
+            return JSONResponse(exc.detail, status_code=exc.status_code)
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+
     # SelfApprovalError is a sibling of InvalidTransitionError, not a subclass.
     # Registering only the latter would let self-approval escape as a 500.
     @application.exception_handler(CaseNotFoundError)
     async def case_not_found(request: Request, exc: CaseNotFoundError):
-        return JSONResponse({"detail": "Case not found."}, status_code=404)
+        language = pick_language(request.headers.get("X-UI-Language"))
+        return JSONResponse(
+            {"detail": message("CASE_NOT_FOUND", language), "code": "CASE_NOT_FOUND"}, status_code=404
+        )
 
     @application.exception_handler(SelfApprovalError)
     async def self_approval(request: Request, exc: SelfApprovalError):
@@ -195,26 +212,36 @@ def create_app(settings=None, verifier=None, store=None):
         # and a revoked role. The code is what lets the frontend tell those
         # apart, so it never tells a reviewer whose role was revoked that they
         # authored the case and hide the real remediation.
+        language = pick_language(request.headers.get("X-UI-Language"))
         return JSONResponse(
-            {"detail": "You prepared this case and cannot decide it.", "code": "SELF_APPROVAL"},
+            {"detail": message("SELF_APPROVAL", language), "code": "SELF_APPROVAL"},
             status_code=403,
         )
 
     @application.exception_handler(InvalidTransitionError)
     async def invalid_transition(request: Request, exc: InvalidTransitionError):
+        language = pick_language(request.headers.get("X-UI-Language"))
         return JSONResponse(
-            {"detail": "This case changed since it was loaded. Reload and try again."},
+            {"detail": message("INVALID_TRANSITION", language), "code": "INVALID_TRANSITION"},
             status_code=409,
         )
 
     @application.exception_handler(CaseAlreadyExistsError)
     async def already_exists(request: Request, exc: CaseAlreadyExistsError):
-        return JSONResponse({"detail": "This case already exists."}, status_code=409)
+        language = pick_language(request.headers.get("X-UI-Language"))
+        return JSONResponse(
+            {"detail": message("CASE_ALREADY_EXISTS", language), "code": "CASE_ALREADY_EXISTS"},
+            status_code=409,
+        )
 
     @application.exception_handler(ApprovalRepositoryError)
     async def repository_failure(request: Request, exc: ApprovalRepositoryError):
         logger.warning("case_store_failure type=%s", type(exc).__name__)
-        return JSONResponse({"detail": "The case store is unavailable."}, status_code=500)
+        language = pick_language(request.headers.get("X-UI-Language"))
+        return JSONResponse(
+            {"detail": message("STORE_UNAVAILABLE", language), "code": "STORE_UNAVAILABLE"},
+            status_code=500,
+        )
 
     @application.get("/healthz")
     async def health():
@@ -248,7 +275,7 @@ def create_app(settings=None, verifier=None, store=None):
         trail = await asyncio.to_thread(store_.get_audit_trail, case_id)
         return {"case": case_payload(record), "auditTrail": [audit_payload(e) for e in trail]}
 
-    async def decide(command, case_id, body, reviewer, request_id):
+    async def decide(command, case_id, body, reviewer, request_id, language):
         """Reject a stale revision before touching the store.
 
         The store's own compare-and-swap only guards against a writer that
@@ -259,7 +286,9 @@ def create_app(settings=None, verifier=None, store=None):
         store_ = case_store()
         current = await asyncio.to_thread(store_.get_case, case_id)
         if current.revision != body.revision:
-            raise HTTPException(409, "This case changed since it was loaded. Reload and try again.")
+            raise HTTPException(
+                409, {"detail": message("STALE_REVISION", language), "code": "STALE_REVISION"}
+            )
         reason_code = getattr(body, "reason_code", None)
         record = await asyncio.to_thread(
             getattr(store_, command), case_id, reviewer.object_id, reason_code=reason_code
@@ -277,14 +306,18 @@ def create_app(settings=None, verifier=None, store=None):
     def request_id(idempotency_key: str | None = Header(default=None, max_length=128)):
         return idempotency_key or str(uuid.uuid4())
 
+    def resolved_language(x_ui_language: str | None = Header(default=None, alias="X-UI-Language")):
+        return pick_language(x_ui_language)
+
     @application.post("/api/cases/{case_id}/approve")
     async def approve(
         body: ApproveRequest,
         case_id: str = CASE_ID,
         reviewer: Identity = Depends(identity),
         key: str = Depends(request_id),
+        language: str = Depends(resolved_language),
     ):
-        return await decide("approve", case_id, body, reviewer, key)
+        return await decide("approve", case_id, body, reviewer, key, language)
 
     @application.post("/api/cases/{case_id}/reject")
     async def reject(
@@ -292,8 +325,9 @@ def create_app(settings=None, verifier=None, store=None):
         case_id: str = CASE_ID,
         reviewer: Identity = Depends(identity),
         key: str = Depends(request_id),
+        language: str = Depends(resolved_language),
     ):
-        return await decide("reject", case_id, body, reviewer, key)
+        return await decide("reject", case_id, body, reviewer, key, language)
 
     @application.post("/api/cases/{case_id}/revise")
     async def revise(
@@ -301,8 +335,9 @@ def create_app(settings=None, verifier=None, store=None):
         case_id: str = CASE_ID,
         reviewer: Identity = Depends(identity),
         key: str = Depends(request_id),
+        language: str = Depends(resolved_language),
     ):
-        return await decide("revise", case_id, body, reviewer, key)
+        return await decide("revise", case_id, body, reviewer, key, language)
 
     dist = Path(__file__).parent / "frontend" / "dist"
     if dist.exists():

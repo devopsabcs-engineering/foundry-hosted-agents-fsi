@@ -6,14 +6,15 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app import FoundryClient, SessionStore, Settings, create_app
+from app import FoundryClient, SessionStore, Settings, content_text, create_app
 from auth import Identity
+from messages import DEFAULT_LANGUAGE
 
 SETTINGS = Settings("tenant", "client", "pilot", "https://test.services.ai.azure.com/responses")
 
 
 class TestAuth:
-    async def authorize(self, header):
+    async def authorize(self, header, language=DEFAULT_LANGUAGE):
         if header not in ("Bearer alice", "Bearer bob"):
             raise HTTPException(401, "Sign in")
         return Identity("tenant", header.split()[1])
@@ -23,12 +24,13 @@ class FakeAgent:
     def __init__(self):
         self.inputs = []
         self.fail = False
+        self.answer_text = "Assessment complete."
 
-    async def events(self, messages):
+    async def events(self, messages, locale=DEFAULT_LANGUAGE):
         self.inputs.append(messages)
         if self.fail:
             raise ValueError("secret upstream error details")
-        yield {"type": "answer", "text": "Assessment complete."}
+        yield {"type": "answer", "text": content_text({"text": self.answer_text}, locale=locale)}
 
 
 @pytest.fixture
@@ -166,3 +168,48 @@ def test_no_secret_in_public_configuration(client):
     assert set(response.json()) == {"tenantId", "clientId", "scope", "environment"}
     assert response.headers["Cache-Control"] == "no-store"
     assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+
+
+def test_error_response_includes_code_and_defaults_to_english(client):
+    client, _, store = client
+    identifier = client.post("/api/conversations").json()["id"]
+    store.sessions[identifier].busy = True
+    response = client.post(f"/api/conversations/{identifier}/messages", json={"text": "Hi"})
+    assert response.status_code == 409
+    assert response.json() == {"detail": "A response is already in progress.", "code": "RESPONSE_BUSY"}
+
+
+def test_error_response_localizes_to_french_with_ui_language_header(client):
+    client, _, store = client
+    identifier = client.post("/api/conversations").json()["id"]
+    store.sessions[identifier].busy = True
+    response = client.post(
+        f"/api/conversations/{identifier}/messages", json={"text": "Hi"},
+        headers={"X-UI-Language": "fr-CA"},
+    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Une réponse est déjà en cours.", "code": "RESPONSE_BUSY"}
+
+
+def test_invalid_ui_language_header_falls_back_to_english(client):
+    client, _, store = client
+    identifier = client.post("/api/conversations").json()["id"]
+    store.sessions[identifier].busy = True
+    response = client.post(
+        f"/api/conversations/{identifier}/messages", json={"text": "Hi"},
+        headers={"X-UI-Language": "xx-XX"},
+    )
+    assert response.json() == {"detail": "A response is already in progress.", "code": "RESPONSE_BUSY"}
+
+
+def test_agent_answer_streams_requested_language(client):
+    client, agent, _ = client
+    agent.answer_text = {"en-CA": "Assessment complete.", "fr-CA": "Évaluation terminée."}
+    identifier = client.post("/api/conversations").json()["id"]
+    response = client.post(
+        f"/api/conversations/{identifier}/messages", json={"text": "Hi"},
+        headers={"X-UI-Language": "fr-CA"},
+    )
+    events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+    answer = next(event for event in events if event["type"] == "answer")
+    assert answer["text"] == "Évaluation terminée."

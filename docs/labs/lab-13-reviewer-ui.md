@@ -22,7 +22,7 @@ In Lab 07 you played the reviewer by calling `ApprovalRepository.approve` from a
 Everything here runs on your workstation. The case store falls back to SQLite when no Cosmos endpoint is configured, so the full review loop works with no Azure data plane at all.
 
 > [!NOTE]
-> The reviewer interface is English only. Unlike the applicant-facing chat, which is bilingual because applicants are, this surface serves internal reviewers during the pilot and was scoped to a single language.
+> The reviewer interface includes a manual EN/FR toggle in the header, matching the applicant-facing chat. Every label, message, and the fixed disclaimer render in whichever language the toggle selects, and the choice persists in the browser between visits.
 
 ## Learning Objectives
 
