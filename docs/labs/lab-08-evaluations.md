@@ -35,21 +35,19 @@ Test-Path eval/golden-dataset.jsonl
 Test-Path eval/evaluation_gate.py
 ```
 
-`eval/` holds the paired EN/FR golden dataset and the evaluation gate that checks it against this project's calculator, approval repository, and MCP servers. If either path returns `False` in your checkout, the evaluation suite has not landed yet; continue with Exercise 8.3, which does not depend on it.
+Expected result: both paths return `True`. `eval/` holds the paired EN/FR golden dataset and the evaluation gate that checks it against this project's calculator, approval repository, and MCP servers.
 
 ### Exercise 8.2: Run the Evaluation Gate
 
-If both paths from Exercise 8.1 returned `True`:
-
 ```powershell
-python eval/evaluation_gate.py --dataset eval/golden-dataset.jsonl
+python eval/evaluation_gate.py
 ```
 
-Expected result: the gate reports every required check passing. The gate is designed so a quality judge can never override an arithmetic or approval-state failure; a missing or skipped required case fails the run outright.
+Expected result: the gate reports every required check passing and writes a machine-readable copy of the same report to `eval/results.json`. The gate takes no command-line arguments; the dataset path (`eval/golden-dataset.jsonl`) is fixed in `eval/deterministic-tests/checks.py`. The gate is designed so a quality judge can never override an arithmetic or approval-state failure; a missing or skipped required case fails the run outright.
 
 ### Exercise 8.3 (Hands-on): Write Your Own Arithmetic Check
 
-Whether or not `eval/` exists yet in your checkout, you can write the same kind of check the evaluation gate performs for arithmetic, scoped to the fixtures from Lab 01.
+You can write the same kind of check the evaluation gate performs for arithmetic, scoped to the fixtures from Lab 01.
 
 ```powershell
 python -c "
@@ -77,8 +75,8 @@ Expected result: every fixture matches its `expectedCalculation` exactly, printi
 
 ## Validation Checklist
 
-* [ ] You located, or confirmed the absence of, `eval/golden-dataset.jsonl` and `eval/evaluation_gate.py`
-* [ ] If present, `eval/evaluation_gate.py` reported every required check passing
+* [ ] You located `eval/golden-dataset.jsonl` and `eval/evaluation_gate.py`
+* [ ] `python eval/evaluation_gate.py` reported every required check passing
 * [ ] Your Exercise 8.3 check confirms `calculate_quote` matches `expectedCalculation` for every fixture
 * [ ] You can name the seven categories the full evaluation gate is designed to cover
 

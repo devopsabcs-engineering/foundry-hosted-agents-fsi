@@ -146,11 +146,13 @@ Sending a message requires two things your local run does not have: a live `AGEN
 
 The deployed chat has both. `scripts/setup-web-chat-identity.ps1` registers the deployed origins alongside `http://localhost:8000`, so signing in against the deployed URL works while the placeholder identity values from Exercise 11.2 cannot.
 
+`infra/web-chat.bicep` is applied out of band (not through `deploy-and-evaluate.yml`), and only into the production resource group -- there is no staging web-chat deployment.
+
 ```powershell
-az containerapp show --name foundry-quote-chat-staging --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
+az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 
-Expected result: a hostname ending in `azurecontainerapps.io`. Open it in a browser and sign in with an account in the pilot group.
+Expected result: a hostname ending in `azurecontainerapps.io`. Open it in a browser and sign in with an account in the pilot group. The current URL is also always kept up to date in the [wiki's Deployment Links table](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home).
 
 > [!NOTE]
 > The hostname changes whenever the Container Apps environment is recreated, which Lab 14 covers. If sign-in fails with a redirect URI mismatch, the registration is stale rather than misconfigured; rerun `scripts/setup-web-chat-identity.ps1` with the current FQDN.
