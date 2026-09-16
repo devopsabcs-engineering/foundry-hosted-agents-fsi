@@ -89,7 +89,49 @@ deployed system rather than the earlier author-only posture.
     consumption-only environment confirmed the immutability assumption
   * Staging, which had already been deleted, provisioned cleanly on the first
     attempt with a workload profile and a delegated subnet
+* Both configured agent principals were dead
+  * `cosmos-rbac.bicep` grants Cosmos data-plane access to the agent's own
+    identity, supplied through the `AGENT_PRINCIPAL_ID` environment variable
+  * Neither configured value resolved in Entra, so the grants were applied to
+    principals that do not exist and both provisions reported success
+  * Staging was corrected to the live identity and the orphaned grant removed
+* The production agent identity does not resolve in Entra at all
+  * The agents API reports `4fcc9b60-d117-4d6c-912a-a3e206270403`, which
+    `az ad sp show` cannot find and Cosmos rejects with
+    `BadRequest: The provided principal ID ... was not found in the AAD tenant`
+  * azd surfaces that as `A resource with this name already exists or is in a
+    conflicting state`, which points in the wrong direction entirely
+  * `AGENT_PRINCIPAL_ID` is unset for production, so the grant is skipped. The
+    production agent serves requests correctly but cannot write cases
+  * These identities are tenant-level and survive account deletion: the staging
+    identity predates the teardown by a day
 
 ## Release Summary
 
-Pending completion of the staging and production rebuilds.
+Both environments run on the shared virtual network, and Cosmos is reachable
+only over its private endpoint. Verified from inside each Container Apps
+environment:
+
+| Environment | Managed environment subnet | Cosmos resolves to |
+| --- | --- | --- |
+| Staging | `snet-aca-staging` | `10.20.6.4` |
+| Production | `snet-aca-production` | `10.20.6.6` |
+
+All four application surfaces return HTTP 200, and each chat reports its own
+environment through `/api/config` rather than a hardcoded label, which closes
+the defect that started this work.
+
+The network rebuild required deleting and recreating both Container Apps
+environments and both Foundry accounts, which changed every application
+hostname. Both Entra registrations were updated and pruned to exactly the live
+origins plus localhost.
+
+Three defects in the new teardown workflow were found by running it and fixed:
+nested project deletion, a purge that races the delete, and an eventually
+consistent soft-deleted list. One gap in the deploy workflow was closed: the
+agent identity behind the Cosmos grant is now read live and validated against
+Entra, so a stale or unresolvable principal is reported on the run rather than
+discovered through a failed write or a misleading ARM error.
+
+Outstanding: the production agent cannot write cases until its identity
+resolves in Entra. Tracked as WI-43 in the planning log.

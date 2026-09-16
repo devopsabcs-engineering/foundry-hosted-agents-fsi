@@ -374,6 +374,17 @@ jobs:
             if [ -n "$LIVE_AGENT_PRINCIPAL_ID" ]; then
               echo "Live agent principal ID: \`$LIVE_AGENT_PRINCIPAL_ID\`"
               echo ''
+              # The agents API can report an identity that was never registered in
+              # Entra, or one left over from a deleted account. Granting Cosmos
+              # data-plane access to it fails the whole deployment with a BadRequest
+              # that azd reports as a name conflict, so check before recommending it.
+              if ! az ad sp show --id "$LIVE_AGENT_PRINCIPAL_ID" --output none 2>/dev/null; then
+                echo "::warning::The live agent principal \`$LIVE_AGENT_PRINCIPAL_ID\` does not resolve in Entra. Setting it as AGENT_PRINCIPAL_ID will fail the next provision with a BadRequest on the Cosmos role assignment."
+                echo '**This principal does not resolve in Entra**, so it cannot receive a Cosmos'
+                echo 'data-plane grant. Leave `AGENT_PRINCIPAL_ID` unset until it resolves;'
+                echo 'the agent serves requests but cannot write cases in the meantime.'
+                LIVE_AGENT_PRINCIPAL_ID=""
+              fi
             fi
             if [ -z "${CONFIGURED_AGENT_PRINCIPAL_ID:-}" ]; then
               echo 'The `AGENT_PRINCIPAL_ID` environment variable is **not set**, so the hosted'

@@ -42,6 +42,19 @@
     both chat apps and nothing redeploys them automatically
   * Dependency: none
 
+* WI-43: Production agent cannot write cases (high)
+  * The agents API reports an `instance_identity.principal_id` for the
+    production agent that does not resolve in Entra, so the Cosmos data-plane
+    grant cannot be applied and `AGENT_PRINCIPAL_ID` is deliberately unset
+  * The agent itself is healthy and returns the correct bounded bilingual
+    message, so this affects case persistence only
+  * The staging identity resolves and predates the teardown, which shows these
+    identities are tenant-level and survive account deletion. Production's was
+    never registered or was removed independently
+  * Next step: redeploy the production agent to mint a fresh identity, confirm
+    it resolves with `az ad sp show`, then set the variable and rerun
+  * Dependency: none
+
 * WI-31 (carried forward): Should `setup-reviewer-identity.ps1` publish
   `REVIEWER_CLIENT_ID` and create the reviewer group itself? (low)
 
