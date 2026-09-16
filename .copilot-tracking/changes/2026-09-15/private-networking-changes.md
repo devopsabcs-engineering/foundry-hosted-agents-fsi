@@ -133,5 +133,6 @@ agent identity behind the Cosmos grant is now read live and validated against
 Entra, so a stale or unresolvable principal is reported on the run rather than
 discovered through a failed write or a misleading ARM error.
 
-Outstanding: the production agent cannot write cases until its identity
-resolves in Entra. Tracked as WI-43 in the planning log.
+Outstanding: the staging account is not registered with the agent-invocation
+gateway, so its responses endpoint returns a subdomain error. Tracked as WI-44
+in the planning log. Production is fully working.

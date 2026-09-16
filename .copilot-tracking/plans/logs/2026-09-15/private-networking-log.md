@@ -42,32 +42,52 @@
     both chat apps and nothing redeploys them automatically
   * Dependency: none
 
-* WI-43: Neither agent persists cases to Cosmos (high)
+* WI-43: Neither agent persists cases to Cosmos (high) — RESOLVED
   * Root cause found while closing this item: `azure.yaml` never passed
     `COSMOS_ENDPOINT` to the hosted agent. `build_case_store()` therefore
     returned an in-memory SQLite store in both environments, so submitted
     cases were discarded and never reached the reviewer queue. Confirmed
     against the live production agent definition, whose environment variables
-    contain no `COSMOS_ENDPOINT`
+    contained no `COSMOS_ENDPOINT`
   * The original symptom (production cannot write) understated the defect:
     staging did not persist either, it simply had a valid grant sitting unused
-  * Fix part 1 (applied): `azure.yaml` now passes `${COSMOS_ENDPOINT}` to the
-    hosted agent, alongside the existing MCP URLs
-  * Fix part 2 (blocked): the agents API reports an
-    `instance_identity.principal_id` for the production agent that does not
-    resolve in Entra, so the Cosmos data-plane grant cannot be applied and
-    `AGENT_PRINCIPAL_ID` is deliberately unset. Deploying fix part 1 before
-    this is resolved would turn a silent no-op into a visible production
-    failure, so the change is held
-  * The staging identity resolves and predates the teardown, which shows these
-    identities are tenant-level and survive account deletion. Production's was
-    never registered or was removed independently
-  * Next step: delete and redeploy the production agent so Foundry mints a
-    fresh identity, confirm it resolves with `az ad sp show`, set
-    `AGENT_PRINCIPAL_ID`, then deploy both fixes together
-  * Also pending: delete the orphaned production Cosmos grant for dead
-    principal `3984e2d5-374e-44ee-b83e-3837f7aeb6f0`, mirroring the staging
-    cleanup
+  * Fix part 1: `azure.yaml` now passes `${COSMOS_ENDPOINT}` to the hosted
+    agent, alongside the existing MCP URLs
+  * Fix part 2: the old production identity was unregistered in Entra, so the
+    agent was deleted with `force=true` and recreated by the pipeline. The
+    fresh identity `171dca8a-bda3-46ec-8121-a235ecee6e30` accepted the Cosmos
+    grant, which is itself proof of registration because Cosmos rejects
+    grants to principals it cannot resolve
+  * Verified end to end: a case submitted to the production agent now appears
+    in Cosmos, read from inside the VNet through the reviewer app container.
+    The pre-fix submissions are absent, confirming they were discarded
+  * Cleanup done: the orphaned production grant for dead principal
+    `3984e2d5-374e-44ee-b83e-3837f7aeb6f0` was deleted, and
+    `AGENT_PRINCIPAL_ID` was reset for both environments
+
+* WI-44: The staging account is not registered with the agent gateway (high)
+  * Invoking the staging responses endpoint returns
+    `ResourceNotFound: Subdomain does not map to a resource`, from CI and
+    from a workstation alike. Recreating the staging agent did not help, so
+    this is account-level rather than agent-level
+  * Isolated with a nonexistent-agent probe against both accounts. Production
+    answers `Agent 'no-such-agent' not found`, which means the request
+    reached the agent gateway. Staging answers with the subdomain error,
+    which means it never got that far
+  * Everything comparable is symmetric: kind, SKU, provisioning state,
+    `publicNetworkAccess`, `allowProjectManagement`, the exposed endpoint
+    list, `networkInjections`, the injection subnets, and the one-project
+    layout. DNS resolves both hosts to the same address
+  * The staging agent kept its version history through the network rebuild
+    (5 then 6) while production restarted at 1, so the production account was
+    recreated and the staging account was not. The working environment is the
+    recreated one
+  * This was masked because the LLM-judge step is `continue-on-error`, so a
+    hard transport 404 surfaced as a green run. The workflow now fails when
+    the judge produces no evidence
+  * Next step: rebuild the staging Foundry account through
+    `network-rebuild-teardown.yml`, then rerun the pipeline and re-grant the
+    new staging agent identity
   * Dependency: none
 
 * WI-31 (carried forward): Should `setup-reviewer-identity.ps1` publish
