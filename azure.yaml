@@ -79,5 +79,9 @@ services:
               value: ${APPLICATION_MCP_URL}
             - name: RULEBOOK_MCP_URL
               value: ${RULEBOOK_MCP_URL}
+            # Without this, build_case_store() falls back to in-memory SQLite and
+            # submitted cases never reach the reviewer queue.
+            - name: COSMOS_ENDPOINT
+              value: ${COSMOS_ENDPOINT}
         toolboxes:
             - quote-tools

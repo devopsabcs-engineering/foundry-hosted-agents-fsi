@@ -42,17 +42,32 @@
     both chat apps and nothing redeploys them automatically
   * Dependency: none
 
-* WI-43: Production agent cannot write cases (high)
-  * The agents API reports an `instance_identity.principal_id` for the
-    production agent that does not resolve in Entra, so the Cosmos data-plane
-    grant cannot be applied and `AGENT_PRINCIPAL_ID` is deliberately unset
-  * The agent itself is healthy and returns the correct bounded bilingual
-    message, so this affects case persistence only
+* WI-43: Neither agent persists cases to Cosmos (high)
+  * Root cause found while closing this item: `azure.yaml` never passed
+    `COSMOS_ENDPOINT` to the hosted agent. `build_case_store()` therefore
+    returned an in-memory SQLite store in both environments, so submitted
+    cases were discarded and never reached the reviewer queue. Confirmed
+    against the live production agent definition, whose environment variables
+    contain no `COSMOS_ENDPOINT`
+  * The original symptom (production cannot write) understated the defect:
+    staging did not persist either, it simply had a valid grant sitting unused
+  * Fix part 1 (applied): `azure.yaml` now passes `${COSMOS_ENDPOINT}` to the
+    hosted agent, alongside the existing MCP URLs
+  * Fix part 2 (blocked): the agents API reports an
+    `instance_identity.principal_id` for the production agent that does not
+    resolve in Entra, so the Cosmos data-plane grant cannot be applied and
+    `AGENT_PRINCIPAL_ID` is deliberately unset. Deploying fix part 1 before
+    this is resolved would turn a silent no-op into a visible production
+    failure, so the change is held
   * The staging identity resolves and predates the teardown, which shows these
     identities are tenant-level and survive account deletion. Production's was
     never registered or was removed independently
-  * Next step: redeploy the production agent to mint a fresh identity, confirm
-    it resolves with `az ad sp show`, then set the variable and rerun
+  * Next step: delete and redeploy the production agent so Foundry mints a
+    fresh identity, confirm it resolves with `az ad sp show`, set
+    `AGENT_PRINCIPAL_ID`, then deploy both fixes together
+  * Also pending: delete the orphaned production Cosmos grant for dead
+    principal `3984e2d5-374e-44ee-b83e-3837f7aeb6f0`, mirroring the staging
+    cleanup
   * Dependency: none
 
 * WI-31 (carried forward): Should `setup-reviewer-identity.ps1` publish
