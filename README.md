@@ -93,6 +93,17 @@ If `npm install` fails with `EALLOWREMOTE`, the npm 12 default
 `allow-remote = "none"` is rejecting the corporate feed proxy's absolute
 tarball URLs; re-run it as `npm install --allow-remote=all`.
 
+## Try the reviewer app
+
+`apps/reviewer-app/` is the reviewer-facing case queue: every case the
+agent submits for review lands here, gated by an Entra app role rather
+than the chatbot's security-group membership. See
+[Deployment links](#deployment-links) for the current deployed URL, or
+[docs/labs/lab-13-reviewer-ui.md](docs/labs/lab-13-reviewer-ui.md) for
+running it locally against a real Entra registration.
+
+![Quote reviewer UI](assets/reviewer-app-ui.png)
+
 ## Deployment links
 
 This repository does not hardcode a "live demo" URL here, because the
