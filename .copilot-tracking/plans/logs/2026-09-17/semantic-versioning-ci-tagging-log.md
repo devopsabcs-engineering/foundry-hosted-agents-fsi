@@ -11,6 +11,20 @@
 
 ### Implementation Deviations
 
+* DD-02: First real push-triggered run of both `release` jobs (2026-09-17) failed/misbehaved and
+  required a follow-up fix commit before either app's redeploy could proceed.
+  * Issue 1: `git tag "<name>"` creates a lightweight tag; `git push ... --follow-tags`
+    only pushes annotated tags, so `web-chat-v1.0.1`/`reviewer-app-v1.0.1` were created
+    locally on the runner but never reached `origin` on the first run.
+  * Issue 2: both apps changed in the same commit, so both release jobs fired
+    concurrently and both ran `git push origin HEAD:main` at nearly the same time;
+    reviewer-app's push won the race, web-chat's was rejected (`! [rejected] (fetch first)`).
+  * Fix: pushed a follow-up commit (`d88c268`/`714dd20`) changing both workflows to
+    (a) push the tag ref explicitly (`git push origin "<tag>"`) instead of relying on
+    `--follow-tags`, and (b) retry the branch push up to 5x with `git fetch` +
+    `git rebase origin/main` between attempts. Re-run succeeded: `web-chat-v1.0.1` and
+    `reviewer-app-v1.0.2` (reviewer-app bumped twice due to the race) both landed on
+    `origin` with matching ACR tags `pilot/web-chat:v1.0.1` and `pilot/reviewer-app:v1.0.2`.
 * DD-01: The plan adds Docker build+push to `web-chat-build.yml` and
   `reviewer-app-build.yml` rather than reusing `deploy-and-evaluate.yml`'s existing
   `az acr build` steps.
@@ -46,6 +60,15 @@
   visible in the UI always matches what is actually running in production.
   * Source: Phase 5 design discussion.
   * Dependency: none blocking; purely an enhancement.
+  * CONFIRMED 2026-09-17 (post-implementation redeploy attempt): production
+    `foundry-quote-reviewer` pulls `acrdesjqp7651.azurecr.io/staging/reviewer-app@sha256:...`,
+    a repo path only `deploy-and-evaluate.yml` writes to. The new `pilot/reviewer-app`
+    stream this feature added is not consumed by production at all today. Web-chat's
+    production Container App, by contrast, already tracks `pilot/web-chat` directly, so
+    only reviewer-app has this gap. Redeployed and validated web-chat in production
+    (`v1.0.1`, confirmed live via `/api/config`); reviewer-app's production redeploy is
+    deferred pending a user decision (see ID-03) since the only way to update it without
+    bypassing the evaluation-gated pipeline is to run `deploy-and-evaluate.yml` in full.
 * WI-02: Reviewer-app has no Application Insights wiring at all (confirmed during the
   prior review-queue investigation, recorded in `/memories/repo/deployment-gotchas.md`).
   Out of scope for this feature but worth a dedicated follow-up.
