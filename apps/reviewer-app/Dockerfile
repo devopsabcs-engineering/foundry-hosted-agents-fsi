@@ -16,7 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY apps/reviewer-app/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home appuser
-COPY apps/reviewer-app/app.py apps/reviewer-app/auth.py apps/reviewer-app/messages.py ./
+COPY apps/reviewer-app/app.py apps/reviewer-app/auth.py apps/reviewer-app/messages.py apps/reviewer-app/VERSION ./
 COPY src/quote-preparation-agent/approval_repository.py src/quote-preparation-agent/case_store.py \
      src/quote-preparation-agent/sqlite_case_store.py src/quote-preparation-agent/cosmos_case_store.py ./
 COPY --from=frontend /build/dist ./frontend/dist

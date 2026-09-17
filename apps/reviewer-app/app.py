@@ -69,6 +69,14 @@ from case_store import (  # noqa: E402
 logger = logging.getLogger("reviewer_app")
 
 
+def _read_version() -> str:
+    path = Path(__file__).resolve().parent / "VERSION"
+    try:
+        return path.read_text(encoding="utf-8").strip() or "0.0.0"
+    except FileNotFoundError:
+        return "0.0.0"
+
+
 @dataclass(frozen=True)
 class Settings:
     tenant_id: str
@@ -77,6 +85,7 @@ class Settings:
     reviewer_scope: str = "Review.Access"
     environment: str = "staging"
     queue_limit: int = 100
+    version: str = "0.0.0"
 
     @classmethod
     def from_env(cls):
@@ -92,6 +101,7 @@ class Settings:
             reviewer_role=role,
             reviewer_scope=scope,
             environment=os.environ.get("ENVIRONMENT", "staging").strip() or "staging",
+            version=_read_version(),
         )
 
 
@@ -255,6 +265,7 @@ def create_app(settings=None, verifier=None, store=None):
             "scope": f"api://{settings.client_id}/{settings.reviewer_scope}",
             "role": settings.reviewer_role,
             "environment": settings.environment,
+            "version": settings.version,
         }
 
     @application.get("/api/me")

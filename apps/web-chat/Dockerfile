@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home appuser
-COPY app.py auth.py messages.py ./
+COPY app.py auth.py messages.py VERSION ./
 COPY --from=frontend /build/dist ./frontend/dist
 RUN IDENTITY_ENDPOINT=http://localhost/identity IDENTITY_HEADER=build-check python -c "import asyncio; from app import FoundryClient, Settings; client = FoundryClient(Settings('tenant', 'client', 'group', 'https://test.services.ai.azure.com')); asyncio.run(client.close())"
 USER 10001

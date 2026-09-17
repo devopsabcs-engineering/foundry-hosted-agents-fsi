@@ -4,6 +4,7 @@
 !app.py
 !auth.py
 !messages.py
+!VERSION
 !frontend/
 !frontend/package.json
 !frontend/package-lock.json

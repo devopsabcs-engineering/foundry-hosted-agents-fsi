@@ -289,6 +289,7 @@ function Workspace({ auth, config, initialAccount }) {
     <header className="topbar">
       <div className="brand"><ClipboardCheck size={24} aria-hidden="true" /><span>{t('topbar.brand')}<span className="brand-sub">{t('topbar.brandSub')}</span></span></div>
       <span className="environment"><span aria-hidden="true" />{t('topbar.pilotBadge', { env: config.environment })}</span>
+      <span className="version-badge">v{config.version}</span>
       <span className="identity">{account?.name ?? t('topbar.notSignedIn')}</span>
       <button className="secondary" type="button" onClick={() => setLanguage(language === 'en-CA' ? 'fr-CA' : 'en-CA')}
         title={t('topbar.languageToggleAria')} aria-label={t('topbar.languageToggleAria')}>

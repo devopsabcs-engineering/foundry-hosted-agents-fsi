@@ -22,6 +22,14 @@ from messages import DEFAULT_LANGUAGE, message as localize, pick_language
 logger = logging.getLogger("web_chat")
 
 
+def _read_version() -> str:
+    path = Path(__file__).resolve().parent / "VERSION"
+    try:
+        return path.read_text(encoding="utf-8").strip() or "0.0.0"
+    except FileNotFoundError:
+        return "0.0.0"
+
+
 @dataclass(frozen=True)
 class Settings:
     tenant_id: str
@@ -33,6 +41,7 @@ class Settings:
     max_sessions: int = 128
     max_turns: int = 20
     environment: str = "staging"
+    version: str = "0.0.0"
 
     @classmethod
     def from_env(cls):
@@ -47,6 +56,7 @@ class Settings:
             agent_endpoint=endpoint,
             managed_identity_client_id=os.environ.get("AZURE_CLIENT_ID"),
             environment=os.environ.get("ENVIRONMENT", "staging"),
+            version=_read_version(),
         )
 
 
@@ -212,7 +222,8 @@ def create_app(settings=None, verifier=None, upstream=None):
     @application.get("/api/config")
     async def config():
         return {"tenantId": settings.tenant_id, "clientId": settings.client_id,
-                "scope": f"api://{settings.client_id}/Chat.Access", "environment": settings.environment}
+                "scope": f"api://{settings.client_id}/Chat.Access", "environment": settings.environment,
+                "version": settings.version}
 
     @application.get("/api/me")
     async def me(owner: Identity = Depends(identity)):

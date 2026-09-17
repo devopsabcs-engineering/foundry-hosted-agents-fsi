@@ -76,3 +76,54 @@ jobs:
             echo 'No Azure deployment or local npm policy changes were performed.'
           } >> "$GITHUB_STEP_SUMMARY"
           python scripts/deployment_summary.py
+
+  release:
+    name: Bump version, tag, and publish image
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: release-web-chat-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Bump patch version
+        id: bump
+        run: |
+          set -euo pipefail
+          NEW_VERSION=$(python scripts/bump_version.py --app web-chat)
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+      - name: Commit and tag
+        run: |
+          set -euo pipefail
+          git add apps/web-chat/VERSION
+          git commit -m "chore(web-chat): bump version to v${{ steps.bump.outputs.version }} [skip ci]"
+          git tag "web-chat-v${{ steps.bump.outputs.version }}"
+          git push origin HEAD:main --follow-tags
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push versioned image
+        env:
+          MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          az acr build --registry "$MCP_ACR_NAME" \
+            --image "pilot/web-chat:v${VERSION}" \
+            --image "pilot/web-chat:latest" \
+            --file apps/web-chat/Dockerfile apps/web-chat

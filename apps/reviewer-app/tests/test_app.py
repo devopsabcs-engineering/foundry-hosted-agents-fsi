@@ -99,6 +99,7 @@ def test_health_and_config_do_not_require_a_token(client):
     config = test_client.get("/api/config").json()
     assert config["scope"] == "api://client/Review.Access"
     assert config["role"] == "Reviewer"
+    assert config["version"] == "0.0.0"
 
 
 def test_unauthenticated_requests_are_rejected(client):

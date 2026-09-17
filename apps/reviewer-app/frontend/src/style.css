@@ -10,6 +10,7 @@ button{transition:background .15s}button:hover:enabled{filter:brightness(.96)}
 .brand-sub{display:block;font-size:9px;font-weight:600;margin-top:3px;letter-spacing:.08em}
 .environment{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);text-transform:capitalize}
 .environment span{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.version-badge{font-size:11px;color:var(--muted)}
 .identity{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 main{flex:1;padding:22px 24px;min-width:0}
 .disclaimer{border-top:1px solid var(--border);padding:12px 24px;font-size:11px;color:var(--muted)}

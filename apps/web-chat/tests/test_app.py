@@ -165,7 +165,7 @@ def test_expired_session_and_capacity():
 def test_no_secret_in_public_configuration(client):
     client, _, _ = client
     response = client.get("/api/config")
-    assert set(response.json()) == {"tenantId", "clientId", "scope", "environment"}
+    assert set(response.json()) == {"tenantId", "clientId", "scope", "environment", "version"}
     assert response.headers["Cache-Control"] == "no-store"
     assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
 
