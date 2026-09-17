@@ -23,12 +23,12 @@ services:
                   capacity: 10
     rulebook-conn:
         host: azure.ai.connection
-        endpoint: ${RULEBOOK_MCP_URL}
-        type: remote-tool
+        target: ${RULEBOOK_MCP_URL}
+        category: RemoteTool
     application-conn:
         host: azure.ai.connection
-        endpoint: ${APPLICATION_MCP_URL}
-        type: remote-tool
+        target: ${APPLICATION_MCP_URL}
+        category: RemoteTool
     quote-tools:
         host: azure.ai.toolbox
         uses:
