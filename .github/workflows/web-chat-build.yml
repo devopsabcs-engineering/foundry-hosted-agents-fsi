@@ -109,8 +109,22 @@ jobs:
           set -euo pipefail
           git add apps/web-chat/VERSION
           git commit -m "chore(web-chat): bump version to v${{ steps.bump.outputs.version }} [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Failed to push main after 5 attempts"
+              exit 1
+            fi
+            echo "Push rejected (attempt $attempt), rebasing onto origin/main and retrying..."
+            git fetch origin main
+            git rebase origin/main
+          done
+          # git tag creates a lightweight tag; --follow-tags only pushes annotated
+          # tags, so the tag ref must be pushed explicitly.
           git tag "web-chat-v${{ steps.bump.outputs.version }}"
-          git push origin HEAD:main --follow-tags
+          git push origin "web-chat-v${{ steps.bump.outputs.version }}"
       - name: Azure login (OIDC)
         uses: azure/login@v3
         with:
