@@ -180,11 +180,17 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
   }
 }
 
-module rbac 'modules/rbac.bicep' = if (!empty(principalIds)) {
+// The project's own system-assigned identity must hold Foundry User on its
+// account to write hosted-evaluation artifacts back to the project's storage
+// (POST .../datasets/{name}/versions/{version}/startPendingUpload): without
+// it, `azd deploy`'s hosted evaluation run fails with ClientAuthenticationError
+// PermissionDenied on Microsoft.CognitiveServices/accounts/AIServices/assets/write.
+// Always included; principalIds only adds extra (e.g. CI/CD) principals on top.
+module rbac 'modules/rbac.bicep' = {
   name: 'rbac'
   params: {
     accountName: aiFoundry.outputs.accountName
-    principalIds: principalIds
+    principalIds: concat([aiFoundry.outputs.projectPrincipalId], principalIds)
     principalType: principalType
   }
 }
