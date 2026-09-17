@@ -159,7 +159,7 @@ function Chat({ auth, config, initialAccount }) {
       <div className="identity"><span className="identity-label">{account?.name ?? t('sidebar.notSignedIn')}</span>{account && <ToolButton label={t('sidebar.signOut')} disabled={busy} onClick={signOut}><LogOut size={18} /></ToolButton>}</div>
     </aside>
     <main>
-      <header className="topbar"><div><span className="overline">{t('topbar.overline')}</span><h1>{t('topbar.title')}</h1></div><div className="topbar-actions"><button type="button" className="language-toggle" onClick={() => setLanguage(language === 'en-CA' ? 'fr-CA' : 'en-CA')} title={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')} aria-label={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')}>{language === 'en-CA' ? 'FR' : 'EN'}</button><span className="environment"><span />{t('topbar.pilotBadge', { env: 'Staging' })}</span></div></header>
+      <header className="topbar"><div><span className="overline">{t('topbar.overline')}</span><h1>{t('topbar.title')}</h1></div><div className="topbar-actions"><button type="button" className="language-toggle" onClick={() => setLanguage(language === 'en-CA' ? 'fr-CA' : 'en-CA')} title={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')} aria-label={language === 'en-CA' ? t('topbar.switchToFrench') : t('topbar.switchToEnglish')}>{language === 'en-CA' ? 'FR' : 'EN'}</button><span className="environment"><span />{t('topbar.pilotBadge', { env: config.environment })}</span></div></header>
       <div className="chat-scroll">
         {!messages.length && <section className="empty">
           <div className="agent-mark"><ClipboardList size={38} strokeWidth={1.4} /></div>
