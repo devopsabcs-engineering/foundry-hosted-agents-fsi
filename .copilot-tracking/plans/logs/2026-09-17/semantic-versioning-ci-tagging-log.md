@@ -25,6 +25,19 @@
     `git rebase origin/main` between attempts. Re-run succeeded: `web-chat-v1.0.1` and
     `reviewer-app-v1.0.2` (reviewer-app bumped twice due to the race) both landed on
     `origin` with matching ACR tags `pilot/web-chat:v1.0.1` and `pilot/reviewer-app:v1.0.2`.
+* DD-03: `azure.yaml`'s `rulebook-conn`/`application-conn` connection services used
+  invalid `endpoint`/`type: remote-tool` fields (do not exist in azd's
+  `azure.ai.connection` extension schema). Fixed to `target`/`category: RemoteTool`
+  per the live schema at `Azure/azure-dev` on GitHub; commit `bdf4931`.
+* DD-04: The AI Foundry project's own managed identity was never granted the
+  `Foundry User` role, causing the hosted-evaluation step to fail with
+  `PermissionDenied` on `.../assets/write` and `.../assets/read`.
+  * Root cause: `infra/modules/rbac.bicep` already had the correct role
+    assignments, but `infra/main.bicep`'s `rbac` module only ran when the external
+    `principalIds` parameter was set (never true in practice).
+  * Fix: always include `aiFoundry.outputs.projectPrincipalId` in `principalIds`,
+    additive to any externally supplied ones; commit `3e6520b`. Verified via job
+    logs on a fresh run (`35238867109`) that the PermissionDenied error is gone.
 * DD-01: The plan adds Docker build+push to `web-chat-build.yml` and
   `reviewer-app-build.yml` rather than reusing `deploy-and-evaluate.yml`'s existing
   `az acr build` steps.
@@ -69,6 +82,12 @@
     (`v1.0.1`, confirmed live via `/api/config`); reviewer-app's production redeploy is
     deferred pending a user decision (see ID-03) since the only way to update it without
     bypassing the evaluation-gated pipeline is to run `deploy-and-evaluate.yml` in full.
+  * RESOLVED 2026-09-17: user selected Option A (see ID-03). Ran
+    `deploy-and-evaluate.yml` twice (`35235911956` for the azd-schema fix,
+    `35238867109` for the RBAC fix); both completed `promote-production`
+    successfully. Reviewer-app v1.0.2 is now live in production via the sanctioned
+    pipeline, on the `pilot/reviewer-app`-derived staging digest that pipeline
+    evaluated and promoted.
 * WI-02: Reviewer-app has no Application Insights wiring at all (confirmed during the
   prior review-queue investigation, recorded in `/memories/repo/deployment-gotchas.md`).
   Out of scope for this feature but worth a dedicated follow-up.
@@ -98,3 +117,17 @@
   workflows" selected.
   * Rationale: user preferred extending `web-chat-build.yml` / `reviewer-app-build.yml`
     over creating a new standalone workflow file.
+* ID-03: Reviewer-app production redeploy path — Option A ("use the sanctioned
+  `deploy-and-evaluate.yml` gated pipeline") selected over an ad hoc Bicep deploy.
+  * Rationale: production's reviewer-app image source (`staging/reviewer-app`)
+    differs from the new CI stream (`pilot/reviewer-app`); the evaluation-gated
+    pipeline is the only sanctioned way to promote a new digest to that path.
+* ID-04: When the pipeline's first run failed on the unrelated `azure.yaml`/azd
+  schema bug, user selected "always the more durable fix" over a workaround —
+  applied throughout: the azd schema fix (DD-03) and the Foundry RBAC fix (DD-04)
+  were both root-caused and fixed in Bicep/azure.yaml rather than patched around
+  with manual `az role assignment create`/config edits.
+* ID-05: User explicitly authorized approving both runs' `production` environment
+  gates via the GitHub API on their behalf (run `35235911956` commit `bdf4931`,
+  and run `35238867109` commit `3e6520b`), rather than clicking "Review
+  deployments" themselves in the browser.

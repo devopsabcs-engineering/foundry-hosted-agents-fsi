@@ -89,12 +89,61 @@ Committed (`bd45f7d`), pushed to `main`, and monitored the resulting CI runs:
 * `/memories/repo/deployment-gotchas.md` updated with the CI bug findings and the
   reviewer-app production image-stream mismatch, for future sessions.
 
+## Reviewer-App Production Rollout via `deploy-and-evaluate.yml` (2026-09-17, same day)
+
+Following WI-01/ID-03 (user chose Option A: use the sanctioned evaluation-gated
+pipeline rather than an ad hoc Bicep deploy), and a durable fix over a workaround
+for every bug hit along the way:
+
+* `azure.yaml` failed `azd deploy` with `unknown field "endpoint"` on the
+  `rulebook-conn`/`application-conn` connection services. Root cause: those blocks
+  used fields (`endpoint`, `type: remote-tool`) that do not exist in azd's
+  `azure.ai.connection` extension schema (which uses `target`/`category: RemoteTool`).
+  Fetched the live schema from `Azure/azure-dev` on GitHub, fixed both blocks,
+  validated locally with `azd show --output json`, committed (`bdf4931`), pushed.
+* Re-dispatched `deploy-and-evaluate.yml` (run `35235911956`); it passed staging
+  deploy and the deterministic evaluation gate (13/13, bilingual parity true) and
+  reached the `production` approval gate.
+* The evaluation job's advisory hosted-evaluation step surfaced a second, unrelated
+  bug: `ClientAuthenticationError: PermissionDenied` — the AI Foundry project's
+  own system-assigned managed identity lacked the `Foundry User` role needed to
+  upload/read evaluation artifacts to the project's storage account
+  (`Microsoft.CognitiveServices/accounts/AIServices/assets/write` and `.../read`).
+  Root cause: `infra/modules/rbac.bicep` already defines the correct role
+  assignments (Foundry User, Foundry Project Manager, Foundry Agent Consumer), but
+  `infra/main.bicep` only invoked that module when the external `principalIds`
+  parameter was set — which no workflow or parameters file ever does — so the
+  project's own identity never received the grant on any deployment. Fixed by
+  always including `aiFoundry.outputs.projectPrincipalId` in the module's
+  `principalIds`, additive to any externally supplied ones; committed (`3e6520b`),
+  pushed, regenerated `infra/main.json` via `az bicep build`.
+* Approved run `35235911956`'s production promotion (commit `bdf4931`, pre-RBAC-fix)
+  via the GitHub API on the user's explicit authorization — deterministic gate had
+  already passed and the RBAC failure was advisory-only per the workflow's own
+  design. `promote-production` completed successfully: reviewer-app v1.0.2 is live
+  in production.
+* Dispatched a fresh run (`35238867109`, commit `3e6520b`) so the RBAC fix would
+  actually be provisioned. Confirmed via job logs that the `PermissionDenied`/
+  `Foundry User` error is completely gone from the hosted-evaluation step; its only
+  remaining failure is the pre-existing, already-documented-as-advisory low
+  LLM-judge groundedness/task_adherence score (agent's bounded templated responses
+  score low on generic coherence rubrics by design — not a permissions issue).
+  Deterministic gate passed again (13/13). Approved this run's production
+  promotion too (on the user's explicit authorization) so the RBAC grant is also
+  applied in the production environment; `promote-production` completed
+  successfully.
+* WI-10 (hosted agent's own Cosmos data-plane grant, `AGENT_PRINCIPAL_ID`) remains
+  unset and unresolved — a separate, pre-existing gap not in scope for this RBAC fix.
+
 ## Release Summary
 
-**Total files affected**: 15 (4 added, 11 modified, 0 removed) plus 2 follow-up CI
+**Total files affected**: 17 (4 added, 11 modified, 0 removed) plus 2 follow-up CI
 bug-fix commits (`.github/workflows/web-chat-build.yml`,
-`.github/workflows/reviewer-app-build.yml`) and one production infrastructure
-redeploy (web-chat Container App, no source files changed).
+`.github/workflows/reviewer-app-build.yml`), one production infrastructure redeploy
+(web-chat Container App, no source files changed), one `azure.yaml`/`azure.yaml`-schema
+fix commit (`bdf4931`), and one durable Foundry-RBAC fix commit (`3e6520b`,
+`infra/main.bicep` + regenerated `infra/main.json`) deployed to both staging and
+production via `deploy-and-evaluate.yml`.
 
 * **Added**: `apps/web-chat/VERSION`, `apps/reviewer-app/VERSION`, `scripts/bump_version.py`, `scripts/tests/test_bump_version.py`.
 * **Modified**: `apps/web-chat/app.py`, `apps/web-chat/tests/test_app.py`, `apps/reviewer-app/app.py`, `apps/reviewer-app/tests/test_app.py`, `apps/web-chat/frontend/src/main.jsx`, `apps/web-chat/frontend/src/style.css`, `apps/reviewer-app/frontend/src/main.jsx`, `apps/reviewer-app/frontend/src/style.css`, `apps/web-chat/Dockerfile`, `apps/web-chat/.dockerignore`, `apps/reviewer-app/Dockerfile`, `.github/workflows/web-chat-build.yml`, `.github/workflows/reviewer-app-build.yml`.
