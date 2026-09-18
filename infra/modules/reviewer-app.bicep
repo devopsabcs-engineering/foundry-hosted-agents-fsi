@@ -55,6 +55,9 @@ param environment string = 'staging'
 @description('Cosmos DB documentEndpoint backing the shared case store (from modules/cosmos-db.bicep)')
 param cosmosEndpoint string
 
+@description('Application Insights connection string (from modules/monitoring.bicep); empty skips telemetry wiring')
+param applicationInsightsConnectionString string = ''
+
 @description('Port the reviewer container listens on (matches EXPOSE/uvicorn in apps/reviewer-app/Dockerfile)')
 param containerPort int = 8000
 
@@ -152,6 +155,10 @@ resource reviewer 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'AZURE_CLIENT_ID'
               value: identity.properties.clientId
+            }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: applicationInsightsConnectionString
             }
           ]
           probes: [

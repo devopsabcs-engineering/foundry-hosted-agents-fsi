@@ -231,6 +231,7 @@ module reviewerApp 'modules/reviewer-app.bicep' = if (deployReviewerApp) {
     reviewerScope: reviewerScope
     environment: reviewerEnvironment
     cosmosEndpoint: cosmos.outputs.documentEndpoint
+    applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
   }
 }
 

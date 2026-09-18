@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.46.1.21595",
-      "templateHash": "4193200962102401710"
+      "version": "0.47.16.16243",
+      "templateHash": "13502679616477751007"
     }
   },
   "parameters": {
@@ -83,6 +83,13 @@
       ],
       "metadata": {
         "description": "Deployment label reported by /api/config and used as the resource tag; distinct from environmentName, which is the Container Apps managed environment"
+      }
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Application Insights connection string (from modules/monitoring.bicep's applicationInsightsConnectionString output); empty skips telemetry wiring"
       }
     }
   },
@@ -186,6 +193,10 @@
                 {
                   "name": "AGENT_ENDPOINT",
                   "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1', parameters('foundryAccountName'), parameters('foundryProjectName'))]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('applicationInsightsConnectionString')]"
                 }
               ],
               "probes": [

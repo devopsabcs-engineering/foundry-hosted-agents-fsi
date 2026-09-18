@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "12546920155601784136"
+      "templateHash": "5387780316948530330"
     }
   },
   "parameters": {
@@ -1332,6 +1332,9 @@
           },
           "cosmosEndpoint": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.documentEndpoint.value]"
+          },
+          "applicationInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.applicationInsightsConnectionString.value]"
           }
         },
         "template": {
@@ -1341,7 +1344,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "1105515775999414178"
+              "templateHash": "7380758840555747404"
             }
           },
           "parameters": {
@@ -1417,6 +1420,13 @@
               "type": "string",
               "metadata": {
                 "description": "Cosmos DB documentEndpoint backing the shared case store (from modules/cosmos-db.bicep)"
+              }
+            },
+            "applicationInsightsConnectionString": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights connection string (from modules/monitoring.bicep); empty skips telemetry wiring"
               }
             },
             "containerPort": {
@@ -1516,6 +1526,10 @@
                         {
                           "name": "AZURE_CLIENT_ID",
                           "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').clientId]"
+                        },
+                        {
+                          "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                          "value": "[parameters('applicationInsightsConnectionString')]"
                         }
                       ],
                       "probes": [
@@ -1574,7 +1588,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
-        "[resourceId('Microsoft.Resources/deployments', 'mcp-container-apps')]"
+        "[resourceId('Microsoft.Resources/deployments', 'mcp-container-apps')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
       ]
     },
     {

@@ -400,6 +400,12 @@ and the corresponding "Discrepancy references" pointers in the details file
   * Source: Phase 4.1 functional validation, this session (2026-09-18).
   * Dependency: none blocking WI-10 (already fully resolved); low-priority,
     informational only.
+  * **CLOSED (2026-09-18, user-confirmed non-issue)**: user agreed this can be
+    closed ("sure we can close wi-04"). No further action planned; the CLI
+    invoke's rejection is a request-shape quirk of the single-shot `responses`
+    protocol, not a product or data defect — real chat-UI traffic (multi-turn)
+    creates and submits cases successfully, as independently confirmed by the
+    same-session reviewer-queue investigation below.
 * WI-05: Clean up the orphaned Cosmos SQL role assignment on staging for the dead
   principal `f6ef6272-c2db-45f7-9071-6667ae65a37d` (the original unresolvable
   identity, now replaced by `d3df472a-80a8-4934-b6d9-ac9efb1877e3` after the
@@ -441,6 +447,103 @@ and the corresponding "Discrepancy references" pointers in the details file
   must be resolved (or the plan's approach revised) before Phase 3 can succeed.
   * Source: Implementation, DD-03 (workflow run 35249247909).
   * Dependency: blocks Phase 3/4 of this plan.
+
+* WI-09 (new, product gap, not a bug): The reviewer app has no UI/API path to
+  see cases a reviewer already decided (approved/rejected) — only the pending
+  queue (`/api/cases`) and single-case detail (`/api/cases/{id}`) exist.
+  Discovered while resolving WI-07: a reviewer cannot tell "this case isn't
+  pending because I already approved it" from "this case is missing/broken"
+  without the kind of direct API probing done in this session.
+  * Source: WI-07 investigation, 2026-09-18.
+  * Dependency: none blocking; would need a new `list_cases_by_state` call (or a
+    combined multi-state query) plus a frontend view — out of scope for this
+    session.
+
+* WI-07 (new, out of WI-10 scope): User reported cases created via the production
+  web-chat UI (CASE-SYN-002, CASE-SYN-004) do not appear in the Case Reviewer app's
+  "Dossiers en attente de révision" queue, which showed only CASE-SYN-001.
+  * Source: User-provided screenshots, 2026-09-18.
+  * Investigation (Application Insights/Log Analytics on `appi-desjardins-quote-preparation-poc`):
+    confirmed via `AppDependencies` that both cases received a real, successful
+    Cosmos write transitioning them to `PENDING_REVIEW`
+    (`PUT .../docs/CASE-SYN-004/` 200 at 2026-09-16T02:49:52Z;
+    `PUT .../docs/CASE-SYN-002/` 200 at 2026-09-16T19:23:29Z), each followed only by
+    read-only `GET`/`POST 409` retries (no further state-changing writes since) — the
+    documents should legitimately still be `PENDING_REVIEW` in the same
+    `cosmos-desjardins-quote-preparation-poc` account/`quote-preparation` database/
+    `cases` container the reviewer app is configured to read (`COSMOS_ENDPOINT` env
+    var confirmed correct on the current and prior revision). Code review of
+    `case_store.py`/`cosmos_case_store.py`'s `list_cases_by_state` (cross-partition
+    `SELECT * FROM c WHERE c.state = @state`) and the reviewer app's `/api/cases`
+    endpoint/frontend rendering (`format.js`) found no obvious query or
+    null-handling bug.
+  * Notable finding: `foundry-quote-reviewer` has been redeployed 11 times since
+    2026-09-15, most recently at 2026-09-18T01:38:08Z as a direct side effect of
+    this session's "Promote to production" run (WI-06) — the exact revision the
+    user's screenshot reflects could not be pinned down with certainty, and the
+    live app could not be re-checked directly (no reviewer-role credentials
+    available to this session; `open_browser_page` confirmed the app is reachable
+    but requires interactive Entra sign-in).
+  * Separately notable gap: `foundry-quote-reviewer` and `foundry-quote-chat` send
+    **zero** telemetry to `appi-desjardins-quote-preparation-poc`/its Log Analytics
+    workspace (only the hosted agent's own App Insights role appears) — unlike the
+    agent, neither app has Application Insights/OpenTelemetry wired up, and no
+    Container Apps diagnostic setting forwards console logs to Log Analytics either.
+    This makes remote diagnosis of either app's request-time behavior impossible
+    without live log tailing (`az containerapp logs show`) at the exact moment of
+    a request.
+  * **RESOLVED (2026-09-18, not a bug)**: user reconfirmed the queue still showed
+    only CASE-SYN-001 after the redeploy, so the "stale revision" hypothesis was
+    ruled out. Used a signed-in browser session's cached MSAL access token
+    (extracted from `sessionStorage` via `run_playwright_code`, replayed as an
+    `Authorization: Bearer` header) to call the reviewer app's own API directly:
+    `/api/cases` (the queue) genuinely returns only CASE-SYN-001 live, and
+    `/api/cases/CASE-SYN-002` / `/api/cases/CASE-SYN-004` (point reads, bypassing
+    the queue filter) show both are already `state: "APPROVED"`, with an audit
+    trail of `CREATE_DRAFT -> SUBMIT -> APPROVE`, approved by
+    `reviewerId: b785230a-4af4-418a-acd9-aea99894d37a` — the same account signed
+    in during this test. Both cases were already reviewed and approved earlier
+    (2026-09-16T20:15:37Z and 2026-09-17T00:38:01Z) and correctly no longer
+    belong in the "pending review" queue by design
+    (`list_cases_by_state(STATE_PENDING_REVIEW)` filters on current state, not
+    history). No code defect found. Gap identified instead: the reviewer app
+    has no "history"/"approved" view, only the pending queue and a single-case
+    detail fetch, so a reviewer has no UI path to see cases they already
+    decided — flagged as a follow-on product gap (WI-09), not a bug fix.
+  * Dependency: none blocking WI-10 (already fully resolved); independent
+    investigation, user-flagged as more urgent than WI-04 closure.
+
+* WI-08 (new, user-requested): Application Insights/OpenTelemetry instrumentation
+  added for both `apps/web-chat` and `apps/reviewer-app`, closing the telemetry
+  gap identified while investigating WI-07.
+  * Source: user request, 2026-09-18 ("also we should close the app insights gap
+    for both ui apps").
+  * Implementation: added `azure-monitor-opentelemetry==1.8.9` to both apps'
+    `requirements.txt`; added a module-level (not per-`create_app()`-call) guarded
+    bootstrap — `if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    configure_azure_monitor()` — to both `apps/reviewer-app/app.py` and
+    `apps/web-chat/app.py`, so local/dev/test runs without the env var are
+    unaffected (verified: both apps' existing test suites pass unchanged, 71 and
+    32 tests respectively). Wired `APPLICATIONINSIGHTS_CONNECTION_STRING` through:
+    `infra/modules/reviewer-app.bicep` (new optional param, default `''`, passed
+    from `infra/main.bicep`'s existing `monitoring.outputs.applicationInsightsConnectionString`)
+    and `infra/web-chat.bicep` (new optional param, default `''`, since that
+    template is deployed out-of-band and has no `main.bicep` module wiring to
+    inherit from — the operator must supply it explicitly at deploy time to
+    enable telemetry). Regenerated the compiled `infra/main.json`,
+    `infra/web-chat.json`, and `infra/modules/reviewer-app.json` to match;
+    `az bicep build`-equivalent compile succeeded for all three with zero new
+    diagnostics (two pre-existing `BCP318` warnings in
+    `modules/mcp-container-apps.bicep`, unrelated to this change).
+  * Status: Code and Bicep changes complete and validated (compile + tests).
+    NOT YET DEPLOYED to either environment — `reviewerApp` picks up the new env
+    var on the next `azd provision`/promotion of `main.bicep`; `web-chat.bicep`
+    requires a manual `az deployment group create --template-file
+    infra/web-chat.bicep ... --parameters applicationInsightsConnectionString=<value>`
+    (value = `monitoring.outputs.applicationInsightsConnectionString` from the
+    already-provisioned production `main.bicep` deployment) since it is applied
+    out-of-band.
+  * Dependency: none; independent of WI-07's resolution.
 
 ## User Decisions
 

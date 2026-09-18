@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.46.1.21595",
-      "templateHash": "15507943559856695289"
+      "version": "0.47.16.16243",
+      "templateHash": "7380758840555747404"
     }
   },
   "parameters": {
@@ -81,6 +81,13 @@
       "type": "string",
       "metadata": {
         "description": "Cosmos DB documentEndpoint backing the shared case store (from modules/cosmos-db.bicep)"
+      }
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Application Insights connection string (from modules/monitoring.bicep); empty skips telemetry wiring"
       }
     },
     "containerPort": {
@@ -180,6 +187,10 @@
                 {
                   "name": "AZURE_CLIENT_ID",
                   "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('appName'))), '2023-01-31').clientId]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('applicationInsightsConnectionString')]"
                 }
               ],
               "probes": [

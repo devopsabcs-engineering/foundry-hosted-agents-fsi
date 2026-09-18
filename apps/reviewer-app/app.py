@@ -33,6 +33,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from auth import Identity, ReviewerAuth
 from messages import message, pick_language
 
+# Module-level so it runs once per process, not once per create_app() call
+# (tests construct the app repeatedly). Guarded on the connection string so
+# local/dev runs without Application Insights are unaffected.
+if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    from azure.monitor.opentelemetry import configure_azure_monitor
+
+    configure_azure_monitor()
+
 
 def _agent_source_dir() -> Path | None:
     """Locate `src/quote-preparation-agent` in a source checkout.

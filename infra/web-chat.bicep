@@ -44,6 +44,9 @@ param foundryProjectName string = 'proj-desjardins-quote-preparation-staging'
 @allowed(['staging', 'production'])
 param deploymentLabel string = 'staging'
 
+@description('Application Insights connection string (from modules/monitoring.bicep\'s applicationInsightsConnectionString output); empty skips telemetry wiring')
+param applicationInsightsConnectionString string = ''
+
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
 }
@@ -124,6 +127,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'ENVIRONMENT', value: deploymentLabel }
           { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
           { name: 'AGENT_ENDPOINT', value: 'https://${foundryAccountName}.services.ai.azure.com/api/projects/${foundryProjectName}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1' }
+          { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsightsConnectionString }
         ]
         probes: [
           { type: 'Liveness', httpGet: { path: '/healthz', port: 8000 }, initialDelaySeconds: 15, periodSeconds: 30 }
