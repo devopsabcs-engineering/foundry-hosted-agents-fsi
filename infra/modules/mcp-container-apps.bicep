@@ -152,7 +152,9 @@ resource applicationContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        // minReplicas: 1 keeps this MCP server warm so the hosted agent's
+        // first tool call after idle does not hit a multi-minute cold start.
+        minReplicas: 1
         maxReplicas: 1
       }
     }
@@ -206,7 +208,9 @@ resource rulebookContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        // minReplicas: 1 keeps this MCP server warm so the hosted agent's
+        // first tool call after idle does not hit a multi-minute cold start.
+        minReplicas: 1
         maxReplicas: 1
       }
     }

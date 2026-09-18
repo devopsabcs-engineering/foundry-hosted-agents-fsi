@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.46.1.21595",
-      "templateHash": "340761623349199456"
+      "version": "0.47.16.16243",
+      "templateHash": "6424125118664923941"
     }
   },
   "parameters": {
@@ -50,11 +50,17 @@
       "metadata": {
         "description": "Port exposed by each MCP server container (matches PORT env var in mcp/*/main.py)."
       }
+    },
+    "infrastructureSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the delegated infrastructure subnet for this environment (infra/network.bicep output acaStagingSubnetId or acaProductionSubnetId)"
+      }
     }
   },
   "variables": {
     "useAcr": "[not(empty(parameters('acrName')))]",
-    "isolatedPullIdentity": "[and(variables('useAcr'), not(equals(parameters('namePrefix'), 'mcp')))]",
+    "isolatedPullIdentity": "[variables('useAcr')]",
     "logAnalyticsWorkspaceName": "[format('{0}-mcp-logs', parameters('namePrefix'))]",
     "environmentName": "[format('{0}-mcp-env', parameters('namePrefix'))]"
   },
@@ -105,7 +111,17 @@
             "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').customerId]",
             "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').primarySharedKey]"
           }
-        }
+        },
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[parameters('infrastructureSubnetId')]",
+          "internal": false
+        },
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ]
       },
       "dependsOn": [
         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
@@ -132,6 +148,12 @@
             {
               "name": "application-server",
               "image": "[parameters('applicationImage')]",
+              "env": [
+                {
+                  "name": "PORT",
+                  "value": "[string(parameters('containerPort'))]"
+                }
+              ],
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -139,7 +161,7 @@
             }
           ],
           "scale": {
-            "minReplicas": 0,
+            "minReplicas": 1,
             "maxReplicas": 1
           }
         }
@@ -171,6 +193,12 @@
             {
               "name": "rulebook-server",
               "image": "[parameters('rulebookImage')]",
+              "env": [
+                {
+                  "name": "PORT",
+                  "value": "[string(parameters('containerPort'))]"
+                }
+              ],
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -178,7 +206,7 @@
             }
           ],
           "scale": {
-            "minReplicas": 0,
+            "minReplicas": 1,
             "maxReplicas": 1
           }
         }

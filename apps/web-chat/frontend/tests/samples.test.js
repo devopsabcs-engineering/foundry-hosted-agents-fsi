@@ -6,8 +6,8 @@ import { sampleQueries } from '../src/samples.js';
 const LANGUAGES = ['en-CA', 'fr-CA'];
 
 test('demo queries exactly match reviewed synthetic fixtures', () => {
-  assert.equal(sampleQueries.length, 3);
-  assert.equal(new Set(sampleQueries.map(sample => sample.id)).size, 3);
+  assert.equal(sampleQueries.length, 5);
+  assert.equal(new Set(sampleQueries.map(sample => sample.id)).size, 5);
   for (const sample of sampleQueries) {
     const fixtureId = sample.id.replace('case-syn-', 'CASE-SYN-');
     const fixturePath = new URL(`../../../../data/synthetic/fixtures/${sample.id}${{

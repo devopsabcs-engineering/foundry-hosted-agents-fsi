@@ -1,5 +1,17 @@
 export const sampleQueries = [
   {
+    id: 'case-syn-001',
+    title: {
+      'en-CA': 'Compact, extended plan (Ontario)',
+      'fr-CA': 'Compacte, r\u00e9gime \u00e9tendu (Ontario)',
+    },
+    prompt: {
+      'en-CA': 'Prepare a quote for case CASE-SYN-001: an Ontario compact vehicle on the extended training plan. Confirm the expected premium and submit it for employee review.',
+      'fr-CA': 'Pr\u00e9parez une soumission pour le dossier CASE-SYN-001 : un v\u00e9hicule compact en Ontario sur le r\u00e9gime de formation \u00e9tendu. Confirmez la prime pr\u00e9vue et soumettez-la pour r\u00e9vision par un employ\u00e9.',
+    },
+    tools: ['get_application', 'get_rulebook', 'calculate_quote'],
+  },
+  {
     id: 'case-syn-002',
     title: {
       'en-CA': 'Sedan, basic plan (Ontario)',
@@ -10,6 +22,18 @@ export const sampleQueries = [
       'fr-CA': 'Pr\u00e9parez une soumission pour le dossier CASE-SYN-002 : une berline en Ontario sur le r\u00e9gime de formation de base. Confirmez la prime pr\u00e9vue et soumettez-la pour r\u00e9vision par un employ\u00e9.',
     },
     tools: ['get_application', 'get_rulebook', 'calculate_quote'],
+  },
+  {
+    id: 'case-syn-003',
+    title: {
+      'en-CA': 'Unsupported vehicle type (Ontario)',
+      'fr-CA': 'Type de v\u00e9hicule non pris en charge (Ontario)',
+    },
+    prompt: {
+      'en-CA': 'Prepare a quote for case CASE-SYN-003: an unsupported vehicle type in Ontario on the basic training plan. Explain why the quote cannot be calculated and submit it for employee review.',
+      'fr-CA': 'Pr\u00e9parez une soumission pour le dossier CASE-SYN-003 : un type de v\u00e9hicule non pris en charge en Ontario sur le r\u00e9gime de formation de base. Expliquez pourquoi la soumission ne peut pas \u00eatre calcul\u00e9e et soumettez-la pour r\u00e9vision par un employ\u00e9.',
+    },
+    tools: ['get_application', 'get_rulebook'],
   },
   {
     id: 'case-syn-004',
