@@ -674,10 +674,16 @@ and the corresponding "Discrepancy references" pointers in the details file
   * Source: user request "so when giving URLs ensure we give all environments
     eg staging production etc and make it clear", 2026-09-18, with an
     attached screenshot of the ambiguous wiki table.
-  * Follow-on (not done): confirm on the next real `Deploy and Evaluate` →
-    `Publish Test Trends` run pair that the wiki page actually renders both
-    `### Staging` and `### Production` sections as expected; no local test
-    can fully substitute for that live artifact hand-off.
+  * Follow-on (RESOLVED 2026-09-18): dispatched `Hosted Agent CI/CD` (run
+    35343631113), approved the production-promotion gate, and confirmed
+    `publish-test-trends.yml` (run 35345257478) auto-triggered, downloaded
+    both `deployment-links-staging` and `deployment-links-production`
+    artifacts, and published a wiki `Home.md` with distinct `### Staging` /
+    `### Production` sections, correctly labeled rows, and no
+    cross-contamination. Spot-checked live links (healthz endpoints
+    returned 200, MCP `/mcp` endpoints returned 406 on plain GET as
+    expected) — all reachable. Fix is confirmed working end to end in
+    production CI, not just locally.
 
 ## User Decisions
 

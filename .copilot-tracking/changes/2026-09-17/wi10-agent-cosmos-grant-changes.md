@@ -698,3 +698,94 @@ Root cause (confirmed by reading the full pipeline before editing):
   `Publish Test Trends` run pair will be the first live confirmation. No
   code changes were needed in `deploy-and-evaluate.yml`'s job structure
   beyond the two one-line `--environment` flag additions.
+
+### Live CI Verification (2026-09-18)
+
+Dispatched `Hosted Agent CI/CD` (run
+[35343631113](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/35343631113))
+against `main` at commit `c7751c5` to exercise the fix end to end, approved
+the manual production-promotion gate, and confirmed the full chain:
+
+* All jobs succeeded: lint/unit tests, Bicep validate/what-if, deploy to
+  staging, LLM-judge + deterministic evaluation gate, promote to production.
+* `publish-test-trends.yml` auto-triggered via its `workflow_run` trigger
+  (run `35345257478`), confirmed from its log to have downloaded BOTH
+  `deployment-links-staging` and `deployment-links-production` artifacts
+  from source run `35343631113` and passed both to
+  `update_wiki_deployment_links.py` via two `--from-file` flags, then
+  committed (`10c45a4`) and pushed to the wiki.
+* Cloned the wiki repository directly and read the published
+  `wiki/Home.md`: confirmed one `## Deployment Links` heading containing
+  distinct `### Staging` and `### Production` subsections, each with
+  correctly environment-suffixed labels (e.g. "Open the staging reviewer
+  app", "Try the production web chatbot", "Foundry project (staging)" /
+  "(production)") and no cross-contamination between environments.
+* Spot-checked live links from the published table: staging reviewer app
+  `/healthz`, production web-chat `/healthz`, and production reviewer app
+  `/healthz` all returned `200 {"status":"ok"}`; both staging and
+  production `application-server` MCP `/mcp` endpoints returned `406` on a
+  plain `GET` (expected — MCP endpoints require JSON-RPC `POST` with
+  specific `Accept` headers; this confirms the endpoints are live and
+  routable, not broken links).
+* Result: the fix is confirmed working in production CI, not just locally.
+
+### Staging Web-Chat Deployment Gap (2026-09-18)
+
+The user then flagged that the wiki's Staging section had no web-chatbot
+row. Root cause: unlike the reviewer app, `foundry-quote-chat-staging` had
+never been deployed at all — `infra/web-chat.bicep` already supports a
+staging rollout by default (`appName: foundry-quote-chat-staging`,
+`deploymentLabel: staging`, staging Foundry account/project defaults), but
+only production's `foundry-quote-chat` had ever been created via the
+out-of-band `az deployment group create` path described in
+`infra/README.md`. `deployment_summary.py` was correctly omitting the row
+rather than inventing it — this was a real infrastructure gap, not a
+labeling or wiki-publish bug.
+
+Deployed the missing staging web-chat app after explicit user confirmation:
+
+* `az deployment group create --template-file infra/web-chat.bicep` against
+  `rg-desjardins-quote-preparation`, reusing the same Entra app
+  registration, tenant, and pilot group already used by the production
+  web-chat (read from `foundry-quote-chat`'s live env vars), the staging
+  Container Apps environment (`mcp-staging-mcp-env`), and the staging App
+  Insights connection string (read from `foundry-quote-reviewer-staging`'s
+  live env vars). Image pinned to `pilot/web-chat`'s `v1.0.4` digest
+  (`sha256:61d509102a63...`), matching the tag the production redeploy
+  already used.
+* Result: `foundry-quote-chat-staging` created at
+  `https://foundry-quote-chat-staging.nicebay-9b5e26aa.eastus2.azurecontainerapps.io`,
+  `/healthz` confirmed `200 {"status":"ok"}`.
+* Added the new staging FQDN to the shared web-chat Entra app registration's
+  `spa.redirectUris` via `az rest PATCH /v1.0/applications/{id}`
+  (additive — an older, now-stale `nicehill-d110b038` staging redirect URI
+  from a prior managed-environment recreation was left in place, same
+  precedent as the reviewer app fix earlier in this session).
+* Set two new `staging` GitHub Environment variables —
+  `WEB_CHAT_APP_NAME=foundry-quote-chat-staging` and
+  `WEB_CHAT_URL=https://foundry-quote-chat-staging.nicebay-9b5e26aa.eastus2.azurecontainerapps.io`
+  — via `gh variable set ... --env staging`, mirroring the existing
+  production-only pattern.
+
+### Modified (staging web-chat)
+
+* `.github/workflows/deploy-and-evaluate.yml` — the staging job's
+  `Deployment links summary` step now reads `vars.WEB_CHAT_APP_NAME`/
+  `vars.WEB_CHAT_URL` into its environment, the same pattern the production
+  job already used, so the staging web-chat row is included once those
+  staging-scoped variables are set.
+
+### Validation (staging web-chat)
+
+* Locally ran `deployment_summary.py`'s `render(environment="staging")`
+  with the new `WEB_CHAT_APP_NAME`/`WEB_CHAT_URL` env vars set (via a throwaway
+  script, deleted after use): confirmed the "Try the staging web chatbot"
+  and "Web app health/in Azure (staging)" rows now render correctly ahead
+  of the existing reviewer-app rows.
+* This staging web-chat row will appear on the wiki automatically the next
+  time `deploy-and-evaluate.yml` (staging job) → `publish-test-trends.yml`
+  run, since the new `WEB_CHAT_APP_NAME`/`WEB_CHAT_URL` staging variables
+  and the updated workflow step are both now in place — not yet re-verified
+  by triggering a fresh pipeline run (this depends on the workflow file
+  change being committed and pushed first).
+

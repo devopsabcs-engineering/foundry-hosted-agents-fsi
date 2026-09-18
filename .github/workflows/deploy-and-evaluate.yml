@@ -441,6 +441,13 @@ jobs:
       - name: Deployment links summary
         if: always() && steps.deploy.outcome == 'success'
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        # WEB_CHAT_APP_NAME/WEB_CHAT_URL are not azd outputs -- infra/web-chat.bicep
+        # is applied out of band (see infra/README.md), so deployment_summary.py's
+        # value() falls back to these repository-variable env vars to include it
+        # in the wiki's Deployment Links table.
+        env:
+          WEB_CHAT_APP_NAME: ${{ vars.WEB_CHAT_APP_NAME }}
+          WEB_CHAT_URL: ${{ vars.WEB_CHAT_URL }}
         run: python scripts/deployment_summary.py --environment staging --out ${{ github.workspace }}/deployment-links.md
 
       # publish-test-trends.yml (triggered by workflow_run) has no azd/Azure
