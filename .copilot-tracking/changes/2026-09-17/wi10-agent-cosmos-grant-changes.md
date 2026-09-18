@@ -789,3 +789,18 @@ Deployed the missing staging web-chat app after explicit user confirmation:
   by triggering a fresh pipeline run (this depends on the workflow file
   change being committed and pushed first).
 
+### Live CI Verification — Staging Web-Chat (2026-09-18)
+
+Committed (`bed99f9`) and pushed the `deploy-and-evaluate.yml` change, then
+dispatched `Hosted Agent CI/CD` again (run
+[35346690448](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/35346690448)):
+all jobs succeeded (lint/tests, Bicep validate/what-if, deploy to staging,
+evaluation gate, production promotion — approved the manual gate again).
+`publish-test-trends.yml` auto-triggered (run `35348256222`) and completed
+successfully. Cloned the wiki afterward and confirmed `wiki/Home.md`'s
+Staging section now leads with "Try the staging web chatbot" pointing at
+`https://foundry-quote-chat-staging.nicebay-9b5e26aa.eastus2.azurecontainerapps.io`,
+followed by its health/Azure-portal/Foundry rows, exactly matching the
+local dry-run output. The staging web-chat gap is fully closed and
+confirmed live.
+
