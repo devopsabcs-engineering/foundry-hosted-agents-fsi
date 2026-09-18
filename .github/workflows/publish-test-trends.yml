@@ -19,11 +19,12 @@ name: Publish Test Trends
 # trigger a wiki publish here.
 #
 # This job has no `azd`/Azure login context of its own, so it cannot
-# re-derive real deployment links -- it downloads the `deployment-links-*`
-# artifact that `deploy-and-evaluate.yml` uploads from a job that DID have
-# that context (preferring `-production`, the most recently promoted
-# environment, over `-staging`), and republishes that file's content
-# verbatim instead of guessing or omitting the links.
+# re-derive real deployment links -- it downloads every `deployment-links-*`
+# artifact that `deploy-and-evaluate.yml` uploads (one per environment that
+# actually ran: staging, production, or both) from a job that DID have that
+# context, and republishes each file's content verbatim, under its own
+# environment-labeled subheading, instead of guessing, omitting, or
+# discarding whichever environment isn't uploaded first.
 
 on:
   workflow_run:
@@ -116,19 +117,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p deployment-links
-          for KIND in deployment-links-production deployment-links-staging; do
-            if gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$KIND" --dir deployment-links; then
-              break
-            fi
+          for KIND in staging production; do
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name "deployment-links-$KIND" --dir "deployment-links/$KIND" || true
           done
-          find deployment-links -maxdepth 1 -type f
+          find deployment-links -type f
 
       - name: Deployment links summary
         if: always()
         run: |
-          if [ -f deployment-links/deployment-links.md ]; then
-            cat deployment-links/deployment-links.md >> "$GITHUB_STEP_SUMMARY"
-          else
+          set -euo pipefail
+          FOUND=0
+          for KIND in staging production; do
+            FILE="deployment-links/$KIND/deployment-links.md"
+            if [ -f "$FILE" ]; then
+              FOUND=1
+              cat "$FILE" >> "$GITHUB_STEP_SUMMARY"
+              echo '' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
             {
               echo '## Deployment Links'
               echo ''
@@ -165,9 +173,19 @@ jobs:
           # Only refresh the wiki link table when this run actually carries links
           # captured with live azd context. Re-deriving them here would produce a
           # table missing every Azure destination and overwrite the last known
-          # good URLs with that emptier version.
-          if [ -f deployment-links/deployment-links.md ]; then
-            python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing --from-file deployment-links/deployment-links.md
+          # good URLs with that emptier version. Pass every environment fragment
+          # that this run has (staging, production, or both) so the wiki page
+          # keeps showing whichever environments' links are currently known,
+          # instead of only the one that happened to publish first/most-recently.
+          FROM_FILE_ARGS=()
+          for KIND in staging production; do
+            FILE="deployment-links/$KIND/deployment-links.md"
+            if [ -f "$FILE" ]; then
+              FROM_FILE_ARGS+=(--from-file "$FILE")
+            fi
+          done
+          if [ "${#FROM_FILE_ARGS[@]}" -gt 0 ]; then
+            python scripts/update_wiki_deployment_links.py wiki/Home.md --create-missing "${FROM_FILE_ARGS[@]}"
           else
             echo "Source run published no deployment links; leaving the wiki link table at its last deployed values."
           fi

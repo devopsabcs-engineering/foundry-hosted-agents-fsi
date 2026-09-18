@@ -441,7 +441,7 @@ jobs:
       - name: Deployment links summary
         if: always() && steps.deploy.outcome == 'success'
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
-        run: python scripts/deployment_summary.py --out ${{ github.workspace }}/deployment-links.md
+        run: python scripts/deployment_summary.py --environment staging --out ${{ github.workspace }}/deployment-links.md
 
       # publish-test-trends.yml (triggered by workflow_run) has no azd/Azure
       # context of its own, so it cannot re-derive these links -- it
@@ -735,7 +735,7 @@ jobs:
         env:
           WEB_CHAT_APP_NAME: ${{ vars.WEB_CHAT_APP_NAME }}
           WEB_CHAT_URL: ${{ vars.WEB_CHAT_URL }}
-        run: python scripts/deployment_summary.py --out ${{ github.workspace }}/deployment-links.md
+        run: python scripts/deployment_summary.py --environment production --out ${{ github.workspace }}/deployment-links.md
 
       # publish-test-trends.yml (triggered by workflow_run) has no azd/Azure
       # context of its own, so it cannot re-derive these links -- it

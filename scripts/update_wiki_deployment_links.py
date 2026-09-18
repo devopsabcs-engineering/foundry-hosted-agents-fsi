@@ -11,10 +11,14 @@ present, rather than silently appending or skipping.
 
 The wiki-publish job has no `azd`/Azure login context of its own, so
 `render()` there would only ever show the unconditional "Repository" row.
-Pass `--from-file <path>` (pointing at a `deployment_summary.py --out ...`
-file produced by a job that DID have real deployment context, e.g.
-`deploy-staging`/`promote-production`) to republish those real links
-instead of re-deriving (and losing) them here.
+Pass `--from-file <path>` one or more times (each pointing at a
+`deployment_summary.py --environment <env> --out ...` fragment produced by a
+job that DID have real deployment context, e.g. `deploy-staging`/
+`promote-production`) to republish those real, environment-labeled links
+instead of re-deriving (and losing) them here. When more than one
+`--from-file` is given, every fragment is concatenated under a single
+"## Deployment Links" heading so staging and production links are both
+visible at once, each under its own "### <Environment>" subheading.
 """
 
 from __future__ import annotations
@@ -55,20 +59,31 @@ def main() -> None:
     create_missing = "--create-missing" in args
     if create_missing:
         args.remove("--create-missing")
-    from_file: str | None = None
-    if "--from-file" in args:
+    from_files: list[str] = []
+    while "--from-file" in args:
         index = args.index("--from-file")
-        from_file = args[index + 1]
+        from_files.append(args[index + 1])
         del args[index:index + 2]
     if len(args) != 1:
         print(
             "usage: update_wiki_deployment_links.py <path-to-wiki-page> "
-            "[--from-file <path>] [--create-missing]",
+            "[--from-file <path>]... [--create-missing]",
             file=sys.stderr,
         )
         raise SystemExit(2)
     path = Path(args[0])
-    content = Path(from_file).read_text(encoding="utf-8") if from_file else render()
+    if from_files:
+        fragments = [Path(from_file).read_text(encoding="utf-8").rstrip() for from_file in from_files]
+        intro = (
+            "## Deployment Links\n\n"
+            "Values reflect the current `azd`/environment configuration for each "
+            "listed environment at run time, not proof that this run deployed or "
+            "validated them. Rows for destinations that are not currently "
+            "configured are omitted rather than invented."
+        )
+        content = "\n\n".join([intro, *fragments])
+    else:
+        content = render()
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
     if create_missing and START not in existing:
         path.write_text(seed(existing, content), encoding="utf-8")

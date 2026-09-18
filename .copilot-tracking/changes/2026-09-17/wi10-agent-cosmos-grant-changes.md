@@ -529,3 +529,172 @@ Addressed the second follow-on item from WI-08 (`AppRoleName` defaulting to
 * **Deployment**: both apps redeployed to production with the new env var;
   verified live via telemetry showing distinct `AppRoleName`s.
 * **Outstanding**: none. WI-12 is fully complete.
+
+## Redeploy-All — CI-Tagged Images to Production + Staging (2026-09-18)
+
+Follow-up to WI-11/WI-12: after the `feat: resolve telemetry gaps ...` commit
+(`a5ba049`) was pushed to `origin/main`, `Web Chat Build` and `Reviewer App
+Build` GitHub Actions workflows ran their `release` jobs automatically,
+bumping versions and building canonical images (`pilot/web-chat:v1.0.3`,
+`pilot/reviewer-app:v1.0.4`, both also tagged `:latest`) — tags
+`web-chat-v1.0.3` / `reviewer-app-v1.0.4` pushed to the repo. Neither
+workflow deploys to any Container App; they only build/tag/push to ACR. The
+user asked to "redeploy all" so every environment runs the fix using these
+canonical images (rather than my ad-hoc `wi11-otel-fix-<timestamp>` images
+from the prior WI-11 manual redeploy), and to confirm case visibility on
+every newly redeployed environment.
+
+### Environments Discovered
+
+`az containerapp list` on `rg-desjardins-quote-preparation` showed a
+previously-unaddressed gap: **`foundry-quote-reviewer-staging` was still
+running the pre-fix image** (digest `ba130c30d5...`, no `OTEL_SERVICE_NAME`).
+There is no `foundry-quote-chat-staging` Container App — web-chat only runs
+in production.
+
+### Changes (Operational, no repository files changed)
+
+* `foundry-quote-chat` (production) — `az containerapp update --image` to
+  `acrdesjqp7651.azurecr.io/pilot/web-chat@sha256:3507b44f...` (the CI-built
+  `v1.0.3` image), replacing the ad-hoc `wi11-otel-fix-*` image from the
+  prior WI-11 redeploy.
+* `foundry-quote-reviewer` (production) — `az containerapp update --image`
+  to `acrdesjqp7651.azurecr.io/pilot/reviewer-app@sha256:2b797d49...` (the
+  CI-built `v1.0.4` image), same rationale.
+* `foundry-quote-reviewer-staging` — `az containerapp update --image` to the
+  same `pilot/reviewer-app@sha256:2b797d49...` image (staging had never
+  received the WI-11 fix), plus `az containerapp update --set-env-vars
+  OTEL_SERVICE_NAME=reviewer-app` (staging had never received the WI-12 fix
+  either — the standalone Bicep deploys in WI-12 only targeted the
+  production resource names).
+* **Unrelated but blocking bug found and fixed**: the reviewer-app Entra app
+  registration (`bedbaeec-aff3-47ff-b4c1-74741ddeb6dc`) had a stale SPA
+  redirect URI for staging — `foundry-quote-reviewer-staging.nicehill-
+  d110b038.eastus2.azurecontainerapps.io` — but the staging Container Apps
+  managed environment's actual default-domain suffix is now
+  `nicebay-9b5e26aa` (environment was recreated at some point, likely during
+  earlier staging agent-identity work, changing its FQDN suffix). Sign-in
+  failed with `AADSTS50011` (redirect URI mismatch) until this was fixed.
+  Fixed via Microsoft Graph (`az rest PATCH
+  /v1.0/applications/{id}`, `spa.redirectUris`), **adding** the current
+  staging FQDN alongside the existing (now-stale) entries rather than
+  removing anything.
+
+### Validation
+
+* All three redeployed Container Apps returned HTTP 200 on their root URL.
+* Production reviewer-app UI (existing authenticated browser session,
+  reloaded): version badge updated to `v1.0.4`; `CASE-SYN-001` still visible
+  in the `PENDING_REVIEW` queue — no regression from the image swap.
+* Staging reviewer-app UI (new browser session, signed in via existing SSO
+  session after the redirect-URI fix): version badge `v1.0.4`; queue shows
+  `CASE-SYN-001`, `CASE-SYN-002`, `CASE-SYN-003`, `CASE-SYN-005` all
+  `PENDING_REVIEW` — confirms staging's Cosmos-backed case data is intact
+  and visible end-to-end post-redeploy.
+* `az containerapp show` confirms `OTEL_SERVICE_NAME=reviewer-app` present
+  on `foundry-quote-reviewer-staging` (previously absent).
+
+### Redeploy-All Release Summary
+
+* **Files changed**: 0 repository files (purely operational: image swaps,
+  one env var, one Entra redirect-URI addition).
+* **Deployment**: production `foundry-quote-chat` and `foundry-quote-
+  reviewer` now run the canonical CI-tagged images (`v1.0.3`/`v1.0.4`);
+  staging `foundry-quote-reviewer-staging` now has both the WI-11 telemetry
+  fix and the WI-12 `OTEL_SERVICE_NAME` fix it had been missing.
+* **Outstanding**: the stale `nicehill-d110b038` redirect URI was left in
+  place (additive fix, not a cleanup) in case anything else still references
+  it — recommend removing it in a follow-up once confirmed unused. No
+  staging `web-chat` app exists, so there was nothing to redeploy there.
+
+## Wiki Deployment Links — Environment Labeling + Multi-Environment Publish (2026-09-18)
+
+Follow-up to the redeploy-all work above. The user flagged the wiki's
+"Deployment Links" table (screenshot of `wiki/Home.md`) as confusing: rows
+like "Try staging web chatbot" showed no clear environment, and the table
+only ever reflected ONE environment at a time.
+
+Root cause (confirmed by reading the full pipeline before editing):
+
+* `scripts/deployment_summary.py`'s `render()` hardcoded the label "Try
+  staging web chatbot" regardless of which `azd` environment's data it was
+  actually rendering — since web-chat only runs in production (no staging
+  web-chat exists), this row was mislabeled whenever it appeared with
+  production's URL.
+* `.github/workflows/publish-test-trends.yml`'s "Download deployment links
+  from the source run" step looped `for KIND in deployment-links-production
+  deployment-links-staging; do ... break; done` — it downloaded whichever
+  artifact was found FIRST (production preferred) and discarded the other
+  environment entirely, so the wiki page could only ever show one
+  environment's links at a time.
+
+### Modified
+
+* `scripts/deployment_summary.py` — `render()` now accepts an optional
+  `environment: str | None` parameter. When given (e.g. `"staging"` /
+  `"production"`), every app/environment-specific row label gets an explicit
+  environment tag: the two headline links become "Try the `{environment}`
+  web chatbot" / "Open the `{environment}` reviewer app" (fixing the
+  hardcoded "staging" mislabel), and the remaining app-specific rows (health
+  checks, "in Azure" portal links, Foundry project, Responses API, both MCP
+  endpoints) get a "(`{environment}`)" suffix. Shared/tenant-wide rows
+  (Resource group, Container registry, Workshop site, Repository) stay
+  unsuffixed since this repo runs both environments out of one resource
+  group. The output heading becomes `### {Environment}` (title case) instead
+  of `## Deployment Links` when `environment` is set, so multiple renders
+  can be concatenated under one shared `## Deployment Links` heading later.
+  CLI parsing updated to accept `--environment <name>` alongside the
+  existing `--out <path>` flag, in either order.
+* `scripts/update_wiki_deployment_links.py` — `--from-file` can now be
+  passed more than once. When one or more are given, `main()` concatenates
+  every fragment's content under one shared `## Deployment Links` heading
+  plus a combined intro note, instead of only ever accepting a single file.
+  Docstring updated to describe the new multi-file merge behavior.
+* `.github/workflows/deploy-and-evaluate.yml` — both `Deployment links
+  summary` steps (staging job, production job) now call
+  `deployment_summary.py` with `--environment staging` / `--environment
+  production` respectively, so each uploaded `deployment-links-*` artifact
+  is self-labeled.
+* `.github/workflows/publish-test-trends.yml` — "Download deployment links
+  from the source run" now downloads BOTH `deployment-links-staging` and
+  `deployment-links-production` (each `|| true`, no early `break`) into
+  separate `deployment-links/staging/` / `deployment-links/production/`
+  directories. "Deployment links summary" and the wiki-update step now loop
+  over both, `cat`-ing/passing `--from-file` for whichever are present (one,
+  both, or neither), so the wiki page shows every environment that actually
+  published links instead of silently dropping one. Header comment block
+  updated to describe the new behavior.
+
+### Validation
+
+* `python -c "...render(environment='staging')..."` / `render(environment=
+  'production')` / `render()` run locally: confirmed correct `### Staging` /
+  `### Production` / `## Deployment Links` headings, correctly suffixed row
+  labels, and no hardcoded "staging" leaking into a production-rendered row.
+* End-to-end merge test: rendered a staging fragment and a production
+  fragment to temp files, ran `update_wiki_deployment_links.py <page>
+  --create-missing --from-file <staging> --from-file <production>` against
+  a scratch wiki page — confirmed both environments now appear, each under
+  its own `### Staging` / `### Production` subheading, inside one `##
+  Deployment Links` section between the existing markers. Temp files
+  cleaned up after the test.
+* `get_errors` on all four changed files: no errors (one pre-existing,
+  unrelated `deploy-and-evaluate.yml` warning about `vars.REVIEWER_APP_IMAGE`
+  context access at line 180 was already present before this change).
+
+### Wiki Deployment Links Release Summary
+
+* **Files changed**: 4 — `scripts/deployment_summary.py`,
+  `scripts/update_wiki_deployment_links.py`,
+  `.github/workflows/deploy-and-evaluate.yml`,
+  `.github/workflows/publish-test-trends.yml`.
+* **Behavior change**: the wiki's Deployment Links table will now show BOTH
+  staging and production links (each clearly labeled) the next time
+  `publish-test-trends.yml` runs after a `deploy-and-evaluate.yml` run that
+  uploads one or both `deployment-links-*` artifacts, instead of showing
+  only one environment with ambiguous labels.
+* **Outstanding**: this fix has not yet been exercised by a real CI run
+  (only validated locally/manually) — the next `Deploy and Evaluate` +
+  `Publish Test Trends` run pair will be the first live confirmation. No
+  code changes were needed in `deploy-and-evaluate.yml`'s job structure
+  beyond the two one-line `--environment` flag additions.

@@ -626,6 +626,59 @@ and the corresponding "Discrepancy references" pointers in the details file
     connection string is valid and telemetry export is live, not just configured.
   * Dependency: none; independent of WI-07's resolution.
 
+* WI-13 (new, found during "redeploy all", 2026-09-18): staging's reviewer-app
+  Container App (`foundry-quote-reviewer-staging`) had silently drifted from both
+  the WI-11 telemetry fix and the WI-12 `OTEL_SERVICE_NAME` fix — both prior
+  redeploys only touched production resource names. Also found (and fixed) a
+  stale Entra SPA redirect URI: the reviewer-app app registration
+  (`bedbaeec-aff3-47ff-b4c1-74741ddeb6dc`) still listed
+  `foundry-quote-reviewer-staging.nicehill-d110b038.eastus2.azurecontainerapps.io`
+  but the staging Container Apps managed environment's live default-domain
+  suffix is now `nicebay-9b5e26aa` (env was recreated at some point, most likely
+  during earlier staging agent-identity force-delete-and-recreate work), so
+  staging sign-in failed with `AADSTS50011` until the current FQDN was added.
+  * **RESOLVED 2026-09-18**: redeployed `foundry-quote-reviewer-staging` to the
+    canonical CI-tagged `pilot/reviewer-app:v1.0.4` image (also used to redeploy
+    both production apps, replacing the ad-hoc `wi11-otel-fix-*` images from the
+    prior WI-11 manual redeploy); added `OTEL_SERVICE_NAME=reviewer-app` via
+    `az containerapp update --set-env-vars`; added the current staging FQDN to
+    the app registration's `spa.redirectUris` via `az rest PATCH
+    /v1.0/applications/{id}` (Graph API — `az ad app update` in this CLI version
+    has no `--spa-redirect-uris` flag). Verified staging sign-in succeeds and the
+    queue shows `CASE-SYN-001/002/003/005`, all `PENDING_REVIEW`.
+  * Source: user request "redeploy all ... ensure we can see cases in app review
+    for the environments newly deployed", 2026-09-18.
+  * Follow-on (not done, low priority): remove the now-stale `nicehill-d110b038`
+    redirect URI from the app registration once confirmed nothing else depends on
+    it; no `foundry-quote-chat-staging` Container App exists, so web-chat has no
+    staging counterpart to reconcile.
+
+* WI-14 (new, found while fixing the wiki Deployment Links table, 2026-09-18):
+  the wiki's Deployment Links table (`wiki/Home.md`) only ever showed ONE
+  environment's links (production preferred) with at least one hardcoded,
+  potentially-mislabeled row ("Try staging web chatbot" regardless of which
+  environment's URL it actually held), because
+  `publish-test-trends.yml`'s artifact-download loop stopped at the first
+  `deployment-links-*` artifact found instead of fetching both.
+  * **RESOLVED 2026-09-18**: `scripts/deployment_summary.py`'s `render()` now
+    takes an optional `environment` label and tags every environment-specific
+    row accordingly (fixing the hardcoded "staging" mislabel);
+    `scripts/update_wiki_deployment_links.py` now accepts multiple
+    `--from-file` args and merges them under one shared heading;
+    `deploy-and-evaluate.yml` passes `--environment staging`/`--environment
+    production` at its two call sites; `publish-test-trends.yml` downloads
+    both `deployment-links-staging` and `deployment-links-production`
+    (`|| true`, no early `break`) and passes whichever exist to the merge
+    script. Validated locally (rendered both environments + a scratch
+    multi-file wiki merge) but NOT yet exercised by a real CI run.
+  * Source: user request "so when giving URLs ensure we give all environments
+    eg staging production etc and make it clear", 2026-09-18, with an
+    attached screenshot of the ambiguous wiki table.
+  * Follow-on (not done): confirm on the next real `Deploy and Evaluate` →
+    `Publish Test Trends` run pair that the wiki page actually renders both
+    `### Staging` and `### Production` sections as expected; no local test
+    can fully substitute for that live artifact hand-off.
+
 ## User Decisions
 
 * None yet — no decision points required user input during planning; the selected

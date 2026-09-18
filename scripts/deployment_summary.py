@@ -56,7 +56,19 @@ def portal(resource_id: str) -> str:
     return f"https://portal.azure.com/#resource{resource_id}"
 
 
-def render() -> str:
+def render(environment: str | None = None) -> str:
+    """Render the Deployment Links table.
+
+    `environment` (e.g. "staging"/"production") is optional and purely a
+    labeling hint: every link's Destination label gets an explicit
+    "({environment})" suffix (or an environment-aware verb phrase for the
+    two headline app links) so that when staging's and production's
+    separately-rendered output are later concatenated on the wiki page, a
+    reader can tell which environment each row's link actually points at
+    without cross-referencing the URL. It does not change which links are
+    included -- that is still driven entirely by `azd env get-values`/the
+    process environment, as before.
+    """
     values = azd_env_values()
     repository = os.environ.get("GITHUB_REPOSITORY", "devopsabcs-engineering/foundry-hosted-agents-fsi")
     repository_url = f"https://github.com/{repository}"
@@ -92,22 +104,31 @@ def render() -> str:
         else None
     )
 
+    # Suffix on app/environment-specific rows so a merged, multi-environment
+    # page never leaves the reader guessing which environment a link is for.
+    # Shared/tenant-wide rows (resource group, registry, workshop, repo) are
+    # identical across environments in this repo (single resource group), so
+    # they stay unsuffixed.
+    env_suffix = f" ({environment})" if environment else ""
+
     links: list[tuple[str, str, str]] = []
     if web_url:
-        links.append(("Try staging web chatbot", web_url, "Same-tenant pilot members only"))
-        links.append(("Web app health", f"{web_url}/healthz", "Public process health; not an agent-invocation test"))
+        web_label = f"Try the {environment} web chatbot" if environment else "Try the web chatbot"
+        links.append((web_label, web_url, "Same-tenant pilot members only"))
+        links.append((f"Web app health{env_suffix}", f"{web_url}/healthz", "Public process health; not an agent-invocation test"))
         if resource_group_id and web_app_name:
             links.append((
-                "Web app in Azure",
+                f"Web app in Azure{env_suffix}",
                 portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{web_app_name}"),
                 "Revisions, logs and metrics",
             ))
     if reviewer_url:
-        links.append(("Open reviewer app", reviewer_url, "Same-tenant reviewers holding the Reviewer app role"))
-        links.append(("Reviewer app health", f"{reviewer_url}/healthz", "Public process health; not an authorization test"))
+        reviewer_label = f"Open the {environment} reviewer app" if environment else "Open the reviewer app"
+        links.append((reviewer_label, reviewer_url, "Same-tenant reviewers holding the Reviewer app role"))
+        links.append((f"Reviewer app health{env_suffix}", f"{reviewer_url}/healthz", "Public process health; not an authorization test"))
         if resource_group_id and reviewer_app_name:
             links.append((
-                "Reviewer app in Azure",
+                f"Reviewer app in Azure{env_suffix}",
                 portal(f"{resource_group_id}/providers/Microsoft.App/containerApps/{reviewer_app_name}"),
                 "Revisions, logs and metrics",
             ))
@@ -121,32 +142,54 @@ def render() -> str:
         ))
     if resource_group_id and account_name and project_name:
         project_id = f"{resource_group_id}/providers/Microsoft.CognitiveServices/accounts/{account_name}/projects/{project_name}"
-        links.append(("Foundry project", portal(project_id), "Azure access required"))
+        links.append((f"Foundry project{env_suffix}", portal(project_id), "Azure access required"))
     if project_endpoint:
         links.append((
-            "Responses API",
+            f"Responses API{env_suffix}",
             f"{project_endpoint.rstrip('/')}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1",
             "Authenticated POST API, not a browser chat page",
         ))
     if application_mcp_url:
-        links.append(("Application-server MCP", application_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
+        links.append((f"Application-server MCP{env_suffix}", application_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
     if rulebook_mcp_url:
-        links.append(("Rulebook-server MCP", rulebook_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
+        links.append((f"Rulebook-server MCP{env_suffix}", rulebook_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
     if pages_url:
         links.append(("Workshop site", pages_url, "Browsable lab content; GitHub sign-in required while the repository is private"))
     links.append(("Repository", repository_url, "Source and workflow history"))
 
     rows = [f"| [{label}]({url}) | {note} |" for label, url, note in links]
+    if environment:
+        heading = f"### {environment.title()}"
+        intro = (
+            f"Values reflect the current `azd`/environment configuration for the "
+            f"**{environment}** environment at run time, not proof that this run "
+            "deployed or validated them."
+        )
+    else:
+        heading = "## Deployment Links"
+        intro = "Values reflect the current `azd`/environment configuration at run time, not proof that this run deployed or validated them."
     return "\n".join([
-        "## Deployment Links", "",
-        "Values reflect the current `azd`/environment configuration at run time, not proof that this run deployed or validated them.",
+        heading, "",
+        intro,
         "Rows for destinations that are not currently configured are omitted rather than invented.", "",
         "| Destination | Access and purpose |", "| --- | --- |", *rows, "",
     ])
 
 
 if __name__ == "__main__":
-    summary = render()
+    args = sys.argv[1:]
+    cli_environment: str | None = None
+    if "--environment" in args:
+        index = args.index("--environment")
+        cli_environment = args[index + 1]
+        del args[index:index + 2]
+    out_path: str | None = None
+    if "--out" in args:
+        index = args.index("--out")
+        out_path = args[index + 1]
+        del args[index:index + 2]
+
+    summary = render(environment=cli_environment)
     if destination := os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(destination).open("a", encoding="utf-8") as output:
             output.write("\n" + summary)
@@ -156,5 +199,5 @@ if __name__ == "__main__":
     # credential-less job (e.g. the wiki-publish job, which has no azd/Azure
     # context of its own) can republish the same real links without
     # re-deriving them.
-    if len(sys.argv) > 1 and sys.argv[1] == "--out":
-        Path(sys.argv[2]).write_text(summary + "\n", encoding="utf-8")
+    if out_path:
+        Path(out_path).write_text(summary + "\n", encoding="utf-8")
