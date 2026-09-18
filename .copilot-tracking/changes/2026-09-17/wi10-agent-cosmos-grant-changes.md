@@ -259,3 +259,68 @@ modified, or removed.
   assignment for the dead `f6ef6272-...` principal) executed and verified; "Promote
   to production" for run 35292843329 approved and completed successfully — the
   Cosmos-fixed staging candidate is now live in production.
+
+## WI-08 — Application Insights Instrumentation (2026-09-18, separate work item, same log)
+
+Follow-on work discovered during WI-07 investigation (see planning log). Unlike
+WI-10, this DID modify tracked repository files, committed as `95696e7`
+("feat: add Application Insights telemetry to reviewer-app and web-chat") and
+pushed to `origin/main`.
+
+### Added (commit 95696e7)
+
+* `apps/reviewer-app/app.py` — module-level guarded `configure_azure_monitor()`
+  bootstrap gated on `APPLICATIONINSIGHTS_CONNECTION_STRING` env var.
+* `apps/reviewer-app/requirements.txt` — added `azure-monitor-opentelemetry==1.8.9`.
+* `apps/web-chat/app.py` — same guarded bootstrap pattern; `logger` initialization
+  repositioned after the bootstrap block.
+* `apps/web-chat/requirements.txt` — added `azure-monitor-opentelemetry==1.8.9`.
+* `infra/modules/reviewer-app.bicep` / `infra/modules/reviewer-app.json` — new
+  `applicationInsightsConnectionString` param + env var wiring.
+* `infra/main.bicep` / `infra/main.json` — passes
+  `monitoring.outputs.applicationInsightsConnectionString` into the reviewerApp
+  module.
+* `infra/web-chat.bicep` / `infra/web-chat.json` — new
+  `applicationInsightsConnectionString` param (default `''`) + env var wiring
+  (this template has no `main.bicep` module wiring to inherit from, since it is
+  deployed out-of-band).
+
+### Deployment (2026-09-18, both apps now live in production)
+
+* **web-chat**: rebuilt image via `az acr build --registry acrdesjqp7651 --image
+  "pilot/web-chat:$TAG" --file apps/web-chat/Dockerfile apps/web-chat` (build
+  context must be the app directory, not repo root — Dockerfile `COPY` paths are
+  relative to `apps/web-chat`). Redeployed via manual `az deployment group create
+  --template-file infra/web-chat.bicep` with `applicationInsightsConnectionString`
+  supplied explicitly. New image digest:
+  `acrdesjqp7651.azurecr.io/pilot/web-chat@sha256:b4c5a845c1b38aff8915ccd070266182b596082045209b99b1de61c50454d2f1`.
+* **reviewer-app**: dispatched `hosted-agent-cd.yml` (run
+  [35299088833](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/35299088833)).
+  Lint, Bicep validate/what-if, staging deploy, and the LLM-judge/deterministic
+  evaluation gate all succeeded. The `production` Environment's manual-approval
+  gate was approved via `gh api repos/.../actions/runs/35299088833/pending_deployments`
+  (environment id `21862043566`) — per the user's explicit instruction to proceed
+  autonomously with minimal intervention. "Promote to production" then completed
+  successfully (network foundation, infra provision, and evaluated-source deploy
+  all succeeded); new image digest
+  `acrdesjqp7651.azurecr.io/staging/reviewer-app@sha256:ba130c30d50add03957eac4f760cfcb5c2ed056793b9779564a69a93714e80e2`,
+  revision `foundry-quote-reviewer--0000012`.
+* **Verification**: `az containerapp show` confirms both `foundry-quote-chat` and
+  `foundry-quote-reviewer` have `APPLICATIONINSIGHTS_CONNECTION_STRING` set to the
+  correct connection string. Direct Log Analytics query against workspace
+  `fd174a24-f7c5-47b8-9a9d-00c9505f7731` (`union AppDependencies | where
+  Name startswith "GET /AzMonSDKDynamicConfiguration"`) shows both apps' OpenTelemetry
+  SDKs made their startup self-monitoring call at their respective redeploy times
+  (web-chat ~2026-09-18T02:38 UTC, reviewer-app ~02:46 UTC) — confirming telemetry
+  export is genuinely live in production for both apps, not just configured.
+
+### WI-08 Release Summary
+
+* **Files changed**: 8 (4 added/modified source files, 4 corresponding
+  Bicep/compiled-JSON pairs — see Added list above; no files removed).
+* **Deployment**: both apps fully redeployed to production with the new
+  instrumentation; verified live via resource inspection and direct telemetry
+  query.
+* **Outstanding**: none. WI-08 is fully complete — code, infra, tests (71/71
+  reviewer-app, 32/32 web-chat, both passed pre-commit), deployment, and live
+  telemetry verification all done.

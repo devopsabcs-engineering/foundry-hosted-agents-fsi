@@ -535,14 +535,30 @@ and the corresponding "Discrepancy references" pointers in the details file
     `az bicep build`-equivalent compile succeeded for all three with zero new
     diagnostics (two pre-existing `BCP318` warnings in
     `modules/mcp-container-apps.bicep`, unrelated to this change).
-  * Status: Code and Bicep changes complete and validated (compile + tests).
-    NOT YET DEPLOYED to either environment — `reviewerApp` picks up the new env
-    var on the next `azd provision`/promotion of `main.bicep`; `web-chat.bicep`
-    requires a manual `az deployment group create --template-file
-    infra/web-chat.bicep ... --parameters applicationInsightsConnectionString=<value>`
-    (value = `monitoring.outputs.applicationInsightsConnectionString` from the
-    already-provisioned production `main.bicep` deployment) since it is applied
-    out-of-band.
+  * Status: **DEPLOYED to production, 2026-09-18 — FULLY RESOLVED.** Committed as
+    `95696e7` and pushed to `main`. `web-chat`: rebuilt image
+    (`acrdesjqp7651.azurecr.io/pilot/web-chat@sha256:b4c5a845c1b38aff8915ccd070266182b596082045209b99b1de61c50454d2f1`)
+    via `az acr build` (context = `apps/web-chat`, not repo root — see lesson
+    recorded in user memory) and redeployed via manual
+    `az deployment group create --template-file infra/web-chat.bicep` with
+    `applicationInsightsConnectionString` supplied explicitly (required since that
+    template has no `main.bicep` wiring to inherit from). `reviewer-app`: shipped
+    through the normal pipeline — `hosted-agent-cd.yml` dispatched (run
+    `35299088833`), staging deploy + LLM-judge/deterministic evaluation gate both
+    passed, then the `production` Environment's manual-approval gate was approved
+    via `gh api .../pending_deployments` (per explicit user authorization to act
+    autonomously), and `release / Promote to production` completed successfully —
+    `main.bicep` provisioned/deployed with the new `applicationInsightsConnectionString`
+    wiring inherited automatically from `monitoring.outputs`.
+  * Verification: both apps confirmed live via `az containerapp show` —
+    `foundry-quote-chat` and `foundry-quote-reviewer` (revision
+    `foundry-quote-reviewer--0000012`) both have `APPLICATIONINSIGHTS_CONNECTION_STRING`
+    set to the correct value. Live telemetry confirmed via direct Log Analytics
+    query against workspace `fd174a24-f7c5-47b8-9a9d-00c9505f7731`: both apps'
+    OpenTelemetry SDKs successfully called `GET /AzMonSDKDynamicConfiguration`
+    (self-monitoring startup call) at their respective redeploy timestamps
+    (web-chat ~02:38 UTC, reviewer-app ~02:46 UTC, 2026-09-18) — proof the
+    connection string is valid and telemetry export is live, not just configured.
   * Dependency: none; independent of WI-07's resolution.
 
 ## User Decisions
