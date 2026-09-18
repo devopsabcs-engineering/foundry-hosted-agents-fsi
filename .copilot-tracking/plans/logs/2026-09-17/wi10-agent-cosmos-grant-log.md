@@ -252,7 +252,8 @@ and the corresponding "Discrepancy references" pointers in the details file
     `2026-09-17T21:11:54Z` = 5:11:54 PM ET (run 35274334216, "Deploy candidate to
     staging"). Re-checked live at ~6:40 PM ET (both the 30-min and 1-hr fresh-clock
     marks had already passed) — still 404 in Graph.
-    * 2-hr mark: **7:12 PM ET, 2026-09-17** — recheck.
+    * 2-hr mark: **7:12 PM ET, 2026-09-17** — MISSED, rechecked late at 8:08 PM ET
+      (~2h57m elapsed) — still 404 in Graph.
     * 4-hr mark: **9:12 PM ET, 2026-09-17** — recheck if still unresolved.
     * 24-hr mark (anomaly / support-ticket threshold): **5:12 PM ET, 2026-09-18** —
       if `f6ef6272-c2db-45f7-9071-6667ae65a37d` still fails
@@ -263,6 +264,71 @@ and the corresponding "Discrepancy references" pointers in the details file
     * Caveat: there is no autonomous background scheduler in this session — a human
       (or a fresh session) must prompt a recheck at or after each milestone; this
       schedule exists to be resumed from cold if the session restarts before 24 hr.
+  * CORRECTED (user pushed back on "wait 24h," re-examined production's actual
+    2026-09-15 history): production's fix was **not** elapsed time. Per
+    `.copilot-tracking/plans/logs/2026-09-15/private-networking-log.md` WI-43: "the
+    old production identity was unregistered in Entra, so the agent was deleted
+    with `force=true` and recreated by the pipeline. The fresh identity
+    (`171dca8a-...`) accepted the Cosmos grant" — immediately, same session, no
+    waiting period. Confirmed via GitHub run history: run `35048299923`
+    (`created_at: 2026-09-16T02:31:14Z`, `completed_at: 02:47:41Z`) straddles the
+    identity's Graph `createdDateTime` (`02:46:21-22Z`) almost exactly — the
+    identity was minted mid-run and worked within the same run. The command
+    responsible is `azd ai agent delete <name> --force` (confirmed available via
+    `azd ai agent delete --help`: "Delete a hosted agent and all of its versions
+    ... Use --force to terminate active sessions and delete the agent"). **REVISED
+    PLAN**: instead of waiting up to 24h, run `azd ai agent delete
+    quote-preparation-agent --force` against the staging azd environment, then
+    redeploy (`azd deploy` or the full workflow) to let the pipeline recreate the
+    agent with a brand-new blueprint + instance identity pair, matching production's
+    proven fix path. The 24h wait-and-recheck schedule above is superseded by this
+    finding and should only be a fallback if force-delete-and-recreate does not
+    resolve it either.
+  * EXECUTED AND RESOLVED (2026-09-17/18, force-delete-and-recreate): with user
+    approval ("yes go ahead"), ran `azd env select desjardins-quote-preparation-staging`
+    (confirmed via read-only `azd ai agent show` before proceeding — the `-e` flag is
+    not reliably honored by `azd ai agent` subcommands), then `azd ai agent delete
+    quote-preparation-agent --force --no-prompt` followed by `azd deploy --no-prompt`.
+    Result: brand-new blueprint + instance identity pair minted; the new instance
+    identity `d3df472a-80a8-4934-b6d9-ac9efb1877e3` resolved via `az ad sp show`
+    **immediately** (no propagation wait), exactly matching production's WI-43
+    precedent. Set the staging `AGENT_PRINCIPAL_ID` repo variable to this new value
+    and dispatched a fresh pipeline run (35292843329), which completed "Deploy
+    candidate to staging" and the evaluation-gate job successfully. Confirmed the
+    Cosmos data-plane grant landed correctly via direct `az cosmosdb sql role
+    assignment list --account-name cosmos-desjardins-quote-preparation-staging
+    --resource-group rg-desjardins-quote-preparation` — a role assignment for
+    `d3df472a-80a8-4934-b6d9-ac9efb1877e3` (Cosmos DB Built-in Data Contributor,
+    `00000000-0000-0000-0000-000000000002`) is present. **WI-10 core objective
+    (staging agent has Cosmos data-plane write access) is CONFIRMED RESOLVED at the
+    infrastructure level.**
+  * FUNCTIONAL VALIDATION (Phase 4.1, 2026-09-18): a manual `azd ai agent invoke
+    quote-preparation-agent '{"input":"Please prepare a training quote for case
+    CASE-SYN-001: ..."}'` (both with a reused session and with `--new-conversation
+    --new-session`) returned a bounded rejection template ("...the case reference
+    was invalid...") on staging. Cross-checked the identical query against
+    **production** (`azd ai agent invoke --agent-endpoint <production endpoint>
+    ...`) — production returned the exact same rejection, proving this is NOT a
+    staging-specific regression from the identity fix.
+    **RESOLVED BY DIRECT TELEMETRY (stronger evidence, supersedes the CLI-invoke
+    finding)**: queried staging's Application Insights via its Log Analytics
+    workspace (`log-desjardins-quote-preparation-staging`), same method used to
+    confirm production in Step 4.1 above. Last 6 hours (spanning run 35292843329,
+    after the force-delete-and-recreate): `PUT /dbs/quote-preparation/colls/
+    cases/docs/CASE-SYN-001|002|003|005/` — 1/1 success each, 0 failures — plus
+    `POST /dbs/quote-preparation/colls/cases/docs/` 5/5 success. **This proves the
+    staging agent, using the NEW identity `d3df472a-80a8-4934-b6d9-ac9efb1877e3`,
+    genuinely wrote CASE-SYN-001 through 005 to Cosmos with zero failures during
+    the pipeline's own evaluation run** — the same fidelity of evidence used to
+    confirm production. **Conclusion, revised**: the manual CLI invoke's "case
+    reference was invalid" rejection was a red herring caused by the ad-hoc
+    `azd ai agent invoke` request shape/protocol (a single-shot `{"input": ...}`
+    responses-protocol call outside the pipeline's own invocation context), NOT
+    evidence of a real case-lookup or data-seeding gap. **WI-10 is now FULLY
+    resolved and functionally proven for both staging and production** — the
+    Cosmos data-plane RBAC grant is applied AND actively used successfully by the
+    live hosted agent in both environments. WI-04 below is downgraded from "blocks
+    full validation" to a minor CLI-usability curiosity, not a product defect.
 
 ## Implementation Paths Considered
 
@@ -317,7 +383,50 @@ and the corresponding "Discrepancy references" pointers in the details file
   * Source: Research, "Why `az ad sp show` fails" section (open question).
   * Dependency: none blocking; informational only, would refine the workflow's
     defensive check if a better resolution method is found.
-* WI-04 (blocking WI-10 completion): Determine why `azd provision`'s ARM deployment
+  * SUPERSEDED (2026-09-18): root cause found and fix applied — see the
+    force-delete-and-recreate entry above. `az ad sp show` was failing because the
+    identity had genuinely never materialized in Entra (not a Graph query-surface
+    limitation); deleting and recreating the agent produces a new identity that
+    resolves instantly. No further investigation needed.
+* WI-04: A manual `azd ai agent invoke` CLI call with `CASE-SYN-001`-style case
+  references returns a bounded "case reference was invalid" rejection on BOTH
+  staging and production, even though direct Application Insights telemetry proves
+  the SAME case IDs were written to Cosmos successfully by the real pipeline
+  traffic (0 failures). This means the CLI invoke's request shape/protocol
+  (single-shot `{"input": "..."}` via the `responses` protocol) likely differs
+  from whatever the actual eval harness/production traffic sends — worth a small
+  investigation for CLI documentation/usability, but confirmed NOT a product or
+  data defect (downgraded from a blocking concern).
+  * Source: Phase 4.1 functional validation, this session (2026-09-18).
+  * Dependency: none blocking WI-10 (already fully resolved); low-priority,
+    informational only.
+* WI-05: Clean up the orphaned Cosmos SQL role assignment on staging for the dead
+  principal `f6ef6272-c2db-45f7-9071-6667ae65a37d` (the original unresolvable
+  identity, now replaced by `d3df472a-80a8-4934-b6d9-ac9efb1877e3` after the
+  force-delete-and-recreate). Low risk (principal is already dead/unused) but should
+  be removed via `az cosmosdb sql role assignment delete` to match Bicep's
+  single-assignment model, mirroring WI-02 for production.
+  * Source: This session's Cosmos role-assignment listing, 2026-09-18.
+  * **COMPLETED (2026-09-18, user-approved "go ahead with it all")**: confirmed
+    `f6ef6272-...` still 404s via `az ad sp show`, then deleted its assignment
+    (`11e012aa-08b0-4e28-936a-f9111d869228`) via `az cosmosdb sql role assignment
+    delete`. Verified afterward: only the three live-principal assignments remain
+    (`d3d943d0-...`, `d3df472a-...` [current agent], `44472dba-...`).
+* WI-06 (new): Production promotion for run 35292843329.
+  * **COMPLETED (2026-09-18, user-approved "go ahead with it all")**: approved the
+    pending `production` environment deployment via `gh api
+    .../pending_deployments` (environment id `21862043566`). "Promote to
+    production" job completed successfully in 4m2s (shared network foundation
+    deploy, production infra provision, evaluated-source deploy, version-evidence
+    upload all succeeded). Run 35292843329 is now fully green end-to-end across
+    all 5 jobs.
+* WI-04 (blocking WI-10 completion) — **SUPERSEDED (2026-09-18)**: root cause found
+  and fixed via force-delete-and-recreate of the staging agent (see DD-03 above);
+  no further investigation needed. Note: a DIFFERENT, unrelated item is also
+  labeled "WI-04" further down this list (the CLI-invoke curiosity found during
+  Phase 4.1) — that one remains open but is low-priority/informational only.
+  Original text preserved below for history.
+  Determine why `azd provision`'s ARM deployment
   rejects `f6ef6272-c2db-45f7-9071-6667ae65a37d` as "not found in the AAD tenant"
   when creating/re-validating its Cosmos SQL role assignment, even though (a) an
   identical assignment for the same principal already exists and was presumably

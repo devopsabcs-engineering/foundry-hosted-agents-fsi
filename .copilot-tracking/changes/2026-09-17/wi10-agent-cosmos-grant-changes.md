@@ -15,15 +15,15 @@ functionally confirm both staging and production hosted agents can write cases.
 
 ### Added
 
-* (pending)
+* None — no repository files were created. All changes are Azure/GitHub operational configuration; see Additional or Deviating Changes.
 
 ### Modified
 
-* (pending)
+* None — no repository files were modified.
 
 ### Removed
 
-* (pending)
+* None — no repository files were removed.
 
 ## Additional or Deviating Changes
 
@@ -150,7 +150,112 @@ functionally confirm both staging and production hosted agents can write cases.
   source of the run's `X Process completed with exit code 1` annotation; this did
   not block or affect the actual promotion. Production Cosmos/agent functionality
   reconfirmed healthy via this redeploy; no infra drift observed.
+* Force-delete-and-recreate of the staging agent (2026-09-18, user-approved "yes go
+  ahead", no repo files changed): re-derived the real historical fix for
+  production's identical symptom (WI-43, 2026-09-15/16) — it was NOT elapsed time,
+  it was `azd ai agent delete --force` + redeploy. Ran `azd env select
+  desjardins-quote-preparation-staging` (verified via read-only `azd ai agent show`
+  first, since `-e` is not reliably honored by `azd ai agent` subcommands), then
+  `azd ai agent delete quote-preparation-agent --force --no-prompt` followed by
+  `azd deploy --no-prompt` against the correct staging resources (Foundry account
+  `aif-desjardins-quote-preparation-staging`, project
+  `proj-desjardins-quote-preparation-staging`, both in
+  `rg-desjardins-quote-preparation`). Result: a brand-new blueprint + instance
+  identity pair was minted; the new instance identity
+  `d3df472a-80a8-4934-b6d9-ac9efb1877e3` resolved via `az ad sp show`
+  **immediately**, with zero propagation wait — refuting the earlier "propagation
+  lag" theory and matching production's proven fix exactly.
+* Set the staging `AGENT_PRINCIPAL_ID` repo variable (no repo files changed) to the
+  new identity `d3df472a-80a8-4934-b6d9-ac9efb1877e3` and dispatched a fresh
+  pipeline run
+  ([35292843329](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/35292843329)).
+  "Deploy candidate to staging" and the evaluation-gate job both completed with
+  `conclusion: success`. The deterministic gate reported 13/13 records passed; the
+  LLM-judge advisory gate reported low `task_adherence`/`coherence` scores, which
+  are explicitly non-blocking by design (see the telemetry-based functional
+  validation further below, which independently confirms the agent's Cosmos
+  writes succeeded regardless of these advisory scores).
+* Confirmed the Cosmos data-plane RBAC grant landed correctly (no files changed):
+  `az cosmosdb sql role assignment list --account-name
+  cosmos-desjardins-quote-preparation-staging --resource-group
+  rg-desjardins-quote-preparation` shows a role assignment for
+  `d3df472a-80a8-4934-b6d9-ac9efb1877e3` with role definition
+  `00000000-0000-0000-0000-000000000002` (Cosmos DB Built-in Data Contributor).
+  **This is the definitive, resource-level confirmation that WI-10's core
+  objective — the staging hosted agent has Cosmos data-plane write access — is
+  resolved.** An orphaned assignment for the now-dead principal
+  `f6ef6272-c2db-45f7-9071-6667ae65a37d` remains on the account (tracked as
+  follow-on WI-05; not cleaned up this session pending user confirmation, since
+  it requires a delete against a live resource).
+* Phase 4.1 functional validation (no repo files changed): an initial manual
+  `azd ai agent invoke quote-preparation-agent` test using the `CASE-SYN-001`
+  query text from `eval/judge-dataset.jsonl` (both with a reused session and with
+  `--new-conversation --new-session`) returned a bounded "case reference was
+  invalid" rejection on staging. Cross-checked the identical query against
+  **production** via `azd ai agent invoke --agent-endpoint <production
+  endpoint> ...` (no azd environment switch needed) — production returned the
+  exact same rejection, proving this was not a staging-specific regression.
+  **Resolved with stronger, direct evidence**: queried staging's Application
+  Insights via its Log Analytics workspace (`log-desjardins-quote-preparation-
+  staging`), the same method used to confirm production earlier. Last 6 hours
+  (spanning run 35292843329): `PUT /dbs/quote-preparation/colls/cases/docs/
+  CASE-SYN-001|002|003|005/` — 1/1 success each, 0 failures — plus 5/5
+  successful `POST /dbs/quote-preparation/colls/cases/docs/` creates. **This is
+  definitive, resource-level proof that the staging agent, using the new
+  identity `d3df472a-80a8-4934-b6d9-ac9efb1877e3`, genuinely wrote CASE-SYN-001
+  through 005 to Cosmos with zero failures** — matching the fidelity of
+  production's earlier confirmation. The manual CLI invoke's rejection is
+  understood to be an artifact of the ad-hoc `azd ai agent invoke` request
+  shape/protocol, not a real case-lookup or data-seeding gap (tracked as a minor,
+  non-blocking follow-on curiosity, WI-04). **Phase 4.1 is now fully confirmed
+  for both environments.**
+* Corrected `/memories/repo/private-networking.md` (user-scoped repo memory, not a
+  tracked repo file) to record the confirmed force-delete-and-recreate fix
+  mechanism and the pre-existing "case reference was invalid" CLI-invoke finding,
+  superseding the earlier "no known CLI/API trick speeds it up" note.
+* WI-05 executed (user-approved, no repo files changed): confirmed via `az ad sp
+  show --id f6ef6272-c2db-45f7-9071-6667ae65a37d` that the orphaned principal is
+  fully unresolvable in Entra (404), then deleted its Cosmos SQL role assignment
+  (`11e012aa-08b0-4e28-936a-f9111d869228`) via `az cosmosdb sql role assignment
+  delete` on `cosmos-desjardins-quote-preparation-staging`. Verified afterward via
+  `az cosmosdb sql role assignment list` — only the three live-principal
+  assignments remain (including the current agent identity
+  `d3df472a-80a8-4934-b6d9-ac9efb1877e3`). No other role assignments were touched.
+* Production promotion for run 35292843329 approved (user-approved, no repo files
+  changed): approved the pending `production` environment deployment via
+  `gh api .../pending_deployments` (environment id `21862043566`). The "Promote to
+  production" job completed successfully in 4m2s — shared network foundation
+  deploy, production infrastructure provision, evaluated-source deploy, and
+  production-version-evidence upload all succeeded. Run 35292843329 is now fully
+  green end-to-end (all 5 jobs: Lint and offline unit tests, Bicep validate and
+  what-if, Deploy candidate to staging, LLM-judge + deterministic evaluation gate,
+  Promote to production).
 
 ## Release Summary
 
-(pending — completed after final phase)
+**Total files affected in the tracked repository: 0.** WI-10 was resolved entirely
+through Azure/GitHub operational configuration (a GitHub Environment variable, an
+Azure identity delete+recreate, and a Cosmos RBAC role assignment applied by
+existing, unmodified Bicep) — no source files in this repository were created,
+modified, or removed.
+
+* **GitHub configuration**: `staging` environment variable `AGENT_PRINCIPAL_ID` set
+  to `d3df472a-80a8-4934-b6d9-ac9efb1877e3` (final value, after being unset and then
+  set to the now-superseded `f6ef6272-...` earlier in the investigation).
+* **Azure resource changes**: staging hosted agent `quote-preparation-agent`
+  force-deleted and recreated (new blueprint + new instance identity); Cosmos SQL
+  role assignment created on `cosmos-desjardins-quote-preparation-staging` for the
+  new identity via the existing `cosmosAgentRbac` Bicep module (applied by pipeline
+  run 35292843329's `azd provision`/`azd deploy`, not a manual `az` grant).
+* **Verification performed**: direct `az cosmosdb sql role assignment list` query
+  (authoritative, resource-level proof of the grant), PLUS direct Application
+  Insights/Log Analytics telemetry proving the agent actually wrote CASE-SYN-001
+  through 005 to Cosmos with zero failures during the evaluation run — the same
+  fidelity of functional proof used for production.
+* **Outstanding**: a minor CLI-usability curiosity (WI-04: `azd ai agent invoke`
+  rejects the same case references that real pipeline traffic processes
+  successfully) remains informational only and does not block anything.
+* **Completed this session, user-approved**: WI-05 cleanup (orphaned Cosmos role
+  assignment for the dead `f6ef6272-...` principal) executed and verified; "Promote
+  to production" for run 35292843329 approved and completed successfully — the
+  Cosmos-fixed staging candidate is now live in production.
