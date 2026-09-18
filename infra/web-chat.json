@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "13502679616477751007"
+      "templateHash": "16458069389315764100"
     }
   },
   "parameters": {
@@ -197,6 +197,10 @@
                 {
                   "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
                   "value": "[parameters('applicationInsightsConnectionString')]"
+                },
+                {
+                  "name": "OTEL_SERVICE_NAME",
+                  "value": "web-chat"
                 }
               ],
               "probes": [

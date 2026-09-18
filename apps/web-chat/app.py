@@ -10,7 +10,7 @@ from pathlib import Path
 
 import httpx
 from azure.identity.aio import DefaultAzureCredential
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from httpx_sse import aconnect_sse
@@ -22,6 +22,14 @@ from messages import DEFAULT_LANGUAGE, message as localize, pick_language
 # Module-level so it runs once per process, not once per create_app() call
 # (tests construct the app repeatedly). Guarded on the connection string so
 # local/dev runs without Application Insights are unaffected.
+#
+# IMPORTANT: `FastAPI` itself is deliberately NOT imported at module level.
+# `opentelemetry-instrumentation-fastapi` (pulled in by configure_azure_monitor)
+# instruments by monkeypatching the `fastapi.FastAPI` module attribute, so any
+# `from fastapi import FastAPI` binding taken before this call would keep
+# pointing at the uninstrumented class and inbound request spans (AppRequests)
+# would never be recorded. `create_app()` below does `from fastapi import
+# FastAPI` locally, after this block has already run.
 if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     from azure.monitor.opentelemetry import configure_azure_monitor
 
@@ -180,6 +188,10 @@ def sse(payload):
 
 
 def create_app(settings=None, verifier=None, upstream=None):
+    # Imported here, not at module level: see the comment above the
+    # configure_azure_monitor() call for why this must run after it.
+    from fastapi import FastAPI
+
     settings = settings or Settings.from_env()
     verifier = verifier or PilotAuth(settings.tenant_id, settings.client_id, settings.pilot_group_id)
     store = SessionStore(settings)

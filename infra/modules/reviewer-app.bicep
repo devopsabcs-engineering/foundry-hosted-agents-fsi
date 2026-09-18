@@ -160,6 +160,10 @@ resource reviewer 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               value: applicationInsightsConnectionString
             }
+            {
+              name: 'OTEL_SERVICE_NAME'
+              value: 'reviewer-app'
+            }
           ]
           probes: [
             {

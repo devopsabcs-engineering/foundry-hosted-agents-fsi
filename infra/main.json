@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "5387780316948530330"
+      "templateHash": "11754967719841030054"
     }
   },
   "parameters": {
@@ -1344,7 +1344,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "7380758840555747404"
+              "templateHash": "12982815756984096811"
             }
           },
           "parameters": {
@@ -1530,6 +1530,10 @@
                         {
                           "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
                           "value": "[parameters('applicationInsightsConnectionString')]"
+                        },
+                        {
+                          "name": "OTEL_SERVICE_NAME",
+                          "value": "reviewer-app"
                         }
                       ],
                       "probes": [

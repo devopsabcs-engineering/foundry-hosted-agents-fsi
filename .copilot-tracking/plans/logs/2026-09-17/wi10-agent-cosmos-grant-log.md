@@ -458,6 +458,71 @@ and the corresponding "Discrepancy references" pointers in the details file
   * Dependency: none blocking; would need a new `list_cases_by_state` call (or a
     combined multi-state query) plus a frontend view — out of scope for this
     session.
+* WI-11 (new, investigation): Neither `foundry-quote-chat` nor
+  `foundry-quote-reviewer` produce any `AppRequests` rows in Application
+  Insights for real inbound HTTP traffic (browser page loads, `/healthz`,
+  `/api/config` all returned 200 but generated zero request-telemetry rows
+  across multiple 10-30 minute query windows), even though
+  `opentelemetry-instrumentation-fastapi==0.64b0` is present in both images and
+  `configure_azure_monitor()` runs at module-import time, before
+  `uvicorn app:create_app --factory` invokes the factory — so FastAPI's global
+  auto-instrumentation patch should be in effect before any app instance is
+  created. Dependency-level telemetry (Cosmos calls, JWKS discovery calls) IS
+  confirmed flowing correctly for both apps, so this is a partial gap, not a
+  broken pipeline. Root cause not isolated this session; an attempt to inspect
+  the live app's `user_middleware` stack via `az containerapp exec` was
+  abandoned after repeated PowerShell quoting failures (multiple nested-quote
+  strategies all failed identically) — the interactive-exec approach worked
+  once tried without an inline `--command` (plain `az containerapp exec` then
+  `send_to_terminal`), so a follow-up session should use that path directly
+  rather than fighting `--command` quoting.
+  * Source: Post-deployment verification pass, 2026-09-18 ("verify it all
+    works otherwise fix it").
+  * Dependency: none blocking; both apps are fully functional today.
+* WI-12 (new, observability quality-of-life): Both apps default to the same
+  OpenTelemetry `AppRoleName` (`unknown_service`) since neither sets an
+  explicit `service.name` / `OTEL_SERVICE_NAME` resource attribute. This makes
+  it impossible to distinguish which app produced a given telemetry row in a
+  shared-workspace query without inspecting the `Target`/`Name` fields.
+  Suggested fix: set `OTEL_SERVICE_NAME=web-chat` and
+  `OTEL_SERVICE_NAME=reviewer-app` (or similar) as container env vars in the
+  respective Bicep modules.
+  * Source: Post-deployment verification pass, 2026-09-18.
+  * Dependency: none blocking; cosmetic/diagnostic improvement only.
+  * **RESOLVED 2026-09-18**: added `OTEL_SERVICE_NAME` env var (`web-chat` /
+    `reviewer-app`) to `infra/web-chat.bicep` and
+    `infra/modules/reviewer-app.bicep`, deployed via `az deployment group
+    create`, verified via `az containerapp show` and a Log Analytics
+    `AppDependencies` query showing distinct `AppRoleName`s. See changes log
+    "WI-12 — Distinct `OTEL_SERVICE_NAME` per App" for full detail.
+
+* **WI-11 RESOLVED 2026-09-18**: root-caused via direct introspection inside
+  the running container (`FastAPIInstrumentor().is_instrumented_by_opentelemetry
+  == True` globally, but `user_middleware` only showed `['BaseHTTPMiddleware']`
+  on the actual app instance) combined with `inspect.getsource` on
+  `FastAPIInstrumentor._instrument`/`_InstrumentedFastAPI.__init__`: both
+  apps imported `FastAPI` from `fastapi` at module level, BEFORE
+  `configure_azure_monitor()` monkeypatches `fastapi.FastAPI`, so every app
+  instance built by `create_app()` used the stale, uninstrumented class.
+  Fixed by deferring `from fastapi import FastAPI` to the first line inside
+  `create_app()` in both `apps/reviewer-app/app.py` and
+  `apps/web-chat/app.py`. Validated: 71/71 + 32/32 tests pass; a fresh
+  `create_app()` instance now shows `_is_instrumented_by_opentelemetry ==
+  True` (note: `user_middleware` remains the WRONG signal to check even
+  after the fix — instrumentation wraps the ASGI `middleware_stack`
+  directly, not the declarative middleware list). Rebuilt both images via
+  `az acr build` and redeployed via `az containerapp update --image` (WI-12's
+  Bicep-applied env vars were untouched by this image-only update).
+  **Correction to WI-08's build-context note**: web-chat's Dockerfile build
+  context is its own app directory, but reviewer-app's Dockerfile explicitly
+  requires the **repository root** as build context (its header comment says
+  so; it `COPY`s `src/quote-preparation-agent/*` alongside
+  `apps/reviewer-app/*`) — an app-directory build for reviewer-app fails fast
+  with a missing-file `COPY` error. Verified live via Log Analytics:
+  `AppRequests | where TimeGenerated > ago(15m) | summarize count() by
+  AppRoleName` now returns non-zero rows for both `web-chat` and
+  `reviewer-app` for the first time. See changes log "WI-11 — Missing
+  AppRequests Telemetry" for full detail.
 
 * WI-07 (new, out of WI-10 scope): User reported cases created via the production
   web-chat UI (CASE-SYN-002, CASE-SYN-004) do not appear in the Case Reviewer app's

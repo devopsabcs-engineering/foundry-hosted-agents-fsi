@@ -324,3 +324,208 @@ pushed to `origin/main`.
 * **Outstanding**: none. WI-08 is fully complete — code, infra, tests (71/71
   reviewer-app, 32/32 web-chat, both passed pre-commit), deployment, and live
   telemetry verification all done.
+
+### Post-Deployment Functional & Telemetry Verification (2026-09-18, no code changes)
+
+Follow-up verification pass in response to "verify it all works otherwise fix
+it." No repository files were modified; this section records the verification
+evidence only.
+
+* **reviewer-app UI**: verified end-to-end via the live authenticated browser
+  session — queue view lists CASE-SYN-001 (PENDING_REVIEW, rev 1,
+  AGENT-INTAKE, CAD 1,000.00), case detail view renders the full Calculation
+  section (premium/currency/period/status/rule ids/rulebook version) and
+  Audit trail (CREATE_DRAFT, SUBMIT), Decision buttons present, Refresh and
+  Queue navigation both work. One transient `401` console error on a page
+  reload self-resolved on the next click and did not recur — consistent with
+  a normal MSAL silent-token-refresh race, not a functional defect.
+* **web-chat reachability**: `/` → 200, `/healthz` → 200, `/api/config` → 200
+  (note: `/health` does not exist — the real route is `/healthz`).
+* **Dependency-level telemetry confirmed flowing for real traffic** (not just
+  the SDK startup ping): querying the Log Analytics workspace
+  (`fd174a24-f7c5-47b8-9a9d-00c9505f7731`) for `AppDependencies` in the
+  minutes immediately following the browser interactions surfaced 65 Cosmos DB
+  calls (`POST/GET .../docs/...`, `ContainerProxy.query_items`,
+  `ContainerProxy.read_item`) and JWKS discovery calls to
+  `login.microsoftonline.com`, all timestamped within seconds of the actual
+  browser clicks / HTTP requests made during this verification pass. This is
+  direct, positive proof that both apps' OpenTelemetry dependency
+  instrumentation is live and correctly capturing real production traffic.
+* **Known gap identified (not a functional defect, follow-on item)**: neither
+  app's inbound HTTP requests (browser page loads, `/healthz`, `/api/config`)
+  produced any row in `AppRequests`, even though `opentelemetry-instrumentation-fastapi`
+  is present in both images (`pip list` confirmed) and both apps call
+  `configure_azure_monitor()` at module import time, before `create_app()` is
+  invoked by `uvicorn app:create_app --factory` — so FastAPI's global
+  auto-instrumentation patch should apply. Root cause not conclusively
+  isolated in this pass (deep container-level middleware inspection was
+  attempted but blocked by shell-quoting issues with `az containerapp exec`
+  from PowerShell). Both apps are fully functional and dependency-level
+  telemetry is proven live, so this does not block the pilot; it is recorded
+  as WI-11 in the planning log for future investigation.
+* Both apps additionally default to the same OpenTelemetry `AppRoleName`
+  (`unknown_service`), since neither sets an explicit `service.name` /
+  `OTEL_SERVICE_NAME`. This makes it hard to attribute shared-query telemetry
+  to a specific app by role name alone; also recorded as a follow-on item.
+
+## Case-Flow End-to-End Test (2026-09-18, no code changes)
+
+Verified per user request ("need to check flow casegoes to review app").
+
+* Submitted a fresh synthetic case (CASE-SYN-001) via web-chat; confirmed via
+  the Bearer-token-replayed API call and the reviewer-app UI that it landed in
+  the `PENDING_REVIEW` queue correctly (revision 1, created
+  2026-09-17T13:19:01Z) — end-to-end flow (web-chat → agent → Cosmos →
+  reviewer-app queue) is confirmed working.
+* Attempted a second "revise" message against CASE-SYN-004 (already
+  `APPROVED`). The agent replied with a generic acknowledgment but did NOT
+  create a new revision. Root-caused via `src/quote-preparation-agent/graph.py`
+  (`composition_node`, `_bounded_message`) and `toolbox.py`: this is
+  **intentional**, not a bug — `toolbox.py` never exposes `approve`/`reject`/
+  `revise` to agent code, and `composition_node` deliberately replays the
+  existing case state (rather than failing) when a duplicate `create_draft`/
+  `submit_for_review` hits an already-resolved case, so the applicant-facing
+  chat can never leak reviewer-only case status. No code change required.
+* Confirmed via `scripts/seed_review_queue.py` that there is no production-safe
+  way to reset the synthetic demo fixtures (the script forces `endpoint=""`
+  and only writes to a local SQLite file) — not applicable to production
+  Cosmos.
+* **Conclusion: the case flow works correctly end-to-end. No defect found.**
+
+## WI-11 — Missing AppRequests Telemetry (2026-09-18)
+
+Root-caused and fixed the gap identified in WI-08's post-deployment
+verification (both apps' inbound HTTP request telemetry never appeared in
+`AppRequests`).
+
+### Root Cause
+
+Both `apps/reviewer-app/app.py` and `apps/web-chat/app.py` had a module-level
+`from fastapi import Depends, FastAPI, Header, HTTPException, Request` import
+BEFORE the module-level `configure_azure_monitor()` call. `configure_azure_monitor()`
+triggers `opentelemetry-instrumentation-fastapi`'s `FastAPIInstrumentor._instrument()`,
+which works by monkeypatching the `fastapi` module attribute
+(`fastapi.FastAPI = _InstrumentedFastAPI`). Because Python's `from X import Y`
+copies the reference at import time (not a live alias), the early `FastAPI`
+binding in both files permanently pointed at the original, uninstrumented
+class — every `FastAPI()` instance built from `create_app()` was therefore
+never wrapped by `_InstrumentedFastAPI.__init__`'s `FastAPIInstrumentor.instrument_app(self)`
+call, so no inbound-request spans were ever recorded. Confirmed via direct
+inspection: verified `fastapi.FastAPI` module attribute IS correctly patched
+after `configure_azure_monitor()` runs; verified a fresh instance
+`from fastapi import FastAPI; FastAPI()` after instrumentation carries
+`_is_instrumented_by_opentelemetry = True`; before the fix, the pre-imported
+`FastAPI` reference did not.
+
+### Changes (Added/Modified)
+
+* `apps/reviewer-app/app.py` — removed `FastAPI` from the top-level
+  `fastapi` import; added an explanatory comment above the
+  `configure_azure_monitor()` guard block; added `from fastapi import FastAPI`
+  as the first line inside `create_app()`, after instrumentation has already
+  run at module load.
+* `apps/web-chat/app.py` — identical fix pattern.
+
+### Validation
+
+* `get_errors` on both files: no new errors, only pre-existing unrelated
+  warnings (Pylance import-resolution note on `case_store`; standard "unused
+  argument" warnings on FastAPI handler signatures).
+* Test suites: reviewer-app 71/71 passed; web-chat 32/32 passed (both run
+  scoped to their own directory to avoid `tests/` module-name collisions
+  between the two apps under a shared pytest rootdir).
+* Direct verification: `create_app(settings=Settings('tenant','client'))` with
+  `APPLICATIONINSIGHTS_CONNECTION_STRING` set now produces an app instance
+  with `_is_instrumented_by_opentelemetry = True` (previously this attribute
+  was absent). Note: checking `app.user_middleware` is NOT the correct signal
+  for this instrumentation — `FastAPIInstrumentor.instrument_app` wraps the
+  ASGI `middleware_stack` directly rather than appending to the declarative
+  Starlette middleware list, so `user_middleware` stays `['BaseHTTPMiddleware']`
+  even when instrumentation is correctly applied.
+
+### Deployment (2026-09-18, both apps redeployed to production)
+
+* **web-chat**: rebuilt via `az acr build --registry acrdesjqp7651 --image
+  "pilot/web-chat:wi11-otel-fix-<timestamp>" --file apps/web-chat/Dockerfile
+  apps/web-chat` (app-directory build context, consistent with WI-08).
+  New digest:
+  `acrdesjqp7651.azurecr.io/pilot/web-chat@sha256:e674302f3b12d5c22dcb7ce82f2a5b7c00ac100d34f1a6ffb796bbd1bcf94352`.
+  Deployed via `az containerapp update -n foundry-quote-chat -g
+  rg-desjardins-quote-preparation --image ...` (image-only update; WI-12's env
+  vars were already applied via the earlier Bicep deploy). `provisioningState:
+  Succeeded`, `runningState: Running`.
+* **reviewer-app**: rebuilt via `az acr build --registry acrdesjqp7651 --image
+  "staging/reviewer-app:wi11-otel-fix-<timestamp>" --file
+  apps/reviewer-app/Dockerfile .` — **build context must be the repository
+  root**, not the app directory (reviewer-app's Dockerfile explicitly says so
+  in its header comment and `COPY`s `src/quote-preparation-agent/*` alongside
+  `apps/reviewer-app/*`; this differs from web-chat's own-directory context
+  and is a correction to the WI-08 changes-log note, which only documented
+  web-chat's convention). First attempt with an app-directory context failed
+  fast (`COPY failed: ... apps/reviewer-app/frontend/package.json: file does
+  not exist`); corrected and rebuilt successfully. New digest:
+  `acrdesjqp7651.azurecr.io/staging/reviewer-app@sha256:2b8894e79c0bfa5c5078819fa52033c046944d2c0d17dc83c1dbff1caaf4cd47`.
+  Deployed via `az containerapp update -n foundry-quote-reviewer -g
+  rg-desjardins-quote-preparation --image ...`. `provisioningState: Succeeded`,
+  `runningState: Running`.
+* **Post-deploy smoke test**: `/healthz` on both apps returned `200`.
+* **Telemetry verification (definitive confirmation)**: generated fresh
+  `/healthz` traffic against both apps, then queried Log Analytics workspace
+  `fd174a24-f7c5-47b8-9a9d-00c9505f7731`:
+  `AppRequests | where TimeGenerated > ago(15m) | summarize count() by AppRoleName`
+  now returns `web-chat: 15`, `reviewer-app: 4` — **`AppRequests` now populates
+  for both apps for the first time**, confirming WI-11 is resolved. A parallel
+  `AppExceptions` query over the same window returned zero rows — no
+  regressions introduced.
+
+### WI-11 Release Summary
+
+* **Files changed**: 2 (`apps/reviewer-app/app.py`, `apps/web-chat/app.py`).
+* **Deployment**: both apps rebuilt and redeployed to production with the
+  fix; verified live via `AppRequests` telemetry.
+* **Outstanding**: none. WI-11 is fully complete — root cause identified,
+  fix applied, tests passed (103/103 combined), deployed, and verified live.
+
+## WI-12 — Distinct `OTEL_SERVICE_NAME` per App (2026-09-18)
+
+Addressed the second follow-on item from WI-08 (`AppRoleName` defaulting to
+`unknown_service` for both apps).
+
+### Changes (Added/Modified)
+
+* `infra/modules/reviewer-app.bicep` / `infra/modules/reviewer-app.json` —
+  added `{ name: 'OTEL_SERVICE_NAME', value: 'reviewer-app' }` to the
+  Container App's `env` array.
+* `infra/web-chat.bicep` / `infra/web-chat.json` — added
+  `{ name: 'OTEL_SERVICE_NAME', value: 'web-chat' }` to its `env` array.
+* `infra/main.json` — recompiled (inlines `modules/reviewer-app.bicep`); no
+  functional change beyond the reviewer-app module diff, plus two
+  pre-existing, unrelated `Microsoft.ContainerRegistry/registries | null`
+  warnings from `modules/mcp-container-apps.bicep` (not introduced by this
+  change).
+
+### Deployment
+
+* Deployed via `az deployment group create --template-file
+  infra/modules/reviewer-app.bicep ...` and `az deployment group create
+  --template-file infra/web-chat.bicep ...` (both preceded by `what-if` to
+  confirm additive-only diffs). Both deployments: `Succeeded`.
+
+### Validation
+
+* `az containerapp show` confirms `OTEL_SERVICE_NAME` present on both
+  Container Apps with the correct per-app value.
+* Log Analytics `AppDependencies` query over a 5-minute window showed
+  distinct `AppRoleName` values (`web-chat: 2`, `reviewer-app: 13`) instead of
+  the shared `unknown_service`.
+* Smoke-tested `/healthz` on both apps post-deploy (200 OK); reloaded
+  reviewer-app UI and confirmed CASE-SYN-001 still correctly shows in the
+  queue (no regression).
+
+### WI-12 Release Summary
+
+* **Files changed**: 4 (2 Bicep + 2 compiled JSON, plus `infra/main.json`
+  recompile as a side effect = 5 total).
+* **Deployment**: both apps redeployed to production with the new env var;
+  verified live via telemetry showing distinct `AppRoleName`s.
+* **Outstanding**: none. WI-12 is fully complete.

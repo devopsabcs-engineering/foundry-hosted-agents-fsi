@@ -128,6 +128,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
           { name: 'AGENT_ENDPOINT', value: 'https://${foundryAccountName}.services.ai.azure.com/api/projects/${foundryProjectName}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1' }
           { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsightsConnectionString }
+          { name: 'OTEL_SERVICE_NAME', value: 'web-chat' }
         ]
         probes: [
           { type: 'Liveness', httpGet: { path: '/healthz', port: 8000 }, initialDelaySeconds: 15, periodSeconds: 30 }
