@@ -162,6 +162,107 @@ and the corresponding "Discrepancy references" pointers in the details file
     retry. Recommended NOT to keep re-dispatching the full staging deploy pipeline
     on short intervals (costs CI minutes and Azure spend for a predictably repeated
     failure) — retry after a longer wait (hours, not minutes) instead.
+  * RETRY #3 (2026-09-17, several hours later, user-requested): re-dispatched
+    (run 35272075564) — identical failure, all 3 internal `azd provision` attempts
+    hit the same ARM `BadRequest` for the same principal. `az ad sp show` still 404
+    immediately after. No change from elapsed time so far.
+  * DIRECTORY READERS HYPOTHESIS (raised by user, tested, REFUTED): checked the CI
+    OIDC deployment SP (`gh-oidc-foundry-hosted-agents-fsi`, object
+    `4be1d357-3c60-4897-925d-6a6a94bbf07c`, shared by both staging and production
+    deploys via the repo-level `AZURE_CLIENT_ID` variable) — it has zero Entra
+    directory role memberships (`memberOf` returns `[]`). Plausible in theory (ARM
+    role-assignment validation needing Graph read access), but the user then checked
+    the **authoritative Entra ID > Agents > All agent identities** admin blade
+    directly (Global Administrator session) — the target principal is **absent from
+    all 27 tenant agent identities**, including both Foundry projects' *shared*
+    identities (`84a48188-...` staging, `8e3103c6-...` production) which ARE listed
+    and healthy. This is the authoritative inventory per Microsoft's own docs
+    (`learn.microsoft.com/azure/ai-foundry/agents/concepts/agent-identity`,
+    "Manage agent identities" section) — a Global Admin browsing it directly rules
+    out any permission-visibility explanation. **Conclusion revised**: the agent's
+    *distinct/published* identity object was never fully provisioned on the Entra
+    side (not merely slow-to-propagate/cache) — Foundry's data-plane `/agents` API
+    recorded an intended `instance_identity.principal_id` that Entra's own Agent ID
+    system of record does not have. This is stronger than "wait longer"; a passive
+    wait may never resolve it without some retriggering event on the Foundry side.
+  * NEXT IDEA (not yet attempted): `azd provision` for staging is blocked before
+    `azd deploy` ever runs (job order: provision -> deploy), so the container has not
+    been redeployed and the agent has had no chance to mint a new version/identity
+    since research. Temporarily clearing staging's `AGENT_PRINCIPAL_ID` back to empty
+    would let `main.bicep` skip the Cosmos grant (as it did pre-WI-10) and allow
+    provision + deploy to succeed, which may cause the agent server to register a new
+    agent version with a fresh `instance_identity.principal_id`. Awaiting user
+    decision before trying this (reversible, but another CI dispatch).
+  * EXECUTED (run 35274334216): cleared the staging `AGENT_PRINCIPAL_ID` environment
+    variable (GitHub rejects empty-string values, so it was deleted, not blanked) and
+    redeployed. `azd provision` and `azd deploy` both succeeded for the first time in
+    this investigation, publishing agent version 3. Queried the live `/agents` API
+    directly (the workflow's own capture step has a latent bug -- it reads
+    `AZURE_AI_PROJECT_ENDPOINT` but `azd` actually sets `FOUNDRY_PROJECT_ENDPOINT`,
+    so `agents.json`/the live-principal warning were never generated; worth a small
+    follow-up fix). Result: version 3's `instance_identity.principal_id` is still the
+    **exact same** `f6ef6272-c2db-45f7-9071-6667ae65a37d` -- Foundry ties the instance
+    identity to the agent's *blueprint* (`quote-preparation-agent-18c27`), not to the
+    version, so redeploying does not mint a new identity to try.
+  * BLUEPRINT PRINCIPAL TEST (conclusive, non-viable path but informative): the
+    agent's blueprint principal (`943a619b-30fb-4bd7-a9bc-676d329322c8`, backed by
+    app registration `8847b0de-...`, `@odata.type: #microsoft.graph.
+    agentIdentityBlueprintPrincipal`) resolves perfectly via `az ad sp show` (created
+    2026-09-16, well past any propagation window). Tried `az cosmosdb sql role
+    assignment create` against it directly (bypassing Bicep) as a live test: Cosmos
+    rejected it with a **different** error than the instance identity's --
+    `BadRequest: The provided principal ID ... was found to be of an unsupported
+    type : [Unfamiliar]` -- meaning Cosmos found the object but does not accept its
+    principal type. This rules out the blueprint as a viable substitute grant target.
+  * ROOT CAUSE CONFIRMED (conclusive, via production comparison): queried
+    production's live `/agents` API and its configured, WORKING `AGENT_PRINCIPAL_ID`
+    (`171dca8a-bda3-46ec-8121-a235ecee6e30`) -- they are an **exact match**, and
+    `az ad sp show` on it returns `@odata.type: #microsoft.graph.agentIdentity`,
+    `servicePrincipalType: ServiceIdentity`. This is the SAME kind of object staging
+    is waiting on (`instance_identity`, not the blueprint) -- proving the mechanism
+    genuinely works and Cosmos DOES accept it once it finishes materializing in Entra.
+    Staging's `f6ef6272-...` re-checked immediately after this run's successful
+    deploy (container now actually live, version 3, for the first time in a while) --
+    still 404 in Entra. **Conclusion**: this is confirmed, ordinary propagation/
+    materialization delay for the `agentIdentity` object specifically (not a platform
+    incompatibility, not a permissions gap, not fixable by substituting a different
+    principal). No further CLI/API workaround exists; the only lever is elapsed time.
+    `AGENT_PRINCIPAL_ID` for staging is deliberately left **unset** for now (restoring
+    it immediately would just reproduce the original failure on the next provision);
+    re-check `az ad sp show f6ef6272-c2db-45f7-9071-6667ae65a37d` periodically, and
+    once it resolves, set the variable and redeploy once more to apply the grant.
+  * REFINED (timestamp evidence, user asked "how long do we need to wait"): queried
+    Graph `createdDateTime` for both environments' blueprint AND instance-identity
+    service principals. Production: blueprint `545a980d-...` created
+    `2026-09-16T02:46:21Z`, instance identity `171dca8a-...` created
+    `2026-09-16T02:46:22Z` -- only 1 SECOND apart. This refutes "propagation lag from
+    blueprint creation" as the mechanism: if that were it, staging's instance
+    identity (blueprint `943a619b-...` created `2026-09-16T03:03:06Z`, ~43.5h before
+    this check) should already exist. It still 404s. New hypothesis: instance
+    identity materialization is likely triggered by the agent's first genuinely
+    successful deploy+run, not by blueprint creation -- staging never had one until
+    run 35274334216 (~1h before this check, after clearing `AGENT_PRINCIPAL_ID`).
+    Recommended to the user: recheck every ~30 min for 1-2h (fresh-clock theory); if
+    still unresolved ~24h after THAT successful deploy, treat as a genuine anomaly
+    and open a Microsoft support ticket (no published SLA exists for this preview
+    feature). No further automated diagnostic is available beyond periodic
+    `az ad sp show`/Graph rechecks.
+  * RECHECK SCHEDULE (established 2026-09-17, ~6:39 PM ET, per user request "schedule
+    the checks"): anchor time is the staging deploy job's `completed_at` timestamp,
+    `2026-09-17T21:11:54Z` = 5:11:54 PM ET (run 35274334216, "Deploy candidate to
+    staging"). Re-checked live at ~6:40 PM ET (both the 30-min and 1-hr fresh-clock
+    marks had already passed) — still 404 in Graph.
+    * 2-hr mark: **7:12 PM ET, 2026-09-17** — recheck.
+    * 4-hr mark: **9:12 PM ET, 2026-09-17** — recheck if still unresolved.
+    * 24-hr mark (anomaly / support-ticket threshold): **5:12 PM ET, 2026-09-18** —
+      if `f6ef6272-c2db-45f7-9071-6667ae65a37d` still fails
+      `az rest --method get --url "https://graph.microsoft.com/v1.0/servicePrincipals/
+      f6ef6272-c2db-45f7-9071-6667ae65a37d"` by this point, open a Microsoft support
+      ticket rather than continuing to wait — no published SLA exists for hosted-agent
+      Entra Agent ID instance-identity materialization.
+    * Caveat: there is no autonomous background scheduler in this session — a human
+      (or a fresh session) must prompt a recheck at or after each milestone; this
+      schedule exists to be resumed from cold if the session restarts before 24 hr.
 
 ## Implementation Paths Considered
 

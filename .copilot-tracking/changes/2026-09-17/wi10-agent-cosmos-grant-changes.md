@@ -103,6 +103,53 @@ functionally confirm both staging and production hosted agents can write cases.
   agent can and does write cases to Cosmos using its existing grant, satisfying
   Step 4.1 for production without needing to trigger new test traffic. Staging's
   Step 4.1 remains pending, blocked on Phase 3.
+* Phase 3 retry #3 (BLOCKED, no files changed, user-requested re-dispatch after
+  further elapsed time): run
+  [35272075564](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/35272075564).
+  Lint, Bicep validate/what-if, and both image builds succeeded. `azd provision`
+  failed on all 3 internal retries with the **identical** ARM `BadRequest`:
+  `The provided principal ID [f6ef6272-c2db-45f7-9071-6667ae65a37d] was not found
+  in the AAD tenant(s) [aa93b9d9-037d-4f08-a26d-783cff0e2369]` (ActivityId
+  `76642422-...`, `16c25464-...`, `c9f447df-...` for attempts 1-3 respectively).
+  Re-checked `az ad sp show` immediately after the run finished — still 404. No
+  new information versus the prior attempt; the identity has not yet propagated.
+  Per plan Step 4.3, no further automated retry attempted; deferring to the user
+  for how long to wait before the next retry.
+* Directory Readers hypothesis (user-suggested, tested, refuted, no files changed):
+  the CI OIDC deployment SP has zero Entra directory role memberships, but the
+  target principal is confirmed absent from the authoritative Entra ID > Agents >
+  All agent identities inventory (27 total, checked in a Global Administrator
+  portal session) — ruling out a permission-visibility explanation. The agent's
+  distinct identity was apparently never fully provisioned on the Entra side, not
+  merely slow to propagate. See planning log DD-03 for full detail.
+* Cleared staging `AGENT_PRINCIPAL_ID` (GitHub environment variable, no repo files
+  changed) and redeployed (run 35274334216): `azd provision`/`azd deploy` succeeded
+  for the first time, publishing agent version 3 with the same stuck instance
+  identity (`f6ef6272-...`; Foundry ties identity to the blueprint, not the
+  version). Tested the blueprint principal directly against Cosmos via CLI —
+  rejected as an unsupported principal type (different error than "not found").
+  Compared against production's live `/agents` API: production's working grant
+  target is an exact match for its own `instance_identity.principal_id`, confirming
+  the mechanism works and staging's object is a genuine propagation case, not a
+  platform incompatibility. `AGENT_PRINCIPAL_ID` deliberately left unset for staging
+  pending materialization. See planning log DD-03 for full detail.
+* Timestamp analysis (no files changed): queried Microsoft Graph `createdDateTime`
+  for production's blueprint (`545a980d-...`, created `2026-09-16T02:46:21Z`) versus
+  its instance identity (`171dca8a-...`, created `2026-09-16T02:46:22Z`) — only 1
+  second apart, ruling out "blueprint-creation-triggered propagation lag" as the
+  mechanism (if that were it, staging's instance identity should already exist,
+  since its blueprint was created `2026-09-16T03:03:06Z`, ~43.5 hours before this
+  check). Revised hypothesis: instance identity materialization may be triggered by
+  the agent's first actually-successful deploy+run, not blueprint creation — staging
+  never had one until run 35274334216 (~1 hour before this check). Re-confirmed
+  `f6ef6272-...` still 404s in Graph as of this check. See planning log DD-03.
+* Run 35274334216 completed successfully end-to-end, including "Promote to
+  production" (approved via `gh api .../pending_deployments`, all steps green).
+  The LLM-judge advisory gate step reported a non-zero exit code (expected/by
+  design — explicitly labeled "advisory; does not block promotion"), which is the
+  source of the run's `X Process completed with exit code 1` annotation; this did
+  not block or affect the actual promotion. Production Cosmos/agent functionality
+  reconfirmed healthy via this redeploy; no infra drift observed.
 
 ## Release Summary
 
