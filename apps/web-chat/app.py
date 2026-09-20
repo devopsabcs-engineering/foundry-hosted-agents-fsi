@@ -230,7 +230,10 @@ def create_app(settings=None, verifier=None, upstream=None):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self' https://login.microsoftonline.com; "
-            "frame-src https://login.microsoftonline.com; frame-ancestors 'none'; "
+            # 'self' is required so MSAL's hidden-iframe silent token renewal can
+            # complete: login.microsoftonline.com redirects the iframe back to
+            # this app's own origin with the refreshed auth code.
+            "frame-src 'self' https://login.microsoftonline.com; frame-ancestors 'none'; "
             "base-uri 'self'; form-action 'self' https://login.microsoftonline.com"
         )
         return response
