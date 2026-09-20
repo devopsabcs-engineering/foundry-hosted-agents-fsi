@@ -14,6 +14,15 @@ Authentication is Microsoft Entra only via `DefaultAzureCredential`, matching
 `cosmos_case_store.CosmosCaseStore` -- the account has local auth (keys)
 disabled, so no account-key parameter is accepted here either.
 
+Both Cosmos accounts have `publicNetworkAccess` disabled (tenant policy) and
+are only reachable from inside the VNet via private endpoint, so running this
+script from a local machine or a GitHub-hosted runner fails at the network
+layer even with correct RBAC. Run it from something already inside the VNet
+instead -- e.g. copy this script's logic into an `az containerapp exec -n
+foundry-quote-reviewer[-staging] -g rg-desjardins-quote-preparation --command
+"/bin/sh"` session, where `COSMOS_ENDPOINT` is already set and the container's
+managed identity already holds the Cosmos Data Contributor role.
+
 Defaults to a dry run that only lists what would be deleted. Pass --yes to
 actually delete.
 
