@@ -81,6 +81,14 @@ That last branch exists for a hard reason. Container App names are capped at 32 
 
 Lab 12 depends on this determinism. Because the name is fixed rather than randomized, you can compute the sign-in redirect URI before the app is ever deployed.
 
+> [!NOTE]
+> CI's production `azd` environment name (and every resource name derived
+> from it, e.g. `cosmos-desjardins-quote-preparation-poc`) carries a
+> historical `-poc` suffix. That suffix does **not** mean proof-of-concept --
+> it is the production environment. Do not confuse a `-poc`-suffixed
+> resource you see in the Azure Portal or CI logs with a separate,
+> non-production deployment.
+
 ### Exercise 10.4 (Hands-on): Compile the Templates Offline
 
 Compiling requires no Azure login and touches no subscription.

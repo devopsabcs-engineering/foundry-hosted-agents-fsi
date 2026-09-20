@@ -82,6 +82,16 @@ Ce dernier embranchement existe pour une raison stricte. Les noms d'applications
 
 L'atelier 12 dépend de ce déterminisme. Comme le nom est fixe plutôt qu'aléatoire, vous pouvez calculer l'URI de redirection de connexion avant même que l'application ne soit déployée.
 
+> [!NOTE]
+> Le nom de l'environnement `azd` de production dans l'intégration continue
+> (et tout nom de ressource qui en découle, par exemple
+> `cosmos-desjardins-quote-preparation-poc`) porte un suffixe historique
+> `-poc`. Ce suffixe ne signifie **pas** « preuve de concept » -- il s'agit
+> bien de l'environnement de production. Ne confondez pas une ressource
+> portant le suffixe `-poc` que vous voyez dans le portail Azure ou les
+> journaux d'intégration continue avec un déploiement distinct hors
+> production.
+
 ### Exercice 10.4 (pratique) : Compiler les modèles hors ligne
 
 La compilation n'exige aucune authentification Azure et ne touche aucun abonnement.

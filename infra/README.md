@@ -4,6 +4,17 @@ Bicep source for the quote preparation pilot. Deployment runs from
 `.github/workflows/deploy-and-evaluate.yml` against a single shared resource
 group that holds both the staging and production environments.
 
+> [!NOTE]
+> The production `azd` environment's name (and every resource name derived
+> from it -- e.g. `cosmos-desjardins-quote-preparation-poc`,
+> `aif-desjardins-quote-preparation-poc`) carries a historical `-poc` suffix.
+> Despite that suffix, **`-poc` resources are production**, not a separate
+> proof-of-concept deployment -- do not confuse them when reading resource
+> names, Azure Portal listings, or CI logs. The wiki's Deployment Links table
+> labels rows `(production)`/`(staging)` explicitly for this reason; trust
+> that label over any `-poc`/`-staging` suffix you see in a URL or resource
+> name.
+
 ## Templates
 
 Two templates deploy into that resource group, and the split is deliberate.

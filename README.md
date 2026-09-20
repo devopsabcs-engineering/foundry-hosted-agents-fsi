@@ -106,6 +106,16 @@ running it locally against a real Entra registration.
 
 ## Deployment links
 
+> [!NOTE]
+> The production environment's underlying Azure resource and `azd`
+> environment names carry a historical `-poc` suffix (for example
+> `cosmos-desjardins-quote-preparation-poc`,
+> `aif-desjardins-quote-preparation-poc`). Despite that suffix, **these are
+> the production resources**, not a separate proof-of-concept deployment --
+> the wiki's Deployment Links table labels each row `(production)` or
+> `(staging)` explicitly, so trust that label over any `-poc` text you spot
+> in a resource name or URL.
+
 This repository does not hardcode a "live demo" URL here, because the
 underlying Container Apps hostnames and Foundry project name are
 environment-specific and can be re-provisioned. Instead, the
