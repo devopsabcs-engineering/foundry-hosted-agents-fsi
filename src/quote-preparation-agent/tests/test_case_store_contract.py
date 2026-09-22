@@ -133,12 +133,22 @@ class FakeCosmosContainer:
         return deepcopy(stored)
 
     def query_items(
-        self, query: str, parameters: list[dict[str, Any]], enable_cross_partition_query: bool = False
+        self, query: str, parameters: list[dict[str, Any]] | None = None, enable_cross_partition_query: bool = False
     ):
+        if not parameters:
+            # `delete_all_cases` issues an unparameterized "SELECT c.id FROM c";
+            # the fake ignores query text entirely, so it has no state filter to
+            # apply here and returns every document.
+            return (deepcopy(item) for item in self._items.values())
         wanted = {parameter["name"]: parameter["value"] for parameter in parameters}["@state"]
         matching = [item for item in self._items.values() if item["state"] == wanted]
         matching.sort(key=lambda item: (item["updatedAt"], item["caseId"]), reverse=True)
         return (deepcopy(item) for item in matching)
+
+    def delete_item(self, item: str, partition_key: str) -> None:
+        if item not in self._items:
+            raise CosmosResourceNotFoundError()
+        del self._items[item]
 
     def simulate_concurrent_write(self, case_id: str) -> None:
         """Advance the stored ETag as another replica would, without changing
@@ -512,6 +522,28 @@ def test_list_cases_by_state_rejects_a_non_positive_limit(store):
     for invalid in (0, -1, "10", None):
         with pytest.raises(ValueError):
             store.list_cases_by_state(STATE_PENDING_REVIEW, limit=invalid)
+
+
+def test_delete_all_cases_removes_every_case_and_its_audit_trail(store, case_id):
+    pending = _submitted(store, f"{case_id}-A")
+    decided = _submitted(store, f"{case_id}-B")
+    store.approve(decided, REVIEWER)
+    drafted = f"{case_id}-C"
+    store.create_draft(drafted, PREPARER)
+
+    deleted = store.delete_all_cases()
+
+    assert deleted == 3
+    for gone in (pending, decided, drafted):
+        with pytest.raises(CaseNotFoundError):
+            store.get_case(gone)
+        assert store.get_audit_trail(gone) == []
+    assert store.list_cases_by_state(STATE_PENDING_REVIEW) == ()
+
+
+def test_delete_all_cases_on_an_empty_store_returns_zero(store):
+    assert store.delete_all_cases() == 0
+
 
 
 def test_sqlite_concurrent_approvals_yield_exactly_one_winner():

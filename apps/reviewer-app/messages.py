@@ -69,6 +69,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en-CA": "This case changed since it was loaded. Reload and try again.",
         "fr-CA": "Ce dossier a changé depuis son chargement. Rechargez la page et réessayez.",
     },
+    "CLEAR_CONFIRMATION_REQUIRED": {
+        "en-CA": "Type the confirmation phrase exactly to clear the queue.",
+        "fr-CA": "Saisissez exactement la phrase de confirmation pour vider la file.",
+    },
 }
 
 

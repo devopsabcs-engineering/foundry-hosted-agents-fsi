@@ -110,6 +110,7 @@ def test_unauthenticated_requests_are_rejected(client):
     assert test_client.get("/api/cases").status_code == 401
     assert test_client.get("/api/cases/CASE-SYN-001").status_code == 401
     assert test_client.post("/api/cases/CASE-SYN-001/approve", json={"revision": 1}).status_code == 401
+    assert test_client.post("/api/cases/clear", json={"confirm": "CLEAR ALL CASES"}).status_code == 401
     assert store.get_case("CASE-SYN-001").state == STATE_PENDING_REVIEW
 
 
@@ -345,3 +346,39 @@ def test_an_unrecognized_ui_language_header_falls_back_to_english(client):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Case not found.", "code": "CASE_NOT_FOUND"}
+
+
+def test_clear_queue_rejects_a_wrong_confirmation_phrase(client):
+    test_client, store = client
+    seed(store, "CASE-SYN-001")
+
+    for confirm in ("clear all cases", "CLEAR", ""):
+        response = test_client.post("/api/cases/clear", json={"confirm": confirm} if confirm else {})
+        assert response.status_code == 422
+
+    assert store.get_case("CASE-SYN-001").state == STATE_PENDING_REVIEW
+
+
+def test_clear_queue_deletes_every_case_when_confirmed(client):
+    test_client, store = client
+    seed(store, "CASE-SYN-001")
+    seed(store, "CASE-SYN-002")
+    store.create_draft("CASE-SYN-003", PREPARER)
+
+    response = test_client.post("/api/cases/clear", json={"confirm": "CLEAR ALL CASES"})
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 3}
+    assert test_client.get("/api/cases").json() == {"cases": []}
+    assert test_client.get("/api/cases/CASE-SYN-001").status_code == 404
+
+
+def test_clear_queue_requires_the_reviewer_role(client):
+    test_client, store = client
+    seed(store, "CASE-SYN-001")
+    test_client.headers["Authorization"] = "Bearer norole"
+
+    response = test_client.post("/api/cases/clear", json={"confirm": "CLEAR ALL CASES"})
+
+    assert response.status_code == 403
+    assert store.get_case("CASE-SYN-001").state == STATE_PENDING_REVIEW

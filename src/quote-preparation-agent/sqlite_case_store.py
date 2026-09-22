@@ -269,6 +269,18 @@ class SqliteCaseStore(ApprovalRepository):
             ).fetchall()
         return tuple(_record_from_row(row) for row in rows)
 
+    def delete_all_cases(self) -> int:
+        """Delete every case and its audit trail. Pilot/training queue resets only.
+
+        Not part of the reviewer approval workflow: the only caller is the
+        queue-clearing admin action in `apps/reviewer-app`.
+        """
+        with self._lock, self._conn:
+            count = self._conn.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+            self._conn.execute("DELETE FROM audit_events")
+            self._conn.execute("DELETE FROM cases")
+        return count
+
     def _get_locked(self, case_id: str) -> CaseRecord:
         """Fetch the extended `CaseRecord`. Caller must already hold self._lock."""
         row = self._conn.execute(

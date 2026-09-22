@@ -139,6 +139,17 @@ class DecisionRequest(BaseModel):
     )
 
 
+# Not translated: this is a typed safety keyword compared byte-for-byte against
+# the request body, the same way GitHub's delete-repo confirmation keeps the
+# repo name untranslated. The frontend shows it verbatim in both languages.
+CLEAR_QUEUE_CONFIRMATION_PHRASE = "CLEAR ALL CASES"
+
+
+class ClearQueueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    confirm: str = Field(min_length=1, max_length=32)
+
+
 def case_payload(record: CaseRecord) -> dict:
     return {
         "caseId": record.case_id,
@@ -372,6 +383,28 @@ def create_app(settings=None, verifier=None, store=None):
         language: str = Depends(resolved_language),
     ):
         return await decide("revise", case_id, body, reviewer, key, language)
+
+    @application.post("/api/cases/clear")
+    async def clear_queue(
+        body: ClearQueueRequest,
+        reviewer: Identity = Depends(identity),
+        language: str = Depends(resolved_language),
+    ):
+        """Delete every case. Gated on the reviewer role plus a typed phrase,
+        not a separate admin role -- this pilot has no role beyond Reviewer.
+        Intended for resetting synthetic training data, not for production
+        case management."""
+        if body.confirm != CLEAR_QUEUE_CONFIRMATION_PHRASE:
+            raise HTTPException(
+                422,
+                {
+                    "detail": message("CLEAR_CONFIRMATION_REQUIRED", language),
+                    "code": "CLEAR_CONFIRMATION_REQUIRED",
+                },
+            )
+        deleted = await asyncio.to_thread(case_store().delete_all_cases)
+        logger.warning("queue_cleared actor=%s deleted=%s", reviewer.object_id, deleted)
+        return {"deleted": deleted}
 
     dist = Path(__file__).parent / "frontend" / "dist"
     if dist.exists():

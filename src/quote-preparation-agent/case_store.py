@@ -146,9 +146,9 @@ class CaseStore(Protocol):
     """The full public surface both the agent and the reviewer app rely on.
 
     Bare `ApprovalRepository` satisfies every method here except
-    `list_cases_by_state` and `submit_for_review_with_calculation`; those two
-    are the reviewer-facing additions, and `build_case_store` never hands back
-    a store that lacks them.
+    `list_cases_by_state`, `submit_for_review_with_calculation`, and
+    `delete_all_cases`; those three are the reviewer-facing additions, and
+    `build_case_store` never hands back a store that lacks them.
     """
 
     def create_draft(self, case_id: str, preparer_id: str) -> CaseRecord: ...
@@ -178,6 +178,8 @@ class CaseStore(Protocol):
     def get_audit_trail(self, case_id: str) -> list[AuditRecord]: ...
 
     def list_cases_by_state(self, state: str, limit: int = 100) -> tuple[CaseRecord, ...]: ...
+
+    def delete_all_cases(self) -> int: ...
 
     def close(self) -> None: ...
 

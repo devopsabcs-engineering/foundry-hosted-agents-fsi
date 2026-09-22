@@ -17,6 +17,7 @@ main{flex:1;padding:22px 24px;min-width:0}
 
 .panel{max-width:1040px;margin:0 auto;background:#fff;border:1px solid var(--border);border-radius:8px;padding:22px 24px 26px}
 .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.panel-actions{display:flex;align-items:flex-start;gap:10px}
 .panel h1{margin:4px 0 0;font-size:26px;color:var(--green)}
 .panel h2{margin:26px 0 8px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .overline{font-size:10px;font-weight:650;color:var(--muted);letter-spacing:.08em}

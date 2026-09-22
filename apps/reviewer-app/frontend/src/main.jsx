@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
-import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, LogIn, LogOut, RefreshCw, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, LogIn, LogOut, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react';
 import '@fontsource-variable/dm-sans';
 import './style.css';
 import { ApiError, decisionFailure, formatList, formatTimestamp, premiumView } from './format';
@@ -10,6 +10,10 @@ import { DEFAULT_LANGUAGE, translate } from './i18n';
 import { useLanguage } from './useLanguage';
 
 const REASON_PATTERN = /^[A-Z0-9_]{1,64}$/;
+
+// Not translated: sent verbatim to the backend, which compares it byte-for-byte.
+// See the matching constant in `apps/reviewer-app/app.py`.
+const CLEAR_QUEUE_PHRASE = 'CLEAR ALL CASES';
 
 function readStoredLanguage() {
   try { return window.localStorage.getItem('fhaf-ui-language') || DEFAULT_LANGUAGE; }
@@ -32,13 +36,38 @@ function Premium({ record, detailed = false, language, t }) {
   return <span className="premium">{view.amount}{detailed && view.period ? <span className="period"> {t('detail.perPeriod')} {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
 }
 
-function Queue({ cases, onOpen, onRefresh, busy, headingRef, failed, language, t }) {
+function ClearQueueConfirm({ value, onChange, onConfirm, onCancel, busy, t }) {
+  const invalid = value !== CLEAR_QUEUE_PHRASE;
+  return <form className="reason" role="group" aria-label={t('queue.clearGroupLabel')}
+    onSubmit={event => { event.preventDefault(); if (!invalid) onConfirm(); }}>
+    <label htmlFor="clear-confirm">{t('queue.clearLabel', { phrase: CLEAR_QUEUE_PHRASE })}</label>
+    <input id="clear-confirm" value={value} maxLength={32} autoComplete="off" aria-invalid={invalid}
+      onChange={event => onChange(event.target.value)} />
+    <span className="reason-help">{t('queue.clearHelp')}</span>
+    <div className="reason-actions">
+      <button className="danger" type="submit" disabled={busy || invalid}>{t('queue.clearConfirmButton')}</button>
+      <button className="secondary" type="button" disabled={busy} onClick={onCancel}>{t('reason.cancel')}</button>
+    </div>
+  </form>;
+}
+
+function Queue({ cases, onOpen, onRefresh, onClear, busy, headingRef, failed, language, t }) {
+  const [clearing, setClearing] = useState(false);
+  const [clearValue, setClearValue] = useState('');
   return <section className="panel">
     <div className="panel-head">
       <div><span className="overline">{t('topbar.overline')}</span><h1 ref={headingRef} tabIndex={-1}>{t('queue.heading')}</h1></div>
-      <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />{t('queue.refresh')}</button>
+      <div className="panel-actions">
+        <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />{t('queue.refresh')}</button>
+        <button className="danger" type="button" disabled={busy} onClick={() => { setClearValue(''); setClearing(true); }}>
+          <Trash2 size={16} aria-hidden="true" />{t('queue.clearButton')}
+        </button>
+      </div>
     </div>
     <Notice language={language} />
+    {clearing && <ClearQueueConfirm value={clearValue} busy={busy} t={t}
+      onChange={setClearValue} onCancel={() => setClearing(false)}
+      onConfirm={() => { setClearing(false); onClear(); }} />}
     {/* An empty list after a failed load means the queue is unknown, not empty.
         Saying "no cases" there tells a reviewer nothing is waiting when the
         backend could not be reached, which is the one wrong answer to give. */}
@@ -227,6 +256,19 @@ function Workspace({ auth, config, initialAccount }) {
     } finally { setBusy(false); }
   }
 
+  async function clearQueue() {
+    setBusy(true); setError(''); setStatus('');
+    try {
+      const result = await api('/api/cases/clear', {
+        method: 'POST', body: JSON.stringify({ confirm: CLEAR_QUEUE_PHRASE }),
+      });
+      await loadQueue();
+      setStatus(t('queue.clearStatus', { count: result.deleted }));
+    } catch (failure) {
+      setError(failure.message);
+    } finally { setBusy(false); }
+  }
+
   async function decide(command, reasonCode) {
     if (!detail) return;
     const caseId = detail.case.caseId;
@@ -312,7 +354,7 @@ function Workspace({ auth, config, initialAccount }) {
         : detail
           ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef} language={language} t={t}
             onBack={() => run(loadQueue)} />
-          : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} headingRef={headingRef} language={language} t={t}
+          : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} onClear={clearQueue} headingRef={headingRef} language={language} t={t}
             failed={Boolean(error)}
             onOpen={caseId => run(() => loadCase(caseId))} />}
     </main>

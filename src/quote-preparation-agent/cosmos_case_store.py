@@ -341,6 +341,25 @@ class CosmosCaseStore:
         )
         return tuple(_record_from_document(item) for item in islice(results, limit))
 
+    def delete_all_cases(self) -> int:
+        """Delete every case document. Pilot/training queue resets only.
+
+        Not part of the reviewer approval workflow: the only caller is the
+        queue-clearing admin action in `apps/reviewer-app`. `id` and the
+        `/caseId` partition key are the same value on every document (see
+        `create_draft`), so each id doubles as its own partition key here.
+        """
+        ids = [
+            item["id"]
+            for item in self._container.query_items(
+                query="SELECT c.id FROM c",
+                enable_cross_partition_query=True,
+            )
+        ]
+        for case_id in ids:
+            self._container.delete_item(item=case_id, partition_key=case_id)
+        return len(ids)
+
     def _read(self, case_id: str) -> tuple[dict[str, Any], str]:
         try:
             document = self._container.read_item(item=case_id, partition_key=case_id)
