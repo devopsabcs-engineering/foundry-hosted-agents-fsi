@@ -89,7 +89,7 @@ Résultat attendu : un document JSON avec `tenantId`, `clientId`, `scope` et `en
 
 Ouvrez `http://localhost:8200` dans un navigateur.
 
-![Le clavardage du demandeur avant la connexion, affichant le titre « Quotes start with access. », un bouton de connexion Microsoft, une zone de message désactivée et un avis de données synthétiques](/assets/images/web-chat-sign-in.png)
+![Le clavardage du demandeur avant la connexion, affichant le titre « Quotes start with access. », un bouton de connexion Microsoft, une zone de message désactivée et un avis de données synthétiques]({{ "/assets/images/web-chat-sign-in.png" | relative_url }})
 
 Résultat attendu : la zone de rédaction est désactivée, la barre latérale indique `Not signed in` et le pied de page porte l'avis de données d'entraînement synthétiques. Cet avis fait partie de la mise en page plutôt que d'un message, il ne peut donc pas être masqué par défilement ni déplacé par la sortie de l'agent.
 

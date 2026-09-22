@@ -1,8 +1,11 @@
 title: "Foundry Hosted Agents Workshop (FSI)"
 description: "Bilingual hands-on workshop hosting a synthetic auto-insurance quote-preparation agent on Microsoft Foundry Hosted Agents"
 remote_theme: just-the-docs/just-the-docs
-baseurl: ""
-url: "https://psychic-chainsaw-1vjrnqr.pages.github.io"
+# Private repos serve Pages at a root-served *.pages.github.io proxy domain
+# (baseurl ""); a public repo serves at the standard <owner>.github.io/<repo>
+# path instead, so both fields change together when visibility changes.
+baseurl: "/foundry-hosted-agents-fsi"
+url: "https://devopsabcs-engineering.github.io"
 
 exclude:
   - Gemfile.lock

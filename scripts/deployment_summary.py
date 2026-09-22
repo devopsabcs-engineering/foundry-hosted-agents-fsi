@@ -154,7 +154,7 @@ def render(environment: str | None = None) -> str:
     if rulebook_mcp_url:
         links.append((f"Rulebook-server MCP{env_suffix}", rulebook_mcp_url, "Synthetic MCP protocol endpoint, not a chat page"))
     if pages_url:
-        links.append(("Workshop site", pages_url, "Browsable lab content; GitHub sign-in required while the repository is private"))
+        links.append(("Workshop site", pages_url, "Browsable lab content"))
     links.append(("Repository", repository_url, "Source and workflow history"))
 
     rows = [f"| [{label}]({url}) | {note} |" for label, url, note in links]

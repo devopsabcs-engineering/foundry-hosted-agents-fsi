@@ -107,7 +107,7 @@ Ouvrez `http://localhost:8100` dans un navigateur.
 > [!IMPORTANT]
 > Utilisez `localhost` et non `127.0.0.1`. Ce sont des origines différentes, et seul `http://localhost:8100` est un URI de redirection enregistré.
 
-![L'application de révision avant la connexion, affichant la marque Foundry Case Review, une étiquette Local Pilot, le titre « Reviews start with access. », un avis ambre de simulation d'entraînement et un bouton de connexion Microsoft](/assets/images/reviewer-sign-in.png)
+![L'application de révision avant la connexion, affichant la marque Foundry Case Review, une étiquette Local Pilot, le titre « Reviews start with access. », un avis ambre de simulation d'entraînement et un bouton de connexion Microsoft]({{ "/assets/images/reviewer-sign-in.png" | relative_url }})
 
 Résultat attendu : une barrière d'accès sans aucune donnée de dossier derrière elle. Connectez-vous avec un compte que vous avez ajouté au groupe de réviseurs à l'atelier 12.
 
@@ -115,7 +115,7 @@ Si Entra rejette la connexion, le message vous indique quelle étape de l'atelie
 
 ### Exercice 13.5 : Lire la file
 
-![La file de révision listant cinq dossiers en attente avec les colonnes dossier, état, révision, préparateur, heure de soumission et prime ; deux lignes indiquent Not priced](/assets/images/reviewer-queue.png)
+![La file de révision listant cinq dossiers en attente avec les colonnes dossier, état, révision, préparateur, heure de soumission et prime ; deux lignes indiquent Not priced]({{ "/assets/images/reviewer-queue.png" | relative_url }})
 
 Résultat attendu : cinq lignes à l'état `PENDING_REVIEW`. Trois affichent une prime en dollars canadiens. Deux affichent `Not priced` avec la raison en dessous, `unsupported` pour CASE-SYN-003 et `incomplete` pour CASE-SYN-005.
 
@@ -125,7 +125,7 @@ Le préparateur de chaque ligne est `AGENT-INTAKE`. Aucune ligne n'a encore de r
 
 Sélectionnez CASE-SYN-001.
 
-![La vue détaillée de CASE-SYN-001 affichant l'état PENDING_REVIEW, une prime de 1 000,00 $ CA par année d'entraînement, les identifiants de règles, la version de référentiel training-1, trois boutons de décision et une piste de vérification à deux entrées](/assets/images/reviewer-case-detail.png)
+![La vue détaillée de CASE-SYN-001 affichant l'état PENDING_REVIEW, une prime de 1 000,00 $ CA par année d'entraînement, les identifiants de règles, la version de référentiel training-1, trois boutons de décision et une piste de vérification à deux entrées]({{ "/assets/images/reviewer-case-detail.png" | relative_url }})
 
 Résultat attendu : le panneau de calcul affiche la prime, la devise, la période, un statut `READY`, les identifiants de règles qui ont produit le chiffre et la version du référentiel.
 
@@ -137,7 +137,7 @@ La piste de vérification compte déjà deux entrées, `CREATE_DRAFT` et `SUBMIT
 
 Revenez à la file et sélectionnez CASE-SYN-003.
 
-![La vue détaillée de CASE-SYN-003 affichant Not priced avec la raison unsupported, un statut UNSUPPORTED, aucun identifiant de règle et un enjeu UNSUPPORTED_INPUT](/assets/images/reviewer-case-not-priced.png)
+![La vue détaillée de CASE-SYN-003 affichant Not priced avec la raison unsupported, un statut UNSUPPORTED, aucun identifiant de règle et un enjeu UNSUPPORTED_INPUT]({{ "/assets/images/reviewer-case-not-priced.png" | relative_url }})
 
 Résultat attendu : la prime indique `Not priced`, le statut est `UNSUPPORTED`, les identifiants de règles valent `None` et le champ des enjeux nomme `UNSUPPORTED_INPUT`.
 
@@ -147,7 +147,7 @@ Les boutons de décision demeurent actifs. Une personne réviseure peut tout de 
 
 Revenez à CASE-SYN-001 et choisissez Approve.
 
-![L'étape de confirmation pour l'approbation de CASE-SYN-001, indiquant que l'approbation enregistre la décision de prime et ne peut être annulée, avec les boutons Confirm approve et Cancel](/assets/images/reviewer-approve-confirm.png)
+![L'étape de confirmation pour l'approbation de CASE-SYN-001, indiquant que l'approbation enregistre la décision de prime et ne peut être annulée, avec les boutons Confirm approve et Cancel]({{ "/assets/images/reviewer-approve-confirm.png" | relative_url }})
 
 Résultat attendu : une étape de confirmation plutôt qu'une écriture immédiate. L'approbation enregistre une décision de prime et ne peut être annulée, l'interface demande donc une confirmation.
 
@@ -155,7 +155,7 @@ Reject et Send back for revision confirment également, mais offrent en plus un 
 
 Confirmez.
 
-![CASE-SYN-001 après approbation, affichant une bannière indiquant recorded as APPROVED, un identifiant d'objet de réviseur, une section de décision indiquant que le dossier ne peut plus être tranché et une troisième entrée de vérification pour APPROVE](/assets/images/reviewer-case-approved.png)
+![CASE-SYN-001 après approbation, affichant une bannière indiquant recorded as APPROVED, un identifiant d'objet de réviseur, une section de décision indiquant que le dossier ne peut plus être tranché et une troisième entrée de vérification pour APPROVE]({{ "/assets/images/reviewer-case-approved.png" | relative_url }})
 
 Résultat attendu : l'état devient `APPROVED`, le champ du réviseur se remplit d'un identifiant d'objet, les boutons de décision sont remplacés par une phrase expliquant que le dossier ne peut plus être tranché, et une troisième entrée de vérification apparaît consignant la transition de `PENDING_REVIEW` à `APPROVED` contre votre identité.
 

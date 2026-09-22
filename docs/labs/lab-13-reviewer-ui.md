@@ -106,7 +106,7 @@ Open `http://localhost:8100` in a browser.
 > [!IMPORTANT]
 > Use `localhost`, not `127.0.0.1`. They are different origins, and only `http://localhost:8100` is a registered redirect URI.
 
-![The reviewer app before sign-in, showing the Foundry Case Review brand, a Local Pilot badge, the heading "Reviews start with access.", an amber training-simulation notice, and a Sign in with Microsoft button](/assets/images/reviewer-sign-in.png)
+![The reviewer app before sign-in, showing the Foundry Case Review brand, a Local Pilot badge, the heading "Reviews start with access.", an amber training-simulation notice, and a Sign in with Microsoft button]({{ "/assets/images/reviewer-sign-in.png" | relative_url }})
 
 Expected result: an access gate with no case data behind it. Sign in with an account you added to the reviewer group in Lab 12.
 
@@ -114,7 +114,7 @@ If Entra rejects the sign-in, the message tells you which step of Lab 12 to revi
 
 ### Exercise 13.5: Read the Queue
 
-![The reviewer queue listing five pending cases with columns for case, state, revision, preparer, submitted time, and premium; two rows read Not priced](/assets/images/reviewer-queue.png)
+![The reviewer queue listing five pending cases with columns for case, state, revision, preparer, submitted time, and premium; two rows read Not priced]({{ "/assets/images/reviewer-queue.png" | relative_url }})
 
 Expected result: five rows in `PENDING_REVIEW`. Three show a premium in CAD. Two show `Not priced` with the reason underneath, `unsupported` for CASE-SYN-003 and `incomplete` for CASE-SYN-005.
 
@@ -124,7 +124,7 @@ The preparer on every row is `AGENT-INTAKE`. No row has a reviewer yet.
 
 Select CASE-SYN-001.
 
-![The detail view for CASE-SYN-001 showing state PENDING_REVIEW, a premium of CAD 1,000.00 per training year, rule ids, rulebook version training-1, three decision buttons, and a two-entry audit trail](/assets/images/reviewer-case-detail.png)
+![The detail view for CASE-SYN-001 showing state PENDING_REVIEW, a premium of CAD 1,000.00 per training year, rule ids, rulebook version training-1, three decision buttons, and a two-entry audit trail]({{ "/assets/images/reviewer-case-detail.png" | relative_url }})
 
 Expected result: the calculation panel shows the premium, the currency, the period, a status of `READY`, the rule IDs that produced the figure, and the rulebook version.
 
@@ -136,7 +136,7 @@ The audit trail already has two entries, `CREATE_DRAFT` and `SUBMIT`, both attri
 
 Return to the queue and select CASE-SYN-003.
 
-![The detail view for CASE-SYN-003 showing Not priced with reason unsupported, a status of UNSUPPORTED, no rule ids, and an issue of UNSUPPORTED_INPUT](/assets/images/reviewer-case-not-priced.png)
+![The detail view for CASE-SYN-003 showing Not priced with reason unsupported, a status of UNSUPPORTED, no rule ids, and an issue of UNSUPPORTED_INPUT]({{ "/assets/images/reviewer-case-not-priced.png" | relative_url }})
 
 Expected result: the premium reads `Not priced`, the status is `UNSUPPORTED`, the rule IDs are `None`, and the issues field names `UNSUPPORTED_INPUT`.
 
@@ -146,7 +146,7 @@ The decision buttons remain enabled. A reviewer can still act on a case the calc
 
 Return to CASE-SYN-001 and select Approve.
 
-![The confirmation step for approving CASE-SYN-001, reading that approving records the premium decision and cannot be undone, with Confirm approve and Cancel buttons](/assets/images/reviewer-approve-confirm.png)
+![The confirmation step for approving CASE-SYN-001, reading that approving records the premium decision and cannot be undone, with Confirm approve and Cancel buttons]({{ "/assets/images/reviewer-approve-confirm.png" | relative_url }})
 
 Expected result: a confirmation step rather than an immediate write. Approval records a premium decision and cannot be undone, so the interface asks once.
 
@@ -154,7 +154,7 @@ Reject and Send back for revision also confirm, but they additionally offer an o
 
 Confirm it.
 
-![CASE-SYN-001 after approval, showing a banner reading recorded as APPROVED, a reviewer object ID, a decision section stating the case can no longer be decided, and a third audit entry for APPROVE](/assets/images/reviewer-case-approved.png)
+![CASE-SYN-001 after approval, showing a banner reading recorded as APPROVED, a reviewer object ID, a decision section stating the case can no longer be decided, and a third audit entry for APPROVE]({{ "/assets/images/reviewer-case-approved.png" | relative_url }})
 
 Expected result: the state becomes `APPROVED`, the reviewer field fills with an object ID, the decision buttons are replaced by a sentence explaining the case can no longer be decided, and a third audit entry appears recording the `PENDING_REVIEW` to `APPROVED` transition against your identity.
 

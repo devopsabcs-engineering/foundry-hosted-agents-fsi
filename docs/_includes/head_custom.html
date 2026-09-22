@@ -2,12 +2,16 @@
 {%- if page.lang == 'fr' or page.url contains '/fr/' -%}
   {%- assign is_fr_page = true -%}
 {%- endif -%}
+{%- assign fr_href = "/fr" | relative_url -%}
+{%- assign fr_href_prefix = fr_href | append: "/" -%}
 <style>
-  /* Left nav is built once for the whole site; hide the other language's links per page. */
+  /* Left nav is built once for the whole site; hide the other language's links per page.
+     Matched against site.baseurl-prefixed hrefs so this still works whether Pages is
+     root-served (private repo) or served under /<repo-name>/ (public repo). */
   {%- if is_fr_page %}
-  #site-nav .nav-list-item:has(> a.nav-list-link[href]:not([href="/fr"]):not([href^="/fr/"])) { display: none; }
+  #site-nav .nav-list-item:has(> a.nav-list-link[href]:not([href="{{ fr_href }}"]):not([href^="{{ fr_href_prefix }}"])) { display: none; }
   {%- else %}
-  #site-nav .nav-list-item:has(> a.nav-list-link:is([href="/fr"], [href^="/fr/"])) { display: none; }
+  #site-nav .nav-list-item:has(> a.nav-list-link:is([href="{{ fr_href }}"], [href^="{{ fr_href_prefix }}"])) { display: none; }
   {%- endif %}
   .nav-list-item.lang-hidden { display: none !important; }
 
@@ -35,11 +39,13 @@
   // Fallback for browsers without CSS :has() support.
   document.addEventListener('DOMContentLoaded', function () {
     var isFrPage = {{ is_fr_page }};
+    var frHref = {{ fr_href | jsonify }};
+    var frHrefPrefix = {{ fr_href_prefix | jsonify }};
     document.querySelectorAll('#site-nav .nav-list-item').forEach(function (item) {
       var link = item.querySelector('a.nav-list-link');
       if (!link || !link.hasAttribute('href')) return;
       var href = link.getAttribute('href') || '';
-      var isFrLink = href === '/fr' || href.indexOf('/fr/') === 0;
+      var isFrLink = href === frHref || href.indexOf(frHrefPrefix) === 0;
       if (isFrPage !== isFrLink) item.classList.add('lang-hidden');
     });
   });

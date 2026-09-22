@@ -88,7 +88,7 @@ Expected result: a JSON document with `tenantId`, `clientId`, `scope`, and `envi
 
 Open `http://localhost:8200` in a browser.
 
-![The applicant chat before sign-in, showing the heading "Quotes start with access.", a Sign in with Microsoft button, a disabled message box, and a synthetic-data disclaimer](/assets/images/web-chat-sign-in.png)
+![The applicant chat before sign-in, showing the heading "Quotes start with access.", a Sign in with Microsoft button, a disabled message box, and a synthetic-data disclaimer]({{ "/assets/images/web-chat-sign-in.png" | relative_url }})
 
 Expected result: the composer is disabled, the sidebar reads `Not signed in`, and the footer carries the synthetic training data disclaimer. The disclaimer is part of the layout rather than part of a message, so it cannot be scrolled away or displaced by agent output.
 
