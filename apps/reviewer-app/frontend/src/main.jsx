@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { AuthError, PublicClientApplication } from '@azure/msal-browser';
 import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, LogIn, LogOut, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react';
 import '@fontsource-variable/dm-sans';
 import './style.css';
@@ -195,6 +195,7 @@ function Workspace({ auth, config, initialAccount }) {
   const [allowed, setAllowed] = useState(false);
   const [checking, setChecking] = useState(Boolean(initialAccount));
   const [error, setError] = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [status, setStatus] = useState('');
   const [cases, setCases] = useState([]);
   const [detail, setDetail] = useState(null);
@@ -206,7 +207,11 @@ function Workspace({ auth, config, initialAccount }) {
     try {
       accessToken = (await auth.acquireTokenSilent({ account, scopes: [config.scope] })).accessToken;
     } catch (failure) {
-      if (failure instanceof InteractionRequiredAuthError) {
+      if (failure instanceof AuthError) {
+        // Silent renewal fails this way once the cached session can no longer be
+        // refreshed (expired session, blocked third-party cookies, etc.); only a
+        // fresh interactive sign-in fixes it, so surface the Sign-in button again.
+        setNeedsReauth(true);
         throw new ApiError(401, t('errors.signInNeedsAttention'));
       }
       throw failure;
@@ -305,7 +310,7 @@ function Workspace({ auth, config, initialAccount }) {
   }
 
   async function signIn() {
-    setError('');
+    setError(''); setNeedsReauth(false);
     try { await auth.loginRedirect({ scopes: [config.scope], prompt: 'select_account' }); }
     catch (failure) { setError(failure.message); }
   }
@@ -349,7 +354,7 @@ function Workspace({ auth, config, initialAccount }) {
           <h1 ref={headingRef} tabIndex={-1}>{t('gate.heading')}</h1>
           <Notice language={language} />
           <p className="status-label">{checking ? t('gate.checking') : t('gate.restricted')}</p>
-          {!account && <button className="primary" type="button" onClick={signIn}><LogIn size={18} aria-hidden="true" />{t('gate.signIn')}</button>}
+          {(!account || needsReauth) && <button className="primary" type="button" onClick={signIn}><LogIn size={18} aria-hidden="true" />{t('gate.signIn')}</button>}
         </section>
         : detail
           ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef} language={language} t={t}

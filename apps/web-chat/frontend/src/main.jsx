@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { AuthError, PublicClientApplication } from '@azure/msal-browser';
 import { ArrowUp, Check, ClipboardList, Copy, LogIn, LogOut, MessageSquare, Plus, Square, Trash2 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,6 +31,7 @@ function Chat({ auth, config, initialAccount }) {
   const [allowed, setAllowed] = useState(false);
   const [checking, setChecking] = useState(Boolean(initialAccount));
   const [error, setError] = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [active, setActive] = useState(null);
   const [draft, setDraft] = useState('');
@@ -46,7 +47,11 @@ function Chat({ auth, config, initialAccount }) {
     try {
       return (await auth.acquireTokenSilent({ account, scopes: [config.scope] })).accessToken;
     } catch (failure) {
-      if (failure instanceof InteractionRequiredAuthError) {
+      if (failure instanceof AuthError) {
+        // Silent renewal fails this way once the cached session can no longer be
+        // refreshed (expired session, blocked third-party cookies, etc.); only a
+        // fresh interactive sign-in fixes it, so surface the Sign-in button again.
+        setNeedsReauth(true);
         throw new Error(t('errors.signInNeedsAttention'));
       }
       throw failure;
@@ -80,7 +85,7 @@ function Chat({ auth, config, initialAccount }) {
   useEffect(() => () => abort.current?.abort(), []);
 
   async function signIn() {
-    setError('');
+    setError(''); setNeedsReauth(false);
     try {
       await auth.loginRedirect({ scopes: [config.scope], prompt: 'select_account' });
     } catch (failure) { setError(failure.message); }
@@ -166,7 +171,7 @@ function Chat({ auth, config, initialAccount }) {
           <span className="overline">{t('gate.agentOverline')}</span>
           <h2>{allowed ? t('gate.newQuoteHeading') : t('gate.needsAccessHeading')}</h2>
           <div className="status-label">{checking ? t('gate.verifying') : allowed ? t('gate.ready') : t('gate.restricted')}</div>
-          {!account && <button className="primary sign-in" onClick={signIn}><LogIn size={18} />{t('gate.signIn')}</button>}
+          {(!account || needsReauth) && <button className="primary sign-in" onClick={signIn}><LogIn size={18} />{t('gate.signIn')}</button>}
         </section>}
         <div className="messages" role="log" aria-label={t('message.conversationLabel')} aria-live="polite" aria-relevant="additions">
           {messages.map((message, index) => <article className={`message ${message.role}`} key={index}>
