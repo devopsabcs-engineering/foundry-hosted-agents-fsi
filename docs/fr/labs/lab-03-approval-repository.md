@@ -62,7 +62,7 @@ repo.submit_for_review('CASE-LAB-001', actor_id='EMP-001')
 
 try:
     repo.approve('CASE-LAB-001', reviewer_id='EMP-001')
-    print('INATTENDU : l\\'auto-approbation a réussi')
+    print('INATTENDU : l’auto-approbation a réussi')
 except SelfApprovalError as exc:
     print(f'Bloqué comme prévu : {exc}')
 

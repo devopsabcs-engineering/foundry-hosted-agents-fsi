@@ -72,7 +72,7 @@ from approval_repository import ApprovalRepository
 
 repo = ApprovalRepository()
 final_state = run_case('CASE-SYN-001', repository=repo, preparer_id='AGENT-INTAKE')
-print('après l\\'exécution de l\\'agent :', final_state['workflow_state'])
+print('après l’exécution de l’agent :', final_state['workflow_state'])
 
 record = repo.approve(final_state['draft_case_id'], reviewer_id='EMP-REVIEWER-01')
 print('après la révision humaine :', record.state)
