@@ -13,6 +13,7 @@ tool is exposed.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from mcp.server.fastmcp import FastMCP
@@ -23,6 +24,8 @@ PORT = int(os.environ.get("PORT", "8002"))
 
 mcp = FastMCP("rulebook-mcp-server", host="0.0.0.0", port=PORT)
 
+logger = logging.getLogger("rulebook-mcp-server")
+
 _RULEBOOK = load_rulebook()
 
 
@@ -30,7 +33,9 @@ _RULEBOOK = load_rulebook()
 def get_rulebook(rulebook_id: str) -> dict:
     """Look up the pinned synthetic rate/add-on rulebook by rulebook ID (read-only)."""
     if rulebook_id != _RULEBOOK.get("id"):
+        logger.info("get_rulebook(%r) -> rulebook not found", rulebook_id)
         return {"rulebookId": rulebook_id, "error": "rulebook not found"}
+    logger.info("get_rulebook(%r) -> found", rulebook_id)
     return _RULEBOOK
 
 

@@ -47,20 +47,29 @@ Résultat attendu : tous les tests réussissent, reflétant la couverture de l'a
 python mcp/rulebook-server/main.py
 ```
 
-Le serveur écoute sur `http://0.0.0.0:8002` par défaut. Laissez-le fonctionner, puis dans un second terminal :
+Le serveur écoute sur `http://0.0.0.0:8002` par défaut. Laissez-le fonctionner, puis dans un second terminal, appelez-le par MCP :
 
 ```powershell
 python -c "
-import sys
-sys.path.insert(0, 'mcp/rulebook-server')
-from main import get_rulebook
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-print(get_rulebook('RULEBOOK-SYN-ON'))
-print(get_rulebook('RULEBOOK-DOES-NOT-EXIST'))
+async def main():
+    async with streamablehttp_client('http://localhost:8002/mcp') as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print('outils :', [t.name for t in tools.tools])
+            for rulebook_id in ('RULEBOOK-SYN-ON', 'RULEBOOK-DOES-NOT-EXIST'):
+                result = await session.call_tool('get_rulebook', {'rulebook_id': rulebook_id})
+                print(rulebook_id, '->', result.content[0].text)
+
+asyncio.run(main())
 "
 ```
 
-Résultat attendu : l'identifiant de référentiel épinglé retourne le référentiel complet, y compris ses tables `baseCents`, `planAddOnCents` et le texte d'avis `en-CA`/`fr-CA`. L'identifiant inconnu retourne un champ `error` explicite. Arrêtez le serveur avec `Ctrl+C` une fois terminé.
+Résultat attendu : l'identifiant de référentiel épinglé retourne le référentiel complet, y compris ses tables `baseCents`, `planAddOnCents` et le texte d'avis `en-CA`/`fr-CA`. L'identifiant inconnu retourne un champ `error` explicite. La console du serveur affiche une ligne `get_rulebook(...) -> found` ou `-> rulebook not found` par appel. Arrêtez le serveur avec `Ctrl+C` une fois terminé.
 
 ## Liste de vérification
 

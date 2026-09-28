@@ -48,20 +48,41 @@ In one terminal, start the server:
 python mcp/application-server/main.py
 ```
 
-The server listens on `http://0.0.0.0:8001` using the streamable-http transport by default. Leave it running, then in a second terminal, call `get_application` directly by importing the same tool function the server exposes:
+The server listens on `http://0.0.0.0:8001` using the streamable-http transport by default. Leave it running, then in a second terminal, call it over MCP the same way the agent does:
 
 ```powershell
 python -c "
-import sys
-sys.path.insert(0, 'mcp/application-server')
-from main import get_application
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-print(get_application('CASE-SYN-001'))
-print(get_application('CASE-SYN-999'))
+async def main():
+    async with streamablehttp_client('http://localhost:8001/mcp') as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print('tools:', [t.name for t in tools.tools])
+            for fixture_id in ('CASE-SYN-001', 'CASE-SYN-999'):
+                result = await session.call_tool('get_application', {'fixture_id': fixture_id})
+                print(fixture_id, '->', result.content[0].text)
+
+asyncio.run(main())
 "
 ```
 
-Expected result: the known fixture ID returns the fixture's `input` content; the unknown ID returns an explicit `error` field, never a raised exception or a fabricated fixture. Stop the server with `Ctrl+C` when you are done.
+Expected result in the second terminal: `tools: ['get_application']`, then the known fixture ID returns the fixture's `input` content and the unknown ID returns an explicit `error` field, never a raised exception or a fabricated fixture.
+
+Switch back to the first terminal. Each call shows up in the server console:
+
+```text
+Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+get_application('CASE-SYN-001') -> found
+Processing request of type CallToolRequest
+get_application('CASE-SYN-999') -> fixture not found
+```
+
+Stop the server with `Ctrl+C` when you are done.
 
 ## Validation Checklist
 

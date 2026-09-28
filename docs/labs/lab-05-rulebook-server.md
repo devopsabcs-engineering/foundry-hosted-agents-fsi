@@ -46,20 +46,29 @@ Expected result: every test passes, mirroring Lab 04's coverage for the rulebook
 python mcp/rulebook-server/main.py
 ```
 
-The server listens on `http://0.0.0.0:8002` by default. Leave it running, then in a second terminal:
+The server listens on `http://0.0.0.0:8002` by default. Leave it running, then in a second terminal, call it over MCP:
 
 ```powershell
 python -c "
-import sys
-sys.path.insert(0, 'mcp/rulebook-server')
-from main import get_rulebook
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-print(get_rulebook('RULEBOOK-SYN-ON'))
-print(get_rulebook('RULEBOOK-DOES-NOT-EXIST'))
+async def main():
+    async with streamablehttp_client('http://localhost:8002/mcp') as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print('tools:', [t.name for t in tools.tools])
+            for rulebook_id in ('RULEBOOK-SYN-ON', 'RULEBOOK-DOES-NOT-EXIST'):
+                result = await session.call_tool('get_rulebook', {'rulebook_id': rulebook_id})
+                print(rulebook_id, '->', result.content[0].text)
+
+asyncio.run(main())
 "
 ```
 
-Expected result: the pinned rulebook ID returns the full rulebook, including its `baseCents`, `planAddOnCents`, and the `en-CA`/`fr-CA` notice text. The unknown ID returns an explicit `error` field. Stop the server with `Ctrl+C` when you are done.
+Expected result: the pinned rulebook ID returns the full rulebook, including its `baseCents`, `planAddOnCents`, and the `en-CA`/`fr-CA` notice text. The unknown ID returns an explicit `error` field. The server console shows one `get_rulebook(...) -> found` or `-> rulebook not found` line per call. Stop the server with `Ctrl+C` when you are done.
 
 ## Validation Checklist
 

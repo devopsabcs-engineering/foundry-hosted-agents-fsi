@@ -49,20 +49,41 @@ Dans un premier terminal, démarrez le serveur :
 python mcp/application-server/main.py
 ```
 
-Le serveur écoute sur `http://0.0.0.0:8001` avec le transport streamable-http par défaut. Laissez-le fonctionner, puis dans un second terminal, appelez `get_application` directement en important la même fonction d'outil que le serveur expose :
+Le serveur écoute sur `http://0.0.0.0:8001` avec le transport streamable-http par défaut. Laissez-le fonctionner, puis dans un second terminal, appelez-le par MCP comme le fait l'agent :
 
 ```powershell
 python -c "
-import sys
-sys.path.insert(0, 'mcp/application-server')
-from main import get_application
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-print(get_application('CASE-SYN-001'))
-print(get_application('CASE-SYN-999'))
+async def main():
+    async with streamablehttp_client('http://localhost:8001/mcp') as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print('outils :', [t.name for t in tools.tools])
+            for fixture_id in ('CASE-SYN-001', 'CASE-SYN-999'):
+                result = await session.call_tool('get_application', {'fixture_id': fixture_id})
+                print(fixture_id, '->', result.content[0].text)
+
+asyncio.run(main())
 "
 ```
 
-Résultat attendu : l'identifiant connu retourne le contenu `input` de la donnée ; l'identifiant inconnu retourne un champ `error` explicite, jamais une exception levée ni une donnée fabriquée. Arrêtez le serveur avec `Ctrl+C` une fois terminé.
+Résultat attendu dans le second terminal : `outils : ['get_application']`, puis l'identifiant connu retourne le contenu `input` de la donnée et l'identifiant inconnu retourne un champ `error` explicite, jamais une exception levée ni une donnée fabriquée.
+
+Revenez au premier terminal. Chaque appel apparaît dans la console du serveur :
+
+```text
+Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+get_application('CASE-SYN-001') -> found
+Processing request of type CallToolRequest
+get_application('CASE-SYN-999') -> fixture not found
+```
+
+Arrêtez le serveur avec `Ctrl+C` une fois terminé.
 
 ## Liste de vérification
 
