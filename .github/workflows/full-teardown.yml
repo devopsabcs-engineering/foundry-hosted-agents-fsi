@@ -237,6 +237,12 @@ jobs:
               IFS=$'\t' read -r NAME LOCATION <<< "$ACCOUNT"
               purge_foundry_account "$RG" "$NAME" "$LOCATION" || RG_FAILED=1
             done
+            # Accounts soft-deleted by an earlier run still hold their names; purge them too.
+            while IFS=$'\t' read -r NAME LOCATION; do
+              [ -n "$NAME" ] || continue
+              echo "Purging previously soft-deleted Foundry account '$NAME'."
+              az cognitiveservices account purge --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none || RG_FAILED=1
+            done < <(az cognitiveservices account list-deleted --query "[?contains(id, '/resourceGroups/$RG/')].[name, location]" --output tsv)
 
             for WORKSPACE in $(az monitor log-analytics workspace list --resource-group "$RG" --query "[].name" --output tsv); do
               echo "Force-deleting Log Analytics workspace '$WORKSPACE'."
