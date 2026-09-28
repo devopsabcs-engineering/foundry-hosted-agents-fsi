@@ -37,6 +37,16 @@ python src/quote-preparation-agent/main.py CASE-SYN-001
 
 Résultat attendu : un objet JSON avec les clés `en-CA` et `fr-CA`, chacune contenant une phrase bilingue informant le demandeur que sa requête a été soumise pour révision par un employé. Aucun montant, champ de référentiel ni identifiant de réviseur n'apparaît nulle part dans la sortie.
 
+Avant le JSON, deux lignes de journal sur stderr montrent l'agent appelant les deux outils MCP des ateliers 04 et 05 :
+
+```text
+get_application('CASE-SYN-001') -> found
+get_rulebook('RULEBOOK-SYN-ON') -> found
+```
+
+> [!TIP]
+> Si vous obtenez `ModuleNotFoundError: No module named 'langgraph'`, le terminal n'utilise pas l'environnement virtuel de l'atelier. Exécutez `./.venv/Scripts/Activate.ps1` à la racine du dépôt (voir l'[atelier 00](lab-00-setup.md)), puis réessayez.
+
 ### Exercice 7.2 (pratique) : Confirmer directement l'état du flux de travail
 
 L'interface en ligne de commande n'affiche que le message destiné au demandeur. Appelez `run_case` directement pour inspecter l'état complet, y compris `workflow_state`.

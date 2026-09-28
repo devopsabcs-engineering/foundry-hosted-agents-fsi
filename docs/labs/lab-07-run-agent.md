@@ -36,6 +36,16 @@ python src/quote-preparation-agent/main.py CASE-SYN-001
 
 Expected result: a JSON object with `en-CA` and `fr-CA` keys, each holding a bilingual sentence telling the applicant their request was submitted for employee review. No dollar amount, rulebook field, or reviewer identifier appears anywhere in the output.
 
+Before the JSON, two log lines on stderr show the agent calling both MCP tools from Labs 04 and 05:
+
+```text
+get_application('CASE-SYN-001') -> found
+get_rulebook('RULEBOOK-SYN-ON') -> found
+```
+
+> [!TIP]
+> If you get `ModuleNotFoundError: No module named 'langgraph'`, the terminal is not using the workshop virtual environment. Run `./.venv/Scripts/Activate.ps1` from the repository root (see [Lab 00](lab-00-setup.md)), then retry.
+
 ### Exercise 7.2 (Hands-on): Confirm the Workflow State Directly
 
 The CLI only prints the applicant message. Call `run_case` directly to inspect the full state, including `workflow_state`.
