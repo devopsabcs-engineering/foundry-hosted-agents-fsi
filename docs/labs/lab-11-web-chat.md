@@ -156,6 +156,8 @@ The deployed chat has both. `scripts/setup-web-chat-identity.ps1` registers the 
 `infra/web-chat.bicep` is applied out of band (not through `deploy-and-evaluate.yml`), and only into the production resource group -- there is no staging web-chat deployment.
 
 ```powershell
+# Load the azd environment values (AZURE_RESOURCE_GROUP and others) into this session
+azd env get-values | ForEach-Object { if ($_ -match '^([^=]+)="?(.*?)"?$') { Set-Item "env:$($Matches[1])" $Matches[2] } }
 az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 

@@ -157,6 +157,8 @@ Le clavardage déployé dispose des deux. `scripts/setup-web-chat-identity.ps1` 
 `infra/web-chat.bicep` est appliqué hors bande (pas via `deploy-and-evaluate.yml`), et uniquement dans le groupe de ressources de production -- il n'existe aucun déploiement de clavardage en préproduction (staging).
 
 ```powershell
+# Charger les valeurs de l'environnement azd (AZURE_RESOURCE_GROUP et autres) dans cette session
+azd env get-values | ForEach-Object { if ($_ -match '^([^=]+)="?(.*?)"?$') { Set-Item "env:$($Matches[1])" $Matches[2] } }
 az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 
