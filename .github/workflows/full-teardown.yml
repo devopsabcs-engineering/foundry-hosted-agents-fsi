@@ -81,7 +81,7 @@ jobs:
     name: Full teardown (${{ inputs.target }})
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       # Inputs are read through `env:` rather than interpolated into the script
       # body, so a crafted input string cannot become shell code.
@@ -134,65 +134,62 @@ jobs:
 
           purge_foundry_account() {
             local RG="$1" NAME="$2" LOCATION="$3" GONE_READINGS=0
-            # list-deleted is eventually consistent, so require several clean
-            # readings in a row before declaring the account fully removed.
-            for ATTEMPT in $(seq 1 45); do
-              local SOFT_DELETED
+            # A network-injected account can sit in 'Deleting' for well over 30
+            # minutes while its subnet link is released, so wait on a deadline.
+            local DEADLINE=$((SECONDS + 75 * 60))
+            while [ "$SECONDS" -lt "$DEADLINE" ]; do
+              local SOFT_DELETED STATE
               SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$NAME'] | length(@)" --output tsv)
+              STATE=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
               if [ "$SOFT_DELETED" != "0" ]; then
                 az cognitiveservices account purge --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none 2>/dev/null || true
                 GONE_READINGS=0
-              elif ! az cognitiveservices account show --name "$NAME" --resource-group "$RG" --output none 2>/dev/null; then
+              elif [ "$STATE" = "Absent" ]; then
+                # list-deleted is eventually consistent, so require several clean readings.
                 GONE_READINGS=$((GONE_READINGS + 1))
                 if [ "$GONE_READINGS" -ge 4 ]; then
                   echo "Foundry account '$NAME' is deleted and purged."
                   return 0
                 fi
               fi
-              echo "Waiting for '$NAME' to be purged (soft-deleted=$SOFT_DELETED, clean readings=$GONE_READINGS/4, attempt $ATTEMPT/45)."
-              sleep 20
+              echo "Waiting for '$NAME' (state=$STATE, soft-deleted=$SOFT_DELETED, clean readings=$GONE_READINGS/4, $(( (DEADLINE - SECONDS) / 60 )) min left)."
+              sleep 30
             done
-            echo "::error::Timed out purging '$NAME'. Rerun this workflow; it is safe to repeat."
+            echo "::error::Timed out waiting for '$NAME' to be deleted and purged. Rerun this workflow; it is safe to repeat."
             return 1
           }
 
-          delete_foundry_account() {
-            local RG="$1" NAME="$2" LOCATION="$3"
+          start_foundry_delete() {
+            local RG="$1" NAME="$2"
             local ACCOUNT_ID
-            ACCOUNT_ID=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query id --output tsv)
+            ACCOUNT_ID=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query id --output tsv 2>/dev/null || true)
+            [ -n "$ACCOUNT_ID" ] || return 0
             # The account refuses to delete while a nested project still exists.
             for PROJECT_ID in $(az rest --method get --url "https://management.azure.com${ACCOUNT_ID}/projects?api-version=2025-06-01" --query "value[].id" --output tsv || true); do
               echo "Deleting Foundry project '${PROJECT_ID##*/}'."
               az resource delete --ids "$PROJECT_ID" --output none
             done
-            # After a project delete the account can still read 'Succeeded' while it
-            # is busy, and a delete in that window fails with RequestConflict, so
-            # retry until the account is absent or actually deleting.
-            local DELETE_ISSUED=false
+            # The account can still read 'Succeeded' while busy after a project
+            # delete (RequestConflict), so retry until it is deleting or absent.
+            # A raw ARM DELETE returns on 202 instead of timing out at the gateway.
             for ATTEMPT in $(seq 1 40); do
               local STATE
               STATE=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
               case "$STATE" in
                 Absent|Deleting)
-                  DELETE_ISSUED=true
-                  break ;;
+                  echo "Foundry account '$NAME' is $STATE."
+                  return 0 ;;
                 Succeeded|Failed|Canceled)
-                  echo "Deleting Foundry account '$NAME' (attempt $ATTEMPT/40)."
-                  if az cognitiveservices account delete --name "$NAME" --resource-group "$RG" --output none; then
-                    DELETE_ISSUED=true
-                    break
-                  fi
-                  echo "Delete was rejected; the account is still settling. Retrying in 15s." ;;
+                  echo "Requesting delete of Foundry account '$NAME' (attempt $ATTEMPT/40)."
+                  az rest --method delete --url "https://management.azure.com${ACCOUNT_ID}?api-version=2025-06-01" --output none 2>&1 \
+                    || echo "Delete was rejected; the account is still settling." ;;
                 *)
                   echo "Account '$NAME' is '$STATE'; waiting for it to settle (attempt $ATTEMPT/40)." ;;
               esac
               sleep 15
             done
-            if [ "$DELETE_ISSUED" != "true" ]; then
-              echo "::error::Could not delete Foundry account '$NAME'. Rerun this workflow; it is safe to repeat."
-              return 1
-            fi
-            purge_foundry_account "$RG" "$NAME" "$LOCATION"
+            echo "::error::Could not start deleting Foundry account '$NAME'. Rerun this workflow; it is safe to repeat."
+            return 1
           }
 
           FAILED=0
@@ -229,10 +226,17 @@ jobs:
               continue
             fi
 
-            while IFS=$'\t' read -r NAME LOCATION; do
-              [ -n "$NAME" ] || continue
-              delete_foundry_account "$RG" "$NAME" "$LOCATION" || RG_FAILED=1
-            done < <(az cognitiveservices account list --resource-group "$RG" --query "[].[name, location]" --output tsv)
+            # Start every account delete first so the slow ones run in parallel,
+            # then wait for each and purge it.
+            mapfile -t ACCOUNTS < <(az cognitiveservices account list --resource-group "$RG" --query "[].[name, location]" --output tsv)
+            for ACCOUNT in "${ACCOUNTS[@]}"; do
+              IFS=$'\t' read -r NAME LOCATION <<< "$ACCOUNT"
+              start_foundry_delete "$RG" "$NAME" || RG_FAILED=1
+            done
+            for ACCOUNT in "${ACCOUNTS[@]}"; do
+              IFS=$'\t' read -r NAME LOCATION <<< "$ACCOUNT"
+              purge_foundry_account "$RG" "$NAME" "$LOCATION" || RG_FAILED=1
+            done
 
             for WORKSPACE in $(az monitor log-analytics workspace list --resource-group "$RG" --query "[].name" --output tsv); do
               echo "Force-deleting Log Analytics workspace '$WORKSPACE'."
