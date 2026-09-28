@@ -1,0 +1,245 @@
+name: Full Teardown
+
+# ============================================================================
+# DESTRUCTIVE / MANUAL DISPATCH ONLY. END-OF-WORKSHOP CLEANUP.
+#
+# Unlike reviewer-app-teardown.yml and network-rebuild-teardown.yml, this
+# workflow DOES delete whole resource groups. `vars.AZURE_RESOURCE_GROUP` holds
+# BOTH the staging and production deployments, so tearing down `shared` ends
+# the pilot. Use it only when you are finished with every environment.
+#
+# Targets (fixed allowlist, never discovered by wildcard):
+#   shared  vars.AZURE_RESOURCE_GROUP     (staging + production)
+#   poc     rg-desjardins-quote-preparation-poc
+#   both    both of the above
+#
+# Order inside each group:
+#   1. Foundry projects, then the Foundry account, then a purge of the
+#      soft-deleted account. The purge has to happen BEFORE the group is
+#      deleted: the workflow identity's roles are scoped to the group and
+#      disappear with it, and an unpurged account keeps its name reserved.
+#   2. Log Analytics workspaces, force-deleted so they skip the 14-day
+#      soft-delete window and their names are free for a rebuild.
+#   3. `az group delete` for everything else (Container Apps, Cosmos, ACR,
+#      identities, VNet, private endpoints, App Insights).
+#
+# NOT deleted: the Entra app registrations for the reviewer and chat surfaces
+# (see scripts/remove-reviewer-identity.ps1) and the GitHub OIDC identity.
+#
+# Safety posture matches the other teardown workflows:
+#   * workflow_dispatch only -- never push, schedule, or pull_request.
+#   * The operator must type the target (shared, poc, or both) into `confirm`.
+#   * `execute` defaults to false, so a run with no inputs changed is a DRY RUN
+#     that only inventories what would be deleted.
+#   * The job binds to the `production` GitHub Environment, so its required
+#     reviewers must approve before any Azure call.
+#   * Resource group names must match an allowlist pattern, so a mistyped
+#     repository variable cannot point this at an unrelated group.
+#   * Every step is existence-checked, so a rerun after a partial failure is safe.
+#
+# The workflow identity needs Contributor (or Owner) on each target group. By
+# default it has access to vars.AZURE_RESOURCE_GROUP only; for `poc`, grant it
+# access first or run `azd down --force --purge` locally instead (Lab 14).
+# Rebuilding after a `shared` teardown needs the group recreated and the OIDC
+# identity's role assignments re-granted by a subscription administrator.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which resource groups to delete
+        type: choice
+        required: true
+        default: poc
+        options:
+          - poc
+          - shared
+          - both
+      confirm:
+        description: Type the target exactly (poc, shared, or both) to confirm
+        type: string
+        required: true
+      execute:
+        description: Actually delete. Leave unchecked for a dry run that only reports.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# Shared with deploy-and-evaluate.yml so a teardown can never interleave with
+# an in-flight `azd provision` against the same resource group.
+concurrency:
+  group: desjardins-quote-preparation-shared-environments
+  queue: max
+
+jobs:
+  teardown:
+    name: Full teardown (${{ inputs.target }})
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    steps:
+      # Inputs are read through `env:` rather than interpolated into the script
+      # body, so a crafted input string cannot become shell code.
+      - name: Verify typed confirmation and resolve targets
+        id: targets
+        env:
+          TARGET: ${{ inputs.target }}
+          TYPED_CONFIRMATION: ${{ inputs.confirm }}
+          EXECUTE: ${{ inputs.execute }}
+          SHARED_RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+          POC_RG: rg-desjardins-quote-preparation-poc
+        run: |
+          set -euo pipefail
+          if [ "$TYPED_CONFIRMATION" != "$TARGET" ]; then
+            echo "::error::Confirmation mismatch. Type '$TARGET' exactly to proceed. Nothing was deleted."
+            exit 1
+          fi
+          case "$TARGET" in
+            shared) TARGET_GROUPS="$SHARED_RG" ;;
+            poc) TARGET_GROUPS="$POC_RG" ;;
+            both) TARGET_GROUPS="$SHARED_RG $POC_RG" ;;
+            *) echo "::error::Unsupported target '$TARGET'."; exit 1 ;;
+          esac
+          for RG in $TARGET_GROUPS; do
+            if ! [[ "$RG" =~ ^rg-desjardins-quote-preparation(-poc)?$ ]]; then
+              echo "::error::Refusing to proceed: '$RG' is not an allowlisted Desjardins workshop resource group."
+              exit 1
+            fi
+          done
+          if [ "$EXECUTE" = "true" ]; then
+            echo "::warning::Running in DELETE mode against: $TARGET_GROUPS"
+          else
+            echo "Running in DRY RUN mode against: $TARGET_GROUPS. Nothing will be deleted."
+          fi
+          echo "groups=$TARGET_GROUPS" >> "$GITHUB_OUTPUT"
+
+      - name: Azure login with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Tear down resource groups
+        env:
+          TARGET_GROUPS: ${{ steps.targets.outputs.groups }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          set -euo pipefail
+
+          purge_foundry_account() {
+            local RG="$1" NAME="$2" LOCATION="$3" GONE_READINGS=0
+            # list-deleted is eventually consistent, so require several clean
+            # readings in a row before declaring the account fully removed.
+            for ATTEMPT in $(seq 1 45); do
+              local SOFT_DELETED
+              SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$NAME'] | length(@)" --output tsv)
+              if [ "$SOFT_DELETED" != "0" ]; then
+                az cognitiveservices account purge --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none 2>/dev/null || true
+                GONE_READINGS=0
+              elif ! az cognitiveservices account show --name "$NAME" --resource-group "$RG" --output none 2>/dev/null; then
+                GONE_READINGS=$((GONE_READINGS + 1))
+                if [ "$GONE_READINGS" -ge 4 ]; then
+                  echo "Foundry account '$NAME' is deleted and purged."
+                  return 0
+                fi
+              fi
+              echo "Waiting for '$NAME' to be purged (soft-deleted=$SOFT_DELETED, clean readings=$GONE_READINGS/4, attempt $ATTEMPT/45)."
+              sleep 20
+            done
+            echo "::error::Timed out purging '$NAME'. Rerun this workflow; it is safe to repeat."
+            return 1
+          }
+
+          delete_foundry_account() {
+            local RG="$1" NAME="$2" LOCATION="$3"
+            local ACCOUNT_ID
+            ACCOUNT_ID=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query id --output tsv)
+            # The account refuses to delete while a nested project still exists.
+            for PROJECT_ID in $(az rest --method get --url "https://management.azure.com${ACCOUNT_ID}/projects?api-version=2025-06-01" --query "value[].id" --output tsv || true); do
+              echo "Deleting Foundry project '${PROJECT_ID##*/}'."
+              az resource delete --ids "$PROJECT_ID" --output none
+            done
+            for ATTEMPT in $(seq 1 30); do
+              local STATE
+              STATE=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
+              case "$STATE" in
+                Absent|Deleting) break ;;
+                Succeeded|Failed|Canceled)
+                  echo "Deleting Foundry account '$NAME'."
+                  az cognitiveservices account delete --name "$NAME" --resource-group "$RG" --output none
+                  break ;;
+              esac
+              echo "Account '$NAME' is '$STATE'; waiting for it to settle (attempt $ATTEMPT/30)."
+              sleep 10
+            done
+            purge_foundry_account "$RG" "$NAME" "$LOCATION"
+          }
+
+          FAILED=0
+          {
+            echo "## Full teardown"
+            echo ""
+            echo "Mode: $([ "$EXECUTE" = "true" ] && echo "**DELETE**" || echo "dry run")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for RG in $TARGET_GROUPS; do
+            echo "::group::$RG"
+            RG_FAILED=0
+            if ! SHOW_ERR=$(az group show --name "$RG" --output none 2>&1); then
+              if echo "$SHOW_ERR" | grep -q "ResourceGroupNotFound"; then
+                echo "Resource group '$RG' is already absent."
+                printf '\n### `%s`\n\nAlready absent.\n' "$RG" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "::error::Cannot read '$RG'. Grant the workflow identity Contributor on it, or delete it locally with 'azd down --force --purge'. Details: $SHOW_ERR"
+                printf '\n### `%s`\n\nNot accessible to the workflow identity. Skipped.\n' "$RG" >> "$GITHUB_STEP_SUMMARY"
+                FAILED=1
+              fi
+              echo "::endgroup::"
+              continue
+            fi
+
+            {
+              printf '\n### `%s`\n\n| Count | Resource type |\n| --- | --- |\n' "$RG"
+              az resource list --resource-group "$RG" --query "[].type" --output tsv | sort | uniq -c | sort -rn | awk '{ printf "| %s | `%s` |\n", $1, $2 }'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$EXECUTE" != "true" ]; then
+              echo "DRY RUN: would purge Foundry accounts, force-delete Log Analytics workspaces, then delete '$RG'."
+              echo "::endgroup::"
+              continue
+            fi
+
+            while IFS=$'\t' read -r NAME LOCATION; do
+              [ -n "$NAME" ] || continue
+              delete_foundry_account "$RG" "$NAME" "$LOCATION" || RG_FAILED=1
+            done < <(az cognitiveservices account list --resource-group "$RG" --query "[].[name, location]" --output tsv)
+
+            for WORKSPACE in $(az monitor log-analytics workspace list --resource-group "$RG" --query "[].name" --output tsv); do
+              echo "Force-deleting Log Analytics workspace '$WORKSPACE'."
+              az monitor log-analytics workspace delete --resource-group "$RG" --workspace-name "$WORKSPACE" --force true --yes --output none || RG_FAILED=1
+            done
+
+            if [ "$RG_FAILED" -ne 0 ]; then
+              FAILED=1
+              echo "::error::Skipping 'az group delete' for '$RG' because an earlier step failed. Rerun to retry."
+              echo "::endgroup::"
+              continue
+            fi
+
+            echo "Deleting resource group '$RG'. This can take 15 minutes or more."
+            az group delete --name "$RG" --yes --output none
+            echo "Resource group '$RG' deleted."
+            printf '\nDeleted.\n' >> "$GITHUB_STEP_SUMMARY"
+            echo "::endgroup::"
+          done
+
+          if [ "$EXECUTE" != "true" ]; then
+            printf '\nNothing was deleted. Rerun with `execute` checked to apply this plan.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$FAILED"

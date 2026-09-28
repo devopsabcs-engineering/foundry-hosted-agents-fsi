@@ -28,6 +28,7 @@ By the end of this lab, you will be able to:
 * Explain why the pipeline authenticates with OIDC and carries almost no secrets
 * Describe the safety design of the teardown workflow
 * Explain why some resources have to be deleted rather than reconfigured
+* Tear down every Azure resource the pilot created, locally with `azd` or through a gated workflow
 
 ## Exercises
 
@@ -37,7 +38,7 @@ By the end of this lab, you will be able to:
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Expected result: eight workflows.
+Expected result: nine workflows.
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
@@ -49,6 +50,7 @@ Expected result: eight workflows.
 | `hosted-agent-cd.yml` | call and dispatch only | Hosted agent deployment |
 | `reviewer-app-teardown.yml` | dispatch only | Removes reviewer-scoped resources |
 | `network-rebuild-teardown.yml` | dispatch only | Removes resources whose network configuration is immutable |
+| `full-teardown.yml` | dispatch only | Deletes whole resource groups at the end of the workshop |
 
 Only the first three run automatically. Nothing that touches Azure runs on a push.
 
@@ -113,16 +115,17 @@ This is also why Lab 12 had to be run by an administrator. The federated identit
 actionlint
 ```
 
-Expected result: exit code 1 with exactly four findings, all reporting `unexpected key "queue"`:
+Expected result: exit code 1 with exactly five findings, all reporting `unexpected key "queue"`:
 
 | File | Line |
 | --- | --- |
 | `deploy-and-evaluate.yml` | 53 |
+| `full-teardown.yml` | 77 |
 | `network-rebuild-teardown.yml` | 78 |
-| `publish-test-trends.yml` | 48 |
+| `publish-test-trends.yml` | 49 |
 | `reviewer-app-teardown.yml` | 80 |
 
-These are expected. `concurrency.queue` is valid to this repository's deployment model and unrecognized by the linter's schema. Treat any fifth finding as a real one, and leave these four alone.
+These are expected. `concurrency.queue` is valid to this repository's deployment model and unrecognized by the linter's schema. Treat any sixth finding as a real one, and leave these five alone.
 
 ### Exercise 14.6: Read the Teardown Safety Design
 
@@ -168,15 +171,63 @@ That loop exists because of a timing detail that is easy to get wrong. `az cogni
 > [!WARNING]
 > Deleting a managed environment changes the FQDN of every app inside it. The redirect URIs you registered in Lab 12 and the chat registration from Lab 11 both need refreshing afterwards, using the same scripts. Both scripts merge redirect URIs rather than replacing them, so rerunning them is safe.
 
+### Exercise 14.8 (Hands-on): Tear Everything Down
+
+When you have finished the workshop, delete the Azure resources so they stop incurring cost. List your azd environments and the resource group each one points at:
+
+```powershell
+azd env list
+azd env get-value AZURE_RESOURCE_GROUP -e <environment>
+```
+
+In the reference deployment there are two groups:
+
+| Resource group | Contents |
+| --- | --- |
+| `rg-desjardins-quote-preparation` | Staging and production: Foundry, Container Apps, Cosmos DB, the container registry, and the virtual network |
+| `rg-desjardins-quote-preparation-poc` | An earlier proof-of-concept deployment |
+
+> [!CAUTION]
+> `rg-desjardins-quote-preparation` holds staging and production together, which is exactly why Exercise 14.6's workflow refuses to delete it. Deleting it ends the pilot for everyone. The GitHub OIDC identity's role assignments are scoped to that group and disappear with it, so a later rebuild needs a subscription administrator to recreate the group and re-grant those roles.
+
+**Option A: locally with azd.** This uses your own Azure sign-in, so you need Contributor on the group.
+
+```powershell
+azd down --force --purge -e <environment>
+```
+
+`--force` skips the confirmation prompt and `--purge` permanently removes the soft-deleted Foundry account and Log Analytics workspaces, so their names are free for a future deployment. If `azd down` reports nothing to delete (for example, because the environment was provisioned by the pipeline rather than from your machine), delete the group directly and purge the Foundry account yourself:
+
+```powershell
+az group delete --name <resource-group> --yes
+az cognitiveservices account list-deleted --output table
+az cognitiveservices account purge --name <account> --resource-group <resource-group> --location <location>
+```
+
+**Option B: through the pipeline.** `full-teardown.yml` is the third teardown workflow. Start with a dry run, which only inventories each group in the run summary:
+
+```powershell
+gh workflow run full-teardown.yml -f target=poc -f confirm=poc
+gh workflow run full-teardown.yml -f target=poc -f confirm=poc -f execute=true
+```
+
+Expected result: each run waits for approval on the `production` environment. The dry run summary lists every resource type in the group; the second run deletes it. Use `target=shared` or `target=both` to include the staging and production group.
+
+The workflow keeps the same four safeguards as the other teardown workflows and adds a fifth: resource group names must match an allowlist pattern, so a mistyped repository variable cannot point it at an unrelated group. It also purges each Foundry account before deleting the group, because the identity's roles are scoped to the group and would be gone by the time a purge ran afterwards.
+
+> [!NOTE]
+> By default the workflow identity has access to `vars.AZURE_RESOURCE_GROUP` only. A `poc` run reports the proof-of-concept group as not accessible and skips it; either grant the identity Contributor on that group first or use Option A for it. The Entra app registrations are not deleted by either option; remove the reviewer registration with `scripts/remove-reviewer-identity.ps1`.
+
 ## Validation Checklist
 
-* [ ] You listed all eight workflows and identified which run automatically
+* [ ] You listed all nine workflows and identified which run automatically
 * [ ] Every local test suite passes
 * [ ] `python eval/evaluation_gate.py` reports `Gate: PASS`
 * [ ] The only secret in the pipeline is the wiki push token
-* [ ] `actionlint` reports exactly four known `queue` findings
+* [ ] `actionlint` reports exactly five known `queue` findings
 * [ ] You can name the four safeguards in front of the teardown workflows
 * [ ] You can explain why the network rebuild teardown preserves the Cosmos accounts
+* [ ] You deleted the resource groups you no longer need, with `azd down` or `full-teardown.yml`
 
 ## Knowledge Check
 
@@ -186,6 +237,7 @@ That loop exists because of a timing detail that is easy to get wrong. `az cogni
 * If `execute` defaults to false, what does a first run of the teardown workflow actually produce?
 * Why does the deterministic evaluation gate avoid calling a model?
 * Why does the Foundry account have to be purged rather than merely deleted before the rebuild can proceed?
+* Why does `full-teardown.yml` purge the Foundry account before deleting the resource group rather than after?
 
 ## Next Steps
 

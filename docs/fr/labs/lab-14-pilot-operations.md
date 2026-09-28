@@ -29,6 +29,7 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 * Expliquer pourquoi le pipeline s'authentifie par OIDC et ne porte presque aucun secret
 * Décrire la conception de sécurité du flux de démantèlement
 * Expliquer pourquoi certaines ressources doivent être supprimées plutôt que reconfigurées
+* Démanteler toutes les ressources Azure créées par le pilote, localement avec `azd` ou par un flux de travail contrôlé
 
 ## Exercices
 
@@ -38,7 +39,7 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Résultat attendu : huit flux de travail.
+Résultat attendu : neuf flux de travail.
 
 | Flux de travail | Déclencheur | Objet |
 | --- | --- | --- |
@@ -50,6 +51,7 @@ Résultat attendu : huit flux de travail.
 | `hosted-agent-cd.yml` | appel et manuel seulement | Déploiement de l'agent hébergé |
 | `reviewer-app-teardown.yml` | manuel seulement | Supprime les ressources propres à la révision |
 | `network-rebuild-teardown.yml` | manuel seulement | Supprime les ressources dont la configuration réseau est immuable |
+| `full-teardown.yml` | manuel seulement | Supprime des groupes de ressources entiers à la fin de l'atelier |
 
 Seuls les trois premiers s'exécutent automatiquement. Rien qui touche Azure ne s'exécute sur une poussée.
 
@@ -114,16 +116,17 @@ C'est également pourquoi l'atelier 12 devait être exécuté par une personne a
 actionlint
 ```
 
-Résultat attendu : code de sortie 1 avec exactement quatre constats, tous signalant `unexpected key "queue"` :
+Résultat attendu : code de sortie 1 avec exactement cinq constats, tous signalant `unexpected key "queue"` :
 
 | Fichier | Ligne |
 | --- | --- |
 | `deploy-and-evaluate.yml` | 53 |
+| `full-teardown.yml` | 77 |
 | `network-rebuild-teardown.yml` | 78 |
-| `publish-test-trends.yml` | 48 |
+| `publish-test-trends.yml` | 49 |
 | `reviewer-app-teardown.yml` | 80 |
 
-Ces constats sont attendus. `concurrency.queue` est valide pour le modèle de déploiement de ce dépôt et non reconnu par le schéma de l'analyseur. Traitez tout cinquième constat comme réel, et laissez ces quatre-là tels quels.
+Ces constats sont attendus. `concurrency.queue` est valide pour le modèle de déploiement de ce dépôt et non reconnu par le schéma de l'analyseur. Traitez tout sixième constat comme réel, et laissez ces cinq-là tels quels.
 
 ### Exercice 14.6 : Lire la conception de sécurité du démantèlement
 
@@ -169,15 +172,63 @@ Cette boucle existe à cause d'un détail de synchronisation facile à manquer. 
 > [!WARNING]
 > Supprimer un environnement géré change le nom de domaine de chaque application qu'il contient. Les URI de redirection enregistrés à l'atelier 12 et l'enregistrement du clavardage de l'atelier 11 doivent tous deux être rafraîchis ensuite, avec les mêmes scripts. Les deux scripts fusionnent les URI de redirection au lieu de les remplacer, les réexécuter est donc sûr.
 
+### Exercice 14.8 (pratique) : Tout démanteler
+
+Une fois l'atelier terminé, supprimez les ressources Azure pour qu'elles cessent d'engendrer des coûts. Listez vos environnements azd et le groupe de ressources vers lequel chacun pointe :
+
+```powershell
+azd env list
+azd env get-value AZURE_RESOURCE_GROUP -e <environment>
+```
+
+Le déploiement de référence compte deux groupes :
+
+| Groupe de ressources | Contenu |
+| --- | --- |
+| `rg-desjardins-quote-preparation` | Préproduction et production : Foundry, applications conteneurisées, Cosmos DB, le registre de conteneurs et le réseau virtuel |
+| `rg-desjardins-quote-preparation-poc` | Un déploiement de validation de principe antérieur |
+
+> [!CAUTION]
+> `rg-desjardins-quote-preparation` regroupe la préproduction et la production, c'est précisément pourquoi le flux de l'exercice 14.6 refuse de le supprimer. Le supprimer met fin au pilote pour tout le monde. Les attributions de rôle de l'identité OIDC de GitHub sont limitées à ce groupe et disparaissent avec lui : une reconstruction ultérieure exige qu'une personne administratrice de l'abonnement recrée le groupe et réattribue ces rôles.
+
+**Option A : localement avec azd.** Cette option utilise votre propre connexion Azure : vous devez donc être Contributeur sur le groupe.
+
+```powershell
+azd down --force --purge -e <environment>
+```
+
+`--force` évite l'invite de confirmation et `--purge` supprime définitivement le compte Foundry et les espaces de travail Log Analytics en suppression réversible, afin que leurs noms soient libres pour un déploiement futur. Si `azd down` n'indique rien à supprimer (par exemple parce que l'environnement a été provisionné par le pipeline plutôt que depuis votre poste), supprimez directement le groupe et purgez vous-même le compte Foundry :
+
+```powershell
+az group delete --name <resource-group> --yes
+az cognitiveservices account list-deleted --output table
+az cognitiveservices account purge --name <account> --resource-group <resource-group> --location <location>
+```
+
+**Option B : par le pipeline.** `full-teardown.yml` est le troisième flux de démantèlement. Commencez par un essai à blanc, qui se contente d'inventorier chaque groupe dans le résumé de l'exécution :
+
+```powershell
+gh workflow run full-teardown.yml -f target=poc -f confirm=poc
+gh workflow run full-teardown.yml -f target=poc -f confirm=poc -f execute=true
+```
+
+Résultat attendu : chaque exécution attend une approbation sur l'environnement `production`. Le résumé de l'essai à blanc liste chaque type de ressource du groupe ; la seconde exécution le supprime. Utilisez `target=shared` ou `target=both` pour inclure le groupe de préproduction et de production.
+
+Le flux conserve les quatre protections des autres flux de démantèlement et en ajoute une cinquième : les noms de groupes de ressources doivent correspondre à un motif de liste d'autorisation, une variable de dépôt mal saisie ne peut donc pas le diriger vers un groupe sans rapport. Il purge aussi chaque compte Foundry avant de supprimer le groupe, car les rôles de l'identité sont limités au groupe et auraient disparu au moment d'une purge ultérieure.
+
+> [!NOTE]
+> Par défaut, l'identité du flux n'a accès qu'à `vars.AZURE_RESOURCE_GROUP`. Une exécution `poc` signale le groupe de validation de principe comme inaccessible et l'ignore ; accordez d'abord à l'identité le rôle Contributeur sur ce groupe, ou utilisez l'option A. Aucune des deux options ne supprime les inscriptions d'application Entra ; retirez celle de la révision avec `scripts/remove-reviewer-identity.ps1`.
+
 ## Liste de vérification
 
-* [ ] Vous avez listé les huit flux de travail et identifié ceux qui s'exécutent automatiquement
+* [ ] Vous avez listé les neuf flux de travail et identifié ceux qui s'exécutent automatiquement
 * [ ] Chaque suite de tests locale réussit
 * [ ] `python eval/evaluation_gate.py` rapporte `Gate: PASS`
 * [ ] Le seul secret du pipeline est le jeton de poussée du wiki
-* [ ] `actionlint` rapporte exactement quatre constats `queue` connus
+* [ ] `actionlint` rapporte exactement cinq constats `queue` connus
 * [ ] Vous pouvez nommer les quatre protections précédant les flux de démantèlement
 * [ ] Vous pouvez expliquer pourquoi le démantèlement pour reconstruction réseau préserve les comptes Cosmos
+* [ ] Vous avez supprimé les groupes de ressources dont vous n'avez plus besoin, avec `azd down` ou `full-teardown.yml`
 
 ## Vérification des connaissances
 
@@ -187,6 +238,7 @@ Cette boucle existe à cause d'un détail de synchronisation facile à manquer. 
 * Si `execute` vaut false par défaut, que produit réellement une première exécution du flux de démantèlement ?
 * Pourquoi la porte d'évaluation déterministe évite-t-elle d'appeler un modèle ?
 * Pourquoi le compte Foundry doit-il être purgé et pas seulement supprimé avant que la reconstruction puisse se poursuivre ?
+* Pourquoi `full-teardown.yml` purge-t-il le compte Foundry avant de supprimer le groupe de ressources plutôt qu'après ?
 
 ## Étapes suivantes
 
