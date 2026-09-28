@@ -165,19 +165,33 @@ jobs:
               echo "Deleting Foundry project '${PROJECT_ID##*/}'."
               az resource delete --ids "$PROJECT_ID" --output none
             done
-            for ATTEMPT in $(seq 1 30); do
+            # After a project delete the account can still read 'Succeeded' while it
+            # is busy, and a delete in that window fails with RequestConflict, so
+            # retry until the account is absent or actually deleting.
+            local DELETE_ISSUED=false
+            for ATTEMPT in $(seq 1 40); do
               local STATE
               STATE=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
               case "$STATE" in
-                Absent|Deleting) break ;;
-                Succeeded|Failed|Canceled)
-                  echo "Deleting Foundry account '$NAME'."
-                  az cognitiveservices account delete --name "$NAME" --resource-group "$RG" --output none
+                Absent|Deleting)
+                  DELETE_ISSUED=true
                   break ;;
+                Succeeded|Failed|Canceled)
+                  echo "Deleting Foundry account '$NAME' (attempt $ATTEMPT/40)."
+                  if az cognitiveservices account delete --name "$NAME" --resource-group "$RG" --output none; then
+                    DELETE_ISSUED=true
+                    break
+                  fi
+                  echo "Delete was rejected; the account is still settling. Retrying in 15s." ;;
+                *)
+                  echo "Account '$NAME' is '$STATE'; waiting for it to settle (attempt $ATTEMPT/40)." ;;
               esac
-              echo "Account '$NAME' is '$STATE'; waiting for it to settle (attempt $ATTEMPT/30)."
-              sleep 10
+              sleep 15
             done
+            if [ "$DELETE_ISSUED" != "true" ]; then
+              echo "::error::Could not delete Foundry account '$NAME'. Rerun this workflow; it is safe to repeat."
+              return 1
+            fi
             purge_foundry_account "$RG" "$NAME" "$LOCATION"
           }
 
