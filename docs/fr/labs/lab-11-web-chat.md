@@ -91,7 +91,14 @@ Ouvrez `http://localhost:8200` dans un navigateur.
 
 ![Le clavardage du demandeur avant la connexion, affichant le titre « Quotes start with access. », un bouton de connexion Microsoft, une zone de message désactivée et un avis de données synthétiques]({{ "/assets/images/web-chat-sign-in.png" | relative_url }})
 
-Résultat attendu : la zone de rédaction est désactivée, la barre latérale indique `Not signed in` et le pied de page porte l'avis de données d'entraînement synthétiques. Cet avis fait partie de la mise en page plutôt que d'un message, il ne peut donc pas être masqué par défilement ni déplacé par la sortie de l'agent.
+Résultat attendu : la zone de rédaction est désactivée, la barre latérale indique `Non connecté` (ou `Not signed in` en anglais) et le pied de page porte l'avis de données d'entraînement synthétiques. Cet avis fait partie de la mise en page plutôt que d'un message, il ne peut donc pas être masqué par défilement ni déplacé par la sortie de l'agent.
+
+Les cinq requêtes de démonstration synthétiques (`CASE-SYN-001` à `CASE-SYN-005`) ne sont pas encore affichées. L'interface ne les présente qu'une fois la connexion réussie et l'appartenance au groupe pilote confirmée par le serveur. Les identifiants fictifs de l'exercice 11.3 ne permettent pas une vraie connexion ; vous ne les verrez donc que sur le clavardage déployé décrit à l'exercice 11.7.
+
+Si vous sélectionnez tout de même **Se connecter avec Microsoft**, Entra ID rejette la demande avec `AADSTS900021: Requested tenant identifier '00000000-...' is not valid`. C'est attendu : le navigateur transmet le locataire fictif reçu de `/api/config` directement à la page de connexion Entra ID.
+
+> [!TIP]
+> Pour vous connecter localement, redémarrez uvicorn avec les vraies valeurs `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` et `PILOT_GROUP_ID` du clavardage déployé (`az containerapp show -n <web-chat-app> -g <resource-group> --query "properties.template.containers[0].env"`), utilisez `--port 8000` et ouvrez `http://localhost:8000`. C'est la seule URI de redirection locale enregistrée par `scripts/setup-web-chat-identity.ps1`, et `127.0.0.1` ne lui correspond pas. Votre compte doit aussi être membre du groupe pilote, sinon `/api/me` retourne 403 et les requêtes de démonstration restent masquées.
 
 ### Exercice 11.5 (pratique) : Retracer les contrôles d'autorisation
 

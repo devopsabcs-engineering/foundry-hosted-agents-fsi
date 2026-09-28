@@ -92,6 +92,13 @@ Open `http://localhost:8200` in a browser.
 
 Expected result: the composer is disabled, the sidebar reads `Not signed in`, and the footer carries the synthetic training data disclaimer. The disclaimer is part of the layout rather than part of a message, so it cannot be scrolled away or displaced by agent output.
 
+The five synthetic demo queries (`CASE-SYN-001` to `CASE-SYN-005`) are not shown yet. The frontend renders them only after sign-in succeeds and the backend confirms pilot group membership. The placeholder identity values from Exercise 11.3 cannot complete a real sign-in, so you see them only against the deployed chat described in Exercise 11.7.
+
+If you select **Sign in with Microsoft** anyway, Entra ID rejects the request with `AADSTS900021: Requested tenant identifier '00000000-...' is not valid`. That is expected: the browser sends the placeholder tenant from `/api/config` straight to the Entra ID sign-in page.
+
+> [!TIP]
+> To sign in locally, restart uvicorn with the real `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, and `PILOT_GROUP_ID` of the deployed chat (`az containerapp show -n <web-chat-app> -g <resource-group> --query "properties.template.containers[0].env"`), use `--port 8000`, and browse to `http://localhost:8000`. That is the only local redirect URI `scripts/setup-web-chat-identity.ps1` registers, and `127.0.0.1` does not match it. Your account must also be a member of the pilot group, otherwise `/api/me` returns 403 and the demo queries stay hidden.
+
 ### Exercise 11.5 (Hands-on): Trace the Authorization Checks
 
 Open `apps/web-chat/auth.py` and read `PilotAuth.verify`.
