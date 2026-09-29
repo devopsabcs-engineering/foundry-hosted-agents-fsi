@@ -118,12 +118,14 @@ jobs:
           fi
           echo "groups=$TARGET_GROUPS" >> "$GITHUB_OUTPUT"
 
+      # The identity's roles are scoped to the resource groups, so once they are
+      # deleted it sees no subscription. The subscription is selected in the next step.
       - name: Azure login with OIDC
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
 
       - name: Tear down resource groups
         env:
@@ -144,8 +146,8 @@ jobs:
             OIDC_TOKEN=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
             az login --service-principal --username "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
-              --federated-token "$OIDC_TOKEN" --output none
-            az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+              --federated-token "$OIDC_TOKEN" --allow-no-subscriptions --output none
+            az account set --subscription "$AZURE_SUBSCRIPTION_ID" 2>/dev/null || true
             LAST_LOGIN=$SECONDS
             echo "Refreshed the Azure login."
           }
@@ -214,6 +216,12 @@ jobs:
             echo "Mode: $([ "$EXECUTE" = "true" ] && echo "**DELETE**" || echo "dry run")"
           } >> "$GITHUB_STEP_SUMMARY"
 
+          if ! az account set --subscription "$AZURE_SUBSCRIPTION_ID" 2>/dev/null; then
+            echo "::warning::The workflow identity can no longer see the subscription. Its roles are scoped to the resource groups it manages, so they are already deleted. Nothing to do. If '$TARGET_GROUPS' still shows up for you, delete it locally with 'azd down --force --purge'."
+            printf '\nThe workflow identity can no longer see the subscription, so the target resource groups are already deleted. Nothing to do.\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           for RG in $TARGET_GROUPS; do
             echo "::group::$RG"
             RG_FAILED=0
@@ -223,9 +231,10 @@ jobs:
                 echo "Resource group '$RG' is already absent."
                 printf '\n### `%s`\n\nAlready absent.\n' "$RG" >> "$GITHUB_STEP_SUMMARY"
               else
-                echo "::error::Cannot read '$RG'. Grant the workflow identity Contributor on it, or delete it locally with 'azd down --force --purge'. Details: $SHOW_ERR"
-                printf '\n### `%s`\n\nNot accessible to the workflow identity. Skipped.\n' "$RG" >> "$GITHUB_STEP_SUMMARY"
-                FAILED=1
+                # Without subscription-wide read, a deleted group and a group this
+                # identity was never granted look the same, so warn instead of failing.
+                echo "::warning::Cannot read '$RG'. It is already deleted, or the workflow identity has no role on it. If it still exists, delete it locally with 'azd down --force --purge'."
+                printf '\n### `%s`\n\nNot visible to the workflow identity (already deleted or never granted). Skipped.\n' "$RG" >> "$GITHUB_STEP_SUMMARY"
               fi
               echo "::endgroup::"
               continue
@@ -275,7 +284,14 @@ jobs:
 
             ensure_fresh_login
             echo "Deleting resource group '$RG'. This can take 15 minutes or more."
-            az group delete --name "$RG" --yes --output none
+            # The identity's roles live in this group, so the final status poll can
+            # fail once it is gone. Only a group that is still readable counts as failure.
+            if ! az group delete --name "$RG" --yes --output none && az group show --name "$RG" --output none 2>/dev/null; then
+              FAILED=1
+              echo "::error::'$RG' still exists after 'az group delete'. Rerun this workflow; it is safe to repeat."
+              echo "::endgroup::"
+              continue
+            fi
             echo "Resource group '$RG' deleted."
             printf '\nDeleted.\n' >> "$GITHUB_STEP_SUMMARY"
             echo "::endgroup::"

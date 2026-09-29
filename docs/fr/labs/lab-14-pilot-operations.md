@@ -217,7 +217,7 @@ Résultat attendu : chaque exécution attend une approbation sur l'environnement
 Le flux conserve les quatre protections des autres flux de démantèlement et en ajoute une cinquième : les noms de groupes de ressources doivent correspondre à un motif de liste d'autorisation, une variable de dépôt mal saisie ne peut donc pas le diriger vers un groupe sans rapport. Il purge aussi chaque compte Foundry avant de supprimer le groupe, car les rôles de l'identité sont limités au groupe et auraient disparu au moment d'une purge ultérieure.
 
 > [!NOTE]
-> Par défaut, l'identité du flux n'a accès qu'à `vars.AZURE_RESOURCE_GROUP`. Une exécution `poc` signale le groupe de validation de principe comme inaccessible et l'ignore ; accordez d'abord à l'identité le rôle Contributeur sur ce groupe, ou utilisez l'option A. Aucune des deux options ne supprime les inscriptions d'application Entra ; retirez celle de la révision avec `scripts/remove-reviewer-identity.ps1`.
+> Par défaut, l'identité du flux n'a accès qu'à `vars.AZURE_RESOURCE_GROUP`. Une exécution `poc` signale le groupe de validation de principe comme inaccessible et l'ignore avec un avertissement ; accordez d'abord à l'identité le rôle Contributeur sur ce groupe, ou utilisez l'option A. Le flux peut être relancé sans risque : si les groupes sont déjà supprimés, il réussit avec un avertissement et ne supprime rien. Aucune des deux options ne supprime les inscriptions d'application Entra ; retirez celle de la révision avec `scripts/remove-reviewer-identity.ps1`.
 
 ## Liste de vérification
 

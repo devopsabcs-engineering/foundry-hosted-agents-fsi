@@ -216,7 +216,7 @@ Expected result: each run waits for approval on the `production` environment. Th
 The workflow keeps the same four safeguards as the other teardown workflows and adds a fifth: resource group names must match an allowlist pattern, so a mistyped repository variable cannot point it at an unrelated group. It also purges each Foundry account before deleting the group, because the identity's roles are scoped to the group and would be gone by the time a purge ran afterwards.
 
 > [!NOTE]
-> By default the workflow identity has access to `vars.AZURE_RESOURCE_GROUP` only. A `poc` run reports the proof-of-concept group as not accessible and skips it; either grant the identity Contributor on that group first or use Option A for it. The Entra app registrations are not deleted by either option; remove the reviewer registration with `scripts/remove-reviewer-identity.ps1`.
+> By default the workflow identity has access to `vars.AZURE_RESOURCE_GROUP` only. A `poc` run reports the proof-of-concept group as not accessible and skips it with a warning; either grant the identity Contributor on that group first or use Option A for it. The workflow is safe to rerun: when the groups are already gone, it succeeds with a warning and deletes nothing. The Entra app registrations are not deleted by either option; remove the reviewer registration with `scripts/remove-reviewer-identity.ps1`.
 
 ## Validation Checklist
 
