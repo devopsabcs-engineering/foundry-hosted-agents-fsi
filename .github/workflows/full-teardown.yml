@@ -129,30 +129,45 @@ jobs:
         env:
           TARGET_GROUPS: ${{ steps.targets.outputs.groups }}
           EXECUTE: ${{ inputs.execute }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         run: |
           set -euo pipefail
 
+          # The GitHub OIDC assertion from azure/login expires after 5 minutes, so
+          # az cannot renew its token during an hour-long wait. Log in again instead.
+          LAST_LOGIN=$SECONDS
+          ensure_fresh_login() {
+            [ $((SECONDS - LAST_LOGIN)) -ge 1800 ] || return 0
+            local OIDC_TOKEN
+            OIDC_TOKEN=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+            az login --service-principal --username "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
+              --federated-token "$OIDC_TOKEN" --output none
+            az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+            LAST_LOGIN=$SECONDS
+            echo "Refreshed the Azure login."
+          }
+
           purge_foundry_account() {
-            local RG="$1" NAME="$2" LOCATION="$3" GONE_READINGS=0
+            local RG="$1" NAME="$2" LOCATION="$3"
             # A network-injected account can sit in 'Deleting' for well over 30
-            # minutes while its subnet link is released, so wait on a deadline.
+            # minutes, and its soft-deleted record can appear minutes after the
+            # account reads as absent, so only a successful purge counts as done.
             local DEADLINE=$((SECONDS + 75 * 60))
             while [ "$SECONDS" -lt "$DEADLINE" ]; do
-              local SOFT_DELETED STATE
-              SOFT_DELETED=$(az cognitiveservices account list-deleted --query "[?name=='$NAME'] | length(@)" --output tsv)
+              ensure_fresh_login
+              local STATE SOFT_DELETED=no
               STATE=$(az cognitiveservices account show --name "$NAME" --resource-group "$RG" --query "properties.provisioningState" --output tsv 2>/dev/null || echo "Absent")
-              if [ "$SOFT_DELETED" != "0" ]; then
-                az cognitiveservices account purge --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none 2>/dev/null || true
-                GONE_READINGS=0
-              elif [ "$STATE" = "Absent" ]; then
-                # list-deleted is eventually consistent, so require several clean readings.
-                GONE_READINGS=$((GONE_READINGS + 1))
-                if [ "$GONE_READINGS" -ge 4 ]; then
+              if [ "$STATE" = "Absent" ] && az cognitiveservices account show-deleted --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none 2>/dev/null; then
+                SOFT_DELETED=yes
+                if az cognitiveservices account purge --name "$NAME" --resource-group "$RG" --location "$LOCATION" --output none; then
                   echo "Foundry account '$NAME' is deleted and purged."
                   return 0
                 fi
               fi
-              echo "Waiting for '$NAME' (state=$STATE, soft-deleted=$SOFT_DELETED, clean readings=$GONE_READINGS/4, $(( (DEADLINE - SECONDS) / 60 )) min left)."
+              echo "Waiting for '$NAME' (state=$STATE, soft-deleted=$SOFT_DELETED, $(( (DEADLINE - SECONDS) / 60 )) min left)."
               sleep 30
             done
             echo "::error::Timed out waiting for '$NAME' to be deleted and purged. Rerun this workflow; it is safe to repeat."
@@ -202,6 +217,7 @@ jobs:
           for RG in $TARGET_GROUPS; do
             echo "::group::$RG"
             RG_FAILED=0
+            ensure_fresh_login
             if ! SHOW_ERR=$(az group show --name "$RG" --output none 2>&1); then
               if echo "$SHOW_ERR" | grep -q "ResourceGroupNotFound"; then
                 echo "Resource group '$RG' is already absent."
@@ -237,6 +253,7 @@ jobs:
               IFS=$'\t' read -r NAME LOCATION <<< "$ACCOUNT"
               purge_foundry_account "$RG" "$NAME" "$LOCATION" || RG_FAILED=1
             done
+            ensure_fresh_login
             # Accounts soft-deleted by an earlier run still hold their names; purge them too.
             while IFS=$'\t' read -r NAME LOCATION; do
               [ -n "$NAME" ] || continue
@@ -256,6 +273,7 @@ jobs:
               continue
             fi
 
+            ensure_fresh_login
             echo "Deleting resource group '$RG'. This can take 15 minutes or more."
             az group delete --name "$RG" --yes --output none
             echo "Resource group '$RG' deleted."
