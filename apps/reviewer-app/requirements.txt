@@ -1,7 +1,7 @@
 fastapi==0.135.1
 uvicorn==0.41.0
 httpx==0.28.1
-PyJWT[crypto]==2.12.1
+PyJWT[crypto]==2.14.0
 azure-identity==1.25.3
 azure-cosmos>=4.17,<5
 azure-monitor-opentelemetry==1.8.9
