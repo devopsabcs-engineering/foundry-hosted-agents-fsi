@@ -1,0 +1,44 @@
+name: Issue Link
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  linked-issue:
+    name: Linked issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a closing issue reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPOSITORY="${GITHUB_REPOSITORY#*/}"
+          QUERY='query($owner:String!,$repository:String!,$number:Int!){repository(owner:$owner,name:$repository){pullRequest(number:$number){closingIssuesReferences(first:1){totalCount nodes{number url}}}}}'
+
+          RESPONSE=$(gh api graphql \
+            -f query="$QUERY" \
+            -F owner="$OWNER" \
+            -F repository="$REPOSITORY" \
+            -F number="$PR_NUMBER")
+          ISSUE_COUNT=$(jq -r \
+            '.data.repository.pullRequest.closingIssuesReferences.totalCount' \
+            <<<"$RESPONSE")
+
+          if [ "$ISSUE_COUNT" -lt 1 ]; then
+            echo '::error::Link an issue by adding a closing keyword such as "Closes #123" to the pull request description.'
+            exit 1
+          fi
+
+          jq -r \
+            '.data.repository.pullRequest.closingIssuesReferences.nodes[] | "Linked issue: #\(.number) \(.url)"' \
+            <<<"$RESPONSE"

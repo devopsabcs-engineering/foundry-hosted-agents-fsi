@@ -18,6 +18,11 @@ description: Repository-wide Git workflow requirements for GitHub Copilot
   `main`.
 * Deliver changes through a pull request from the feature branch into `main`
   so that required validation workflows can run.
+* Every pull request must link at least one issue with a closing keyword in its
+  description, such as `Closes #123`, so the required `Linked issue` check can
+  pass.
+* Treat a merged feature branch as disposable. GitHub deletes it automatically
+  after a successful merge, so start subsequent work from a new feature branch.
 * Do not commit, push, merge, or create a pull request unless the user asks for
   that operation explicitly.
 * An exception to this workflow requires an explicit user instruction that
