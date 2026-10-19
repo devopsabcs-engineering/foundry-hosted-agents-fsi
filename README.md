@@ -145,6 +145,11 @@ See also the
 wiki page for the latest offline-test, deterministic-gate, and LLM-judge
 evaluation results.
 
+Judge scores are advisory, but a failed live invocation or a missing answer
+blocks production promotion. HTTP 200 error bodies do not count as successful
+agent responses. Confirm a valid synthetic case reaches employee review before
+declaring the rebuilt environment ready for a demo.
+
 **Web chatbot pilot**: `apps/web-chat/` (a browser-based chat UI in front
 of the hosted agent) is deployed out of band rather than by
 `deploy-and-evaluate.yml`. Its template is

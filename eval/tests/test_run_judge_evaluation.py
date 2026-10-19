@@ -16,12 +16,96 @@ from __future__ import annotations
 
 import json
 import sys
+from contextlib import nullcontext
+from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(EVAL_DIR))
 
 import run_judge_evaluation as rje  # noqa: E402
+
+
+@pytest.fixture
+def capture_payload(monkeypatch):
+    import urllib.request
+
+    import azure.identity
+
+    credential = SimpleNamespace(get_token=lambda scope: SimpleNamespace(token="test-token"))
+    monkeypatch.setattr(
+        azure.identity, "DefaultAzureCredential", lambda: nullcontext(credential)
+    )
+
+    def capture(payload):
+        monkeypatch.setattr(
+            urllib.request, "urlopen",
+            lambda request, timeout: BytesIO(json.dumps(payload).encode("utf-8")),
+        )
+        args = SimpleNamespace(endpoint="https://example.test", agent="quote-preparation-agent")
+        return rje.capture([{"id": "smoke-001", "query": "CASE-SYN-001"}], args)
+
+    return capture
+
+
+@pytest.mark.parametrize("payload", [
+    {"code": "server_error", "message": "Managed identity token acquisition failed"},
+    {"error": {"code": "server_error", "message": "Agent failed"}},
+    {"status": "failed"},
+    {"status": "incomplete"},
+    {"status": "cancelled"},
+    {"output": []},
+    {"output": [{"content": [{"text": ""}]}]},
+    {"output": [{"content": [{"text": "   "}]}]},
+    [],
+])
+def test_capture_rejects_http_success_without_a_successful_answer(capture_payload, payload):
+    with pytest.raises(RuntimeError, match="smoke-001"):
+        capture_payload(payload)
+
+
+def test_capture_preserves_successful_bilingual_response(capture_payload):
+    captured = capture_payload({
+        "status": "completed",
+        "output": [{"content": [{"type": "output_text", "text": {
+            "en-CA": "Submitted for employee review.",
+            "fr-CA": "Soumis pour revision par un employe.",
+        }}]}],
+    })
+
+    assert captured[0]["response"] == "Submitted for employee review."
+    assert captured[0]["output_items"][0]["content"][0]["text"] == captured[0]["response"]
+
+
+def test_main_does_not_produce_evaluation_evidence_after_capture_failure(
+    tmp_path, monkeypatch, capture_payload,
+):
+    capture_payload({"output": [{"content": [{"text": "Ready"}]}]})
+    import urllib.request
+
+    monkeypatch.setattr(
+        urllib.request, "urlopen",
+        lambda request, timeout: BytesIO(b'{"code": "server_error", "message": "Agent failed"}'),
+    )
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(
+        json.dumps({"data": [{"id": "smoke-001", "query": "CASE-SYN-001"}]}),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "judge-evidence"
+    monkeypatch.setattr(rje, "evaluate", lambda *args: pytest.fail("Must not judge failed invocations"))
+
+    with pytest.raises(RuntimeError, match="smoke-001"):
+        rje.main([
+            "--endpoint", "https://example.test", "--agent", "quote-preparation-agent",
+            "--version", "1", "--deployment", "gpt-4o-mini",
+            "--dataset", str(dataset_path), "--output-dir", str(output_dir),
+        ])
+
+    assert not (output_dir / "results.json").exists()
 
 
 def test_criteria_produces_three_entries_with_expected_data_mapping():

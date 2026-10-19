@@ -167,11 +167,29 @@ def capture(records: list[dict], args) -> list[dict]:
                     f"Agent invocation failed for record {record.get('id')!r}: "
                     f"HTTP {error.code} {error.read().decode('utf-8', errors='replace')}"
                 ) from error
+            if not isinstance(payload, dict):
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    "expected a Responses object"
+                )
+            if payload.get("error") or payload.get("code") or payload.get("status") in {
+                "failed", "incomplete", "cancelled",
+            }:
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    f"{json.dumps(payload)}"
+                )
             output_items = payload.get("output", [])
+            response_text = _extract_response_text(output_items)
+            if not response_text.strip():
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    "no assistant response text"
+                )
             captured.append(
                 {
                     **record,
-                    "response": _extract_response_text(output_items),
+                    "response": response_text,
                     "output_items": _normalize_output_items(output_items),
                 }
             )

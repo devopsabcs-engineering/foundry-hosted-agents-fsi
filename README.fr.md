@@ -157,6 +157,12 @@ Consultez également la page
 du wiki pour les résultats les plus récents des tests hors ligne, des
 contrôles déterministes et des évaluations par un modèle juge.
 
+Les scores du juge sont indicatifs, mais un échec d'invocation réelle ou une
+réponse absente bloque la promotion en production. Une erreur renvoyée avec
+HTTP 200 ne constitue pas une réponse réussie de l'agent. Vérifiez qu'un cas
+synthétique valide atteint la révision par un employé avant de déclarer
+l'environnement reconstruit prêt pour une démonstration.
+
 L'interface de clavardage pilote dans [apps/web-chat/](apps/web-chat/) est
 déployée séparément et non par
 [deploy-and-evaluate.yml](.github/workflows/deploy-and-evaluate.yml).

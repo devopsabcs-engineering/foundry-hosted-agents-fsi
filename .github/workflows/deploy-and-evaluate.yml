@@ -594,16 +594,16 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # The judge is advisory about scores, not about reachability. No evidence
-      # file means it never reached the agent, which is a deployment failure
-      # that must not ride through to production as a green run.
-      - name: Fail when the judge could not reach the staging agent
+      # Scores are advisory; invocation and evaluation failures are not.
+      # Runtime errors (including HTTP 200 error bodies) and missing answers
+      # must fail before judge evidence can allow production promotion.
+      - name: Fail when the judge could not evaluate a staging agent answer
         if: always() && steps.judge.outcome == 'failure'
         run: |
           if [ ! -f judge-evidence/results.json ]; then
-            echo "::error::The LLM-judge could not reach the staging agent, so no evidence was produced." \
-              "A low judge score is advisory; an unreachable agent is not." \
-              "Check that the agent endpoint responds at the staging project endpoint above."
+            echo "::error::The LLM-judge could not evaluate a staging agent answer, so no evidence was produced." \
+              "A low judge score is advisory; failed invocations or missing answers are not." \
+              "Inspect the invocation and evaluation errors in the judge step above."
             exit 1
           fi
           echo "Judge produced evidence; score misses remain advisory."
