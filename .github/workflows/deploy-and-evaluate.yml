@@ -236,8 +236,15 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # Foundry extensions use AzureDeveloperCLICredential, not Azure CLI's login.
       - name: Configure azd authentication
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
+          set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd config set auth.useAzCliAuth true
           azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
 
@@ -645,6 +652,8 @@ jobs:
       - name: Configure azd authentication and select production environment
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
         env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           APPLICATION_MCP_IMAGE: ${{ needs.deploy-staging.outputs.application_mcp_image }}
           RULEBOOK_MCP_IMAGE: ${{ needs.deploy-staging.outputs.rulebook_mcp_image }}
           REVIEWER_APP_IMAGE: ${{ needs.deploy-staging.outputs.reviewer_app_image }}
@@ -652,6 +661,8 @@ jobs:
           AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd config set auth.useAzCliAuth true
           azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
           azd env select "$PRODUCTION_AZD_ENV_NAME" || azd env new "$PRODUCTION_AZD_ENV_NAME" --no-prompt

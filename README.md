@@ -3,6 +3,8 @@ title: Foundry Hosted Agents Workshop - Financial Services (FSI)
 description: Bilingual hands-on workshop adapting Microsoft Foundry hosted agents to a synthetic Ontario auto-insurance quote-preparation scenario with a deterministic calculator and a mandatory employee-approval gate.
 ---
 
+[English](README.md) | [Français](README.fr.md)
+
 ## Overview
 
 This repository is a bilingual (English/French) hands-on workshop adapted
@@ -34,26 +36,26 @@ experience.
   start at [docs/index.md](docs/index.md).
 * `docs/fr/` holds the French workshop site, structurally paired with
   `docs/`; start at [docs/fr/index.md](docs/fr/index.md).
-* `src/quote-preparation-agent/` will hold the hosted LangGraph
+* `src/quote-preparation-agent/` holds the hosted LangGraph
   quote-preparation agent.
-* `mcp/application-server/` will hold a read-only MCP service exposing
+* `mcp/application-server/` holds a read-only MCP service exposing
   synthetic application data.
-* `mcp/rulebook-server/` will hold a read-only MCP service exposing
+* `mcp/rulebook-server/` holds a read-only MCP service exposing
   synthetic rulebook data.
-* `apps/workshop/` will hold the deterministic calculator, approval
+* `apps/workshop/` holds the deterministic calculator, approval
   repository, and applicant/reviewer views.
 * `apps/web-chat/` holds an internal-pilot web chatbot for the hosted
   agent, ported from the sibling repository. It is deployed out of band
   ([infra/web-chat.bicep](infra/web-chat.bicep)) alongside
   `apps/reviewer-app/` -- see [Deployment links](#deployment-links) below
   for both UIs' current URLs.
-* `data/synthetic/` will hold the synthetic fixtures and JSON Schema for
+* `data/synthetic/` holds the synthetic fixtures and JSON Schema for
   the quote-preparation contract.
-* `eval/` will hold the evaluation harness for arithmetic, approval,
+* `eval/` holds the evaluation harness for arithmetic, approval,
   injection, and bilingual-parity checks.
-* `infra/` will hold Bicep infrastructure modules, author-only until
+* `infra/` holds Bicep infrastructure modules, author-only until
   platform and regulatory review gates clear.
-* `scripts/` will hold shared helpers, including the bilingual
+* `scripts/` holds shared helpers, including the bilingual
   workshop-deck generator.
 
 ## Getting started
@@ -157,3 +159,61 @@ any network rebuild. Its URL is not an `azd` output, so
 `WEB_CHAT_APP_NAME`/`WEB_CHAT_URL` repository variables (production
 environment) to include it in the wiki's Deployment Links table -- update
 those variables after redeploying the chat to a new hostname.
+
+## Restore the demo after a full teardown
+
+The latest rebuild evidence and outstanding readiness blockers are tracked
+in [issue #7](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/7).
+Check that record before using historical wiki links for a customer demo.
+
+> [!IMPORTANT]
+> A successful past deployment does not mean the demo is currently live.
+> A full teardown deletes the shared resource group, registry, Foundry
+> projects, case stores, and pilot UIs. Wiki links from before the teardown
+> remain historical until the corresponding resources are restored.
+> Use synthetic data only; deleted case data is not recreated by deployment.
+
+1. Confirm the release approvals and the target subscription and region.
+   Read the configuration in the repository and its `staging` and
+   `production` GitHub environments.
+2. Recreate the resource group named by `AZURE_RESOURCE_GROUP` and the
+   registry named by `MCP_ACR_NAME`. The
+   [deployment workflow](.github/workflows/deploy-and-evaluate.yml)
+   requires both to exist before it can deploy the network and build
+   images. Restore the deployment identity's required permissions at
+   resource-group scope, including role-assignment and Foundry access.
+   Do not enable registry admin credentials.
+3. Remove stale `AGENT_PRINCIPAL_ID` and `WEB_CHAT_URL` values for deleted
+   resources, checking repository variables and environment overrides.
+   Keep the existing Entra app registrations and pilot/reviewer groups.
+4. Run [Continuous Validation](.github/workflows/continuous-validation.yml),
+   [Web Chat Build](.github/workflows/web-chat-build.yml), and
+   [Reviewer App Build](.github/workflows/reviewer-app-build.yml) against
+   the release revision. Manual UI build runs test and compile the apps;
+   they do not deploy them.
+5. Dispatch [Deploy and Evaluate](.github/workflows/deploy-and-evaluate.yml)
+   for that revision. It restores staging, evaluates the deployed agent,
+   and waits for the required human approval before production promotion.
+   The reviewer app is included when `REVIEWER_CLIENT_ID` is configured.
+   CI must authenticate both Azure CLI and `azd` with GitHub OIDC:
+   Foundry extensions require the native `azd` login even when
+   `auth.useAzCliAuth` is enabled.
+6. For each environment, resolve the newly created hosted agent's identity
+   from the live Foundry project and verify it exists in Entra. Set that
+   environment's `AGENT_PRINCIPAL_ID` and apply its Cosmos data-plane grant
+   using [the existing RBAC module](infra/modules/cosmos-rbac.bicep), or
+   reprovision with the updated value. Do not reuse the deleted identity
+   or substitute the project's managed identity.
+7. Build and deploy the chatbot separately into each restored Container
+   Apps environment with [web-chat.bicep](infra/web-chat.bicep), supplying
+   that environment's Foundry project, deployment label, and a
+   digest-pinned image. Refresh the actual UI redirect URLs with
+   [setup-web-chat-identity.ps1](scripts/setup-web-chat-identity.ps1) and
+   [setup-reviewer-identity.ps1](scripts/setup-reviewer-identity.ps1).
+   Update `WEB_CHAT_APP_NAME` and `WEB_CHAT_URL` in the corresponding
+   GitHub environment and refresh the wiki deployment links.
+8. Verify both Foundry projects and active agents, both MCP services, UI
+   health and sign-in, bilingual agent responses, and a synthetic
+   submission reaching the reviewer queue. Confirm that no
+   applicant-facing amount is released without employee approval.
+   Passing offline tests alone does not establish live demo readiness.
