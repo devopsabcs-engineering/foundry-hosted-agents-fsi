@@ -203,12 +203,15 @@ Check that record before using historical wiki links for a customer demo.
    CI must authenticate both Azure CLI and `azd` with GitHub OIDC:
    Foundry extensions require the native `azd` login even when
    `auth.useAzCliAuth` is enabled.
-6. For each environment, resolve the newly created hosted agent's identity
-   from the live Foundry project and verify it exists in Entra. Set that
-   environment's `AGENT_PRINCIPAL_ID` and apply its Cosmos data-plane grant
-   using [the existing RBAC module](infra/modules/cosmos-rbac.bicep), or
-   reprovision with the updated value. Do not reuse the deleted identity
-   or substitute the project's managed identity.
+6. The workflow invokes a synthetic case after each agent deployment,
+   materializing the runtime identity on its first token request. It
+   verifies the exact runtime principal in Cosmos authorization errors,
+   applies [the existing RBAC module](infra/modules/cosmos-rbac.bicep)
+   when needed, and verifies live access before continuing. Cached
+   `AGENT_PRINCIPAL_ID` variables are not used by CI. Do not substitute
+   the project's managed identity. If an agent retained after teardown
+   fails with `invalid_scope`, recover its stale identity or replace only
+   that agent while preserving its project and Cosmos case data.
 7. Build and deploy the chatbot separately into each restored Container
    Apps environment with [web-chat.bicep](infra/web-chat.bicep), supplying
    that environment's Foundry project, deployment label, and a

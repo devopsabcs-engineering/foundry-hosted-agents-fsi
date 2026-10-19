@@ -226,14 +226,15 @@ démonstration client.
    Le flux CI doit authentifier Azure CLI et `azd` avec GitHub OIDC :
    les extensions Foundry exigent une connexion native `azd` même lorsque
    `auth.useAzCliAuth` est activé.
-6. Pour chaque environnement, récupérez l'identité du nouvel agent hébergé
-   dans le projet Foundry actif et vérifiez son existence dans Entra.
-   Définissez `AGENT_PRINCIPAL_ID` pour cet environnement et appliquez son
-   autorisation d'accès aux données Cosmos avec
-   [le module RBAC existant](infra/modules/cosmos-rbac.bicep), ou
-   reprovisionnez avec cette nouvelle valeur. Ne réutilisez pas
-   l'identité supprimée et ne la remplacez pas par l'identité managée du
-   projet.
+6. Après chaque déploiement, le flux invoque un cas synthétique : la première
+   demande de jeton matérialise l'identité de l'agent. Il vérifie le principal
+   exact dans les erreurs d'autorisation Cosmos, applique au besoin
+   [le module RBAC existant](infra/modules/cosmos-rbac.bicep), puis confirme
+   l'accès réel avant de poursuivre. CI n'utilise pas les anciennes variables
+   `AGENT_PRINCIPAL_ID`. Ne substituez pas l'identité managée du projet.
+   Si un agent conservé après suppression échoue avec `invalid_scope`,
+   restaurez son identité périmée ou remplacez uniquement cet agent en
+   préservant son projet et les données de dossiers Cosmos.
 7. Construisez et déployez séparément le clavardage dans chaque
    environnement Container Apps restauré avec
    [web-chat.bicep](infra/web-chat.bicep). Fournissez le projet Foundry,
