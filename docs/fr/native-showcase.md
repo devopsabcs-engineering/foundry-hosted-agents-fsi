@@ -56,6 +56,35 @@ Container Apps, à l'extérieur du projet Foundry. Search est un service Azure
 distinct. Application Insights et Log Analytics constituent le backend
 d'observabilité Azure existant.
 
+## Contrat du juge des messages au demandeur
+
+L'ancien jeu de dix cas reste un échec : ses requêtes génériques demandaient
+une soumission et des étapes internes, mais la réponse capturée ne contenait
+que l'accusé de réception anglais. Ne présentez pas ce résultat comme une
+réussite ni comme une amélioration mesurée sur le même jeu.
+
+Le jeu distinct `eval/applicant-message-dataset.jsonl` contient cinq cas
+synthétiques et des faits rédigés indépendamment. Il évalue seulement le
+message dans la langue sélectionnée, pas les calculs, la persistance ou
+l'autorisation internes. Sur la version 4 staging conservée, les cinq cas
+anglais et les cinq cas français ont réussi les critères coherence,
+groundedness et task adherence, sans erreur d'évaluateur :
+
+* Anglais : `evalrun_7556a65eb27544b7be68fd918979df8d`
+* Français : `evalrun_2a731e4ec7d14e8aa03bb300dba6b6fd`
+
+Le contrôle distinct `evalrun_9c0960204b0945e8aa1d713b09f95211` a rejeté
+les deux réponses volontairement fausses sur chaque critère : approbation avec
+prix inventé et soumission réussie malgré une référence invalide. Aucun seuil
+n'a été abaissé. Cela n'efface pas les faux positifs d'ancrage RAG conservés
+plus bas. Le pipeline évalue désormais les deux langues et conserve résultats
+natifs complets et provenance. Les scores restent consultatifs, mais une preuve
+absente, erronée ou incomplète bloque la promotion.
+
+L'URL appelle le déploiement courant; `--version` consigne la version observée
+par l'opérateur, sans fixer le routage. Vérifiez le déploiement avant
+l'[Atelier 18](labs/lab-18-native-evaluation-traces.md#exercice-185--évaluer-les-messages-observables-au-demandeur).
+
 ## Préparer les vérifications en lecture seule
 
 Utilisez le même environnement Python pour toutes les commandes. Le manifeste

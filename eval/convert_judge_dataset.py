@@ -66,6 +66,7 @@ def convert(records: list[dict[str, Any]], locale: str) -> dict[str, Any]:
                 "id": record_id,
                 "query": query,
                 "context": context,
+                "locale": locale,
                 "expected": record.get("expected"),
             }
         )

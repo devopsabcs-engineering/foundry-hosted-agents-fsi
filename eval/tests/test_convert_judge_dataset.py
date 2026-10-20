@@ -22,6 +22,18 @@ import convert_judge_dataset as cjd  # noqa: E402
 JUDGE_DATASET_PATH = EVAL_DIR / "judge-dataset.jsonl"
 
 
+@pytest.mark.parametrize("locale", ["en-CA", "fr-CA"])
+def test_applicant_benchmark_has_five_independently_grounded_cases(locale):
+    records = cjd.load_records(EVAL_DIR / "applicant-message-dataset.jsonl")
+    converted = cjd.convert(records, locale)["data"]
+    assert len(converted) == 5
+    assert len({record["id"] for record in converted}) == 5
+    assert all(record["context"] != record["query"] for record in converted)
+    assert {record["expected"]["status"] for record in converted} == {
+        "READY", "UNSUPPORTED", "INCOMPLETE", "REJECTED_INTAKE",
+    }
+
+
 def test_load_records_reads_every_line_of_the_real_judge_dataset():
     records = cjd.load_records(JUDGE_DATASET_PATH)
 
@@ -43,7 +55,8 @@ def test_convert_produces_expected_envelope_shape_for_each_locale(locale):
     ]
     assert len(envelope["data"]) == len(records)
     for item in envelope["data"]:
-        assert set(item) == {"id", "query", "context", "expected"}
+        assert set(item) == {"id", "query", "context", "locale", "expected"}
+        assert item["locale"] == locale
         assert isinstance(item["query"], str) and item["query"]
         assert isinstance(item["context"], str) and item["context"]
 

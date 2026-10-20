@@ -111,10 +111,21 @@ d'application et à un groupe pilote réels.
 
 ![Interface de clavardage pour la préparation de soumissions](assets/web-chat-ui.png)
 
-Si `npm install` échoue avec `EALLOWREMOTE`, la valeur par défaut
-`allow-remote = "none"` de npm 12 refuse les URL absolues des archives
-tarball du proxy de flux d'entreprise. Relancez la commande avec
-`npm install --allow-remote=all`.
+Si votre réseau bloque npm, utilisez votre proxy de registre approuvé. Les
+deux interfaces ont été installées proprement et compilées via le proxy
+Microsoft avec :
+
+```powershell
+npm ci --ignore-scripts --registry=https://packagefeedproxy.microsoft.io/npm/
+```
+
+Conservez les restrictions de téléchargement distant de npm. `EALLOWREMOTE`
+peut signaler une URL absolue Azure DevOps introduite par les métadonnées du
+registre. Les fichiers de verrouillage versionnés utilisent les URL canoniques
+du registre npm, que npm redirige vers le proxy sélectionné. N'utilisez pas
+`--allow-remote=all` et ne désactivez pas les contrôles d'intégrité. Si le proxy
+approuvé refuse toujours un paquet, conservez l'erreur et contactez son
+administrateur.
 
 ## Essayer l'application de révision
 

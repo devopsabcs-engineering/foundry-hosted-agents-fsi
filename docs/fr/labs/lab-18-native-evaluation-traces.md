@@ -170,6 +170,37 @@ La [capture d'évaluation](../showcase-evidence.md#résultats-dévaluation-sans-
 conserve les critères échoués sans assimiler succès du workflow et succès du juge.
 Ces observations ne remplacent pas vos propres vérifications réelles.
 
+## Exercice 18.5 : Évaluer les messages observables au demandeur
+
+Utilisez les cinq cas indépendants du nouveau jeu, pas les dix anciens cas de
+workflow. Examinez les faits fiables avant la capture. Vérifiez la version
+actuellement déployée dans Foundry : l'URL appelle le déploiement courant et
+`--version` ne fixe pas le routage.
+
+```powershell
+$agentVersion = '<currently-deployed-staging-version>'
+foreach ($locale in 'en-CA', 'fr-CA') {
+    & .venv\Scripts\python.exe eval\convert_judge_dataset.py eval\applicant-message-dataset.jsonl "$evidence\applicant-$locale.json" --locale $locale
+    if ($LASTEXITCODE -ne 0) { throw "Dataset conversion failed: $locale" }
+    & .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version $agentVersion --deployment gpt-4o-mini --dataset "$evidence\applicant-$locale.json" --output-dir "$evidence\applicant-$locale"
+    if ($LASTEXITCODE -ne 0) { throw "Inspect native judge results: $locale" }
+}
+```
+
+Exigez cinq éléments terminés et trois critères notés par élément dans chaque
+`results.json`. Vérifiez langue et contexte indépendant dans `captured.json`.
+Les exécutions v4 conservées ont réussi 5/5 sur chaque critère dans chaque
+langue. Un contrôle distinct de deux réponses a rejeté approbation et prix
+inventés, ainsi qu'une soumission fictive pour une référence invalide, sur les
+trois critères. Les identités natives figurent dans le
+[guide](../native-showcase.md#contrat-du-juge-des-messages-au-demandeur).
+
+C'est un nouveau contrat d'évaluation sur un jeu distinct, pas un gain mesuré
+par rapport à l'ancien résultat. Le barème est une métadonnée, pas un prompt
+exécuté. Il ne prouve ni calcul, ni persistance Cosmos, ni autorisation du
+reviewer, ni correction des faux positifs d'ancrage RAG. Conservez ces contrôles
+séparément et préservez les échecs historiques.
+
 ## Preuves de réalisation
 
 * Conservez deux exécutions natives, leur comparaison et le rejet de
@@ -178,6 +209,8 @@ Ces observations ne remplacent pas vos propres vérifications réelles.
   compris, ou consignez l'absence bloquante des artefacts historiques.
 * Conservez export vérifié, provenance du rejeu et évaluation native seulement
   si l'ingestion est disponible; sinon, documentez le prérequis bloquant.
+* Conservez les deux résultats des messages avec hachages, langue, provenance
+  de capture et identités natives; distinguez-les de l'ancien jeu.
 
 Retournez à l'[Atelier 17](lab-17-native-skills-memory.md), à l'[index](index.md)
 ou au [guide natif](../native-showcase.md). Laissez staging et production

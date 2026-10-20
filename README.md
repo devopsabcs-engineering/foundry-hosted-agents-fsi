@@ -103,9 +103,19 @@ real app registration and pilot group.
 
 ![Quote preparation chat UI](assets/web-chat-ui.png)
 
-If `npm install` fails with `EALLOWREMOTE`, the npm 12 default
-`allow-remote = "none"` is rejecting the corporate feed proxy's absolute
-tarball URLs; re-run it as `npm install --allow-remote=all`.
+If npm is blocked by your network, use your approved registry proxy. Both
+frontends were clean-installed and built through the Microsoft proxy with:
+
+```powershell
+npm ci --ignore-scripts --registry=https://packagefeedproxy.microsoft.io/npm/
+```
+
+Keep npm's remote-fetch restrictions enabled. `EALLOWREMOTE` can indicate that
+registry metadata introduced an absolute Azure DevOps tarball URL. The
+committed lockfiles use canonical npm registry URLs, which npm remaps through
+the selected proxy. Do not switch to `--allow-remote=all` or disable integrity
+checks. If the approved proxy still refuses a package, retain the error and
+contact the feed administrator.
 
 ## Try the reviewer app
 

@@ -18,7 +18,9 @@ class Tracer:
         self.spans = []
 
     @contextmanager
-    def start_as_current_span(self, name, *, attributes):
+    def start_as_current_span(self, name, *, attributes, record_exception, set_status_on_exception):
+        assert record_exception is False
+        assert set_status_on_exception is False
         self.spans.append({"name": name, "attributes": attributes})
         yield
 
@@ -57,3 +59,18 @@ def test_telemetry_does_not_swallow_stage_failure(monkeypatch):
     with pytest.raises(RuntimeError, match="tool unavailable"):
         stage({"case_id": "CASE-SYN-002"})
     assert len(tracer.spans) == 1
+
+
+def test_hosted_tracing_does_not_hide_initialization_failure(monkeypatch):
+    class BrokenSdk:
+        def init_tracing(self):
+            raise ValueError("invalid telemetry configuration")
+
+    class Adapter(case_telemetry.HostedTracing, BrokenSdk):
+        pass
+
+    monkeypatch.setattr(
+        case_telemetry.trace, "get_tracer_provider", case_telemetry.trace.ProxyTracerProvider
+    )
+    with pytest.raises(ValueError, match="invalid telemetry configuration"):
+        Adapter().init_tracing()

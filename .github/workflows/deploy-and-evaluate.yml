@@ -17,16 +17,13 @@ name: Deploy and Evaluate (Staging -> Production)
 # introduced between the lint stage and this point still blocks promotion.
 #
 # The "evaluate" job also runs a real LLM-judge step
-# (eval/run_judge_evaluation.py, eval/judge-dataset.jsonl) against the
+# (eval/run_judge_evaluation.py, eval/applicant-message-dataset.jsonl) against the
 # live-deployed quote-preparation-agent endpoint (src/quote-preparation-agent's
 # response_bridge.py bridges the Foundry Responses protocol to this
-# project's graph). Coherence/groundedness/task_adherence scores from a
-# generic LLM judge are expected to be low for this agent by design -- it
-# always responds with a bounded, templated, bilingual status message and
-# never auto-approves or reveals an amount (see graph.py's
-# AGENT_TASK_INSTRUCTIONS and _STATUS_TEMPLATES) -- so this step's evidence
-# is retained for trend visibility rather than gating production promotion
-# on a 100% judge pass rate.
+# project's graph). Both locales are judged against independent fixture facts
+# and a composition-only rubric, not hidden tool/calculator execution. This is
+# a new benchmark, not a comparable improvement over the historical dataset.
+# Scores remain advisory; incomplete or errored evidence blocks promotion.
 
 on:
   workflow_call:
@@ -498,20 +495,27 @@ jobs:
           AGENT_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
           JUDGE_DEPLOYMENT: gpt-4o-mini
         run: |
-          python eval/convert_judge_dataset.py eval/judge-dataset.jsonl "$RUNNER_TEMP/judge-dataset.json" --locale en-CA
-          python eval/run_judge_evaluation.py \
-            --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
-            --version "$AGENT_VERSION" --deployment "$JUDGE_DEPLOYMENT" \
-            --dataset "$RUNNER_TEMP/judge-dataset.json" \
-            --output-dir judge-evidence --minimum-pass-rate 1.0
+          status=0
+          for locale in en-CA fr-CA; do
+            python eval/convert_judge_dataset.py eval/applicant-message-dataset.jsonl \
+              "$RUNNER_TEMP/judge-$locale.json" --locale "$locale"
+            if ! python eval/run_judge_evaluation.py \
+              --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
+              --version "$AGENT_VERSION" --deployment "$JUDGE_DEPLOYMENT" \
+              --dataset "$RUNNER_TEMP/judge-$locale.json" \
+              --output-dir "judge-evidence/$locale" --minimum-pass-rate 1.0; then
+              status=1
+            fi
+          done
+          exit "$status"
 
       - name: Stage judge evidence alongside the deterministic gate result
         if: always()
         run: |
           mkdir -p evaluation-evidence
           cp -f eval/results.json evaluation-evidence/results.json || true
-          if [ -f judge-evidence/results.json ]; then
-            cp -f judge-evidence/results.json evaluation-evidence/judge-results.json
+          if [ -d judge-evidence ]; then
+            cp -R judge-evidence evaluation-evidence/
           fi
 
       - name: Judge evaluation summary
@@ -522,12 +526,10 @@ jobs:
             echo ''
             if [ "${{ steps.judge.outcome }}" = "success" ]; then
               echo 'All judge metrics met the configured minimum pass rate.'
-            elif [ -f judge-evidence/results.json ]; then
+            elif [ -f judge-evidence/en-CA/results.json ] && [ -f judge-evidence/fr-CA/results.json ]; then
               echo 'One or more judge metrics did not meet the configured minimum pass rate.'
-              echo 'This agent always returns a bounded, templated status message by design'
-              echo '(never an amount, never auto-approved), which generic coherence/groundedness'
-              echo 'rubrics tend to score low -- see the evidence artifact for per-record detail.'
-              echo 'This step is advisory and does not block production promotion.'
+              echo 'Inspect each locale and its independent grounding facts in the evidence artifact.'
+              echo 'Scores are advisory; incomplete or errored evidence blocks promotion.'
             else
               echo 'Judge step did not produce evidence; inspect the step above.'
             fi
@@ -536,16 +538,23 @@ jobs:
       # Scores are advisory; invocation and evaluation failures are not.
       # Runtime errors (including HTTP 200 error bodies) and missing answers
       # must fail before judge evidence can allow production promotion.
-      - name: Fail when the judge could not evaluate a staging agent answer
-        if: always() && steps.judge.outcome == 'failure'
+      - name: Require complete native judge evidence for both locales
+        if: always()
         run: |
-          if [ ! -f judge-evidence/results.json ]; then
-            echo "::error::The LLM-judge could not evaluate a staging agent answer, so no evidence was produced." \
-              "A low judge score is advisory; failed invocations or missing answers are not." \
-              "Inspect the invocation and evaluation errors in the judge step above."
-            exit 1
-          fi
-          echo "Judge produced evidence; score misses remain advisory."
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "eval")
+          from judge_gate import validate_completion
+          from convert_judge_dataset import load_records
+          expected = len(load_records(Path("eval/applicant-message-dataset.jsonl")))
+          for locale in ("en-CA", "fr-CA"):
+              path = Path("judge-evidence") / locale / "results.json"
+              result = json.loads(path.read_text(encoding="utf-8"))
+              rates = validate_completion(result["run"], result["items"], expected)
+              print(f"{locale}: complete native evidence; advisory pass rates {rates}")
+          PY
 
       - name: Retain evaluation evidence
         if: always()

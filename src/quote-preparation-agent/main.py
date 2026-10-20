@@ -69,12 +69,16 @@ def serve() -> None:
     (`/readiness`, `/responses`) declared by `azure.yaml`'s
     `protocols: [{protocol: responses, version: 2.0.0}]`.
     """
-    from azure.ai.agentserver.langgraph import from_langgraph  # noqa: E402
+    from azure.ai.agentserver.langgraph import LangGraphAdapter  # noqa: E402
 
+    from case_telemetry import HostedTracing  # noqa: E402
     from response_bridge import QuotePreparationResponseConverter  # noqa: E402
 
+    class QuotePreparationAdapter(HostedTracing, LangGraphAdapter):
+        """Use one SDK-owned telemetry pipeline without graph payload recording."""
+
     graph = build_graph()
-    adapter = from_langgraph(graph, converter=QuotePreparationResponseConverter())
+    adapter = QuotePreparationAdapter(graph, converter=QuotePreparationResponseConverter())
     adapter.run(port=8088)
 
 

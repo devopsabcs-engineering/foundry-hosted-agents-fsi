@@ -54,6 +54,35 @@ They are Azure-hosted, but not inside the Foundry project. Search is a separate
 Azure service underpinning the knowledge demonstration. Application Insights and
 Log Analytics provide the existing Azure observability backend.
 
+## Applicant-message judge contract
+
+The historical 10-row judge run remains a failure: its generic queries asked
+for a quote and hidden workflow execution, while the captured answer contained
+only the English applicant acknowledgement. Do not reinterpret that evidence
+as a passing run or claim a same-dataset quality improvement.
+
+The separate `eval/applicant-message-dataset.jsonl` benchmark contains five
+synthetic cases with independently authored facts. It evaluates only the
+selected-locale acknowledgement, not hidden calculations, persistence or
+authorization. On the retained staging version 4, all five English and all
+five French cases passed coherence, groundedness and task adherence, with
+zero evaluator errors:
+
+* English: `evalrun_7556a65eb27544b7be68fd918979df8d`
+* French: `evalrun_2a731e4ec7d14e8aa03bb300dba6b6fd`
+
+Separate calibration run `evalrun_9c0960204b0945e8aa1d713b09f95211` rejected
+both deliberate falsehoods on every criterion: invented approval with a price,
+and successful submission for an invalid reference. No threshold was reduced.
+These controls do not erase the earlier RAG grounding false positives below.
+The release workflow now evaluates both locales and retains full native
+results and capture provenance. Scores remain advisory, but missing, errored
+or incomplete native evidence blocks promotion.
+
+The invocation URL targets the current deployment; `--version` records the
+operator-observed version, not a routing pin. Confirm the deployment before
+running [Lab 18](labs/lab-18-native-evaluation-traces.md#exercise-185-judge-observable-applicant-messages).
+
 ## Setup and read-only checks
 
 Use the existing Python environment. The root dependency manifest pins the

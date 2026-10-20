@@ -164,6 +164,36 @@ The [evaluation capture](../showcase-evidence.md#honest-evaluation-results) pres
 failed judge criteria rather than presenting workflow success as a judge pass.
 These are reference observations, not substitutes for your own live checks.
 
+## Exercise 18.5: Judge observable applicant messages
+
+Use the independent five-case applicant benchmark, not the historical ten-case
+workflow dataset. Inspect its trusted facts before capturing replies. Check the
+currently deployed version in Foundry and record it below; the endpoint calls
+the current deployment and `--version` does not pin routing.
+
+```powershell
+$agentVersion = '<currently-deployed-staging-version>'
+foreach ($locale in 'en-CA', 'fr-CA') {
+    & .venv\Scripts\python.exe eval\convert_judge_dataset.py eval\applicant-message-dataset.jsonl "$evidence\applicant-$locale.json" --locale $locale
+    if ($LASTEXITCODE -ne 0) { throw "Dataset conversion failed: $locale" }
+    & .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version $agentVersion --deployment gpt-4o-mini --dataset "$evidence\applicant-$locale.json" --output-dir "$evidence\applicant-$locale"
+    if ($LASTEXITCODE -ne 0) { throw "Inspect native judge results: $locale" }
+}
+```
+
+Require five completed items and three scored criteria per item in each
+`results.json`. Inspect `captured.json` for the correct locale and independent
+context. The retained v4 runs passed 5/5 per criterion in each language.
+A separate two-item calibration rejected invented approval/pricing and a false
+submission for an invalid reference on all three criteria. Native identities
+are recorded in the [runbook](../native-showcase.md#applicant-message-judge-contract).
+
+This is a corrected evaluation contract on a new dataset, not a measured
+quality gain over the historical run. The rubric is evaluation metadata, not
+an executed prompt. It cannot prove calculator execution, Cosmos persistence,
+reviewer authorization or RAG grounding-control recovery. Keep those checks
+separate and preserve historical failures.
+
 ## Completion evidence
 
 * Retain two native retrieval runs, their comparison and the self-comparison
@@ -172,6 +202,8 @@ These are reference observations, not substitutes for your own live checks.
   gates, or mark reproduction blocked by missing retained artifacts.
 * Retain verified trace export, replay provenance and native evaluation only
   if ingestion prerequisites exist; otherwise document the precise block.
+* Retain both applicant-message runs with hashes, locale, capture provenance
+  and native identities; distinguish them from the historical benchmark.
 
 Return to [Lab 17](lab-17-native-skills-memory.md), the [labs index](index.md)
 or the [native showcase runbook](../native-showcase.md). Leave staging and
