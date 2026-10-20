@@ -148,10 +148,14 @@ details. It proves the observed agent/version/status, not a successful chat.
 ![Authenticated staging Foundry agent header with version 3 and running indicator](assets/evidence/foundry-staging-agent-v3.png)
 
 The real `CASE-SYN-001` playground request finished, but its assistant message
-displayed no text. This is a streaming compatibility defect under investigation,
-not a passing portal conversation. The independently verified non-streaming
-bilingual API results above remain separate evidence. No corrected streaming
-runtime has been deployed or verified in this capture.
+displayed no text. This is not a passing portal conversation. Protocol tests
+confirmed that the previous stream lacked native text events and used an object
+where output text must be a string. The prepared fix sends the final bilingual
+map as JSON text, with ordered content/text/completion events; it never streams
+intermediate workflow state. Non-streaming responses retain their existing map.
+Local serialized-event and real-graph regression tests pass, but a corrected
+runtime still requires release approval and an authenticated portal retest.
+The independently verified deployed API results above remain separate evidence.
 
 Production home also listed version 4 during authenticated navigation, but no
 production agent screenshot was saved. Subsequent navigation failed with browser

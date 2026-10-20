@@ -149,11 +149,15 @@ Elle prouve l'agent, sa version et son état observés, pas une conversation ré
 ![En-tête Foundry authentifié de l'agent staging, version 3, avec indicateur d'exécution](../assets/evidence/foundry-staging-agent-v3.png)
 
 La requête réelle `CASE-SYN-001` du playground s'est terminée, mais le message
-assistant n'affichait aucun texte. Ce défaut de compatibilité du streaming est
-en cours d'analyse; il ne constitue pas un test de conversation réussi. Les
-résultats API bilingues sans streaming vérifiés ci-dessus restent des preuves
-distinctes. Aucun runtime de streaming corrigé n'a été déployé ou vérifié dans
-cette capture.
+assistant n'affichait aucun texte. Ce n'est pas un test de conversation réussi.
+Les tests de protocole ont confirmé l'absence d'événements de texte natifs et
+l'utilisation d'un objet là où le texte doit être une chaîne. Le correctif
+préparé transmet le message bilingue final en texte JSON, avec les événements de
+contenu, texte et fin ordonnés, sans état intermédiaire du workflow. La réponse
+sans streaming conserve son objet bilingue existant. Les tests locaux des
+événements sérialisés et du graphe réel passent; le runtime corrigé exige encore
+l'approbation de publication et un nouveau test du portail authentifié. Les
+résultats API déployés vérifiés ci-dessus restent des preuves distinctes.
 
 L'accueil production affichait aussi la version 4 pendant la navigation
 authentifiée, mais aucune capture de l'agent production n'a été enregistrée.
