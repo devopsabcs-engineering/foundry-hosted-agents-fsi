@@ -13,6 +13,17 @@ from preparation_client import PreparationClient, PreparationError, validate_age
 ENDPOINT = "https://example.services.ai.azure.com/api/projects/demo/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1"
 
 
+def test_real_async_identity_client_starts_with_container_app_identity_environment(monkeypatch):
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://127.0.0.1:42356/msi/token")
+    monkeypatch.setenv("IDENTITY_HEADER", "synthetic-startup-test")
+
+    async def run():
+        client = PreparationClient(ENDPOINT, "11111111-1111-1111-1111-111111111111")
+        await client.close()
+
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize("endpoint", [
     ENDPOINT.replace("https:", "http:"), ENDPOINT.replace(".azure.com", ".azure.com.attacker.test"),
     ENDPOINT.replace("quote-preparation-agent", "other-agent"),
