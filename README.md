@@ -204,6 +204,11 @@ Check that record before using historical wiki links for a customer demo.
    [Reviewer App Build](.github/workflows/reviewer-app-build.yml) against
    the release revision. Manual UI build runs test and compile the apps;
    they do not deploy them.
+   After a merge to `main`, app build workflows publish images tagged
+   `v<VERSION>-<full-source-SHA>` and `latest`, without committing version
+   bumps or pushing to protected `main`. Change `VERSION` through a linked
+   feature PR when a semantic release increment is needed. Image publication
+   is not application deployment; use a digest-pinned image for deployment.
 5. Dispatch [Deploy and Evaluate](.github/workflows/deploy-and-evaluate.yml)
    for that revision. It restores staging, evaluates the deployed agent,
    and waits for the required human approval before production promotion.
