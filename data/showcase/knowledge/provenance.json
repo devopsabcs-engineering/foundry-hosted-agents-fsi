@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "generated_by": "workshop authors",
+  "authority": "synthetic",
+  "intended_use": "educational, non-binding",
+  "contains_real_personal_data": false,
+  "generated_on": "2026-10-19",
+  "hash_algorithm": "SHA-256 of UTF-8 text with LF line endings",
+  "limitations": [
+    "Not an insurer policy, license, legal opinion, binding quote or retention policy",
+    "No real personal, customer, policy, claim or license data",
+    "No automatic transfer to pricing, calculator or case approval",
+    "Native retrieval citations must map to these versioned source IDs",
+    "Document extraction is an observation requiring employee review"
+  ],
+  "sources": [
+    {
+      "id": "FSI-SCOPE-EN",
+      "file": "scope-en.txt",
+      "language": "en",
+      "version": "1",
+      "title": "Training scope and supported auto-insurance cases",
+      "sha256": "973c1be7a53a9e8f061bf372cc0931171b5556268b745200dd4ac416de38facc"
+    },
+    {
+      "id": "FSI-SCOPE-FR",
+      "file": "scope-fr.txt",
+      "language": "fr",
+      "version": "1",
+      "title": "Portée pédagogique et cas automobiles pris en charge",
+      "sha256": "d3d4126a384b5d1fee23132c014cc68987543b71adc434ebf9861ec3b27990d1"
+    },
+    {
+      "id": "FSI-REVIEW-EN",
+      "file": "review-en.txt",
+      "language": "en",
+      "version": "1",
+      "title": "Employee review and synthetic repair invoice evidence",
+      "sha256": "7096cb36a189430d18ae66b264fdcbc486460d59d08d201d144db457ca14cc7c"
+    },
+    {
+      "id": "FSI-REVIEW-FR",
+      "file": "review-fr.txt",
+      "language": "fr",
+      "version": "1",
+      "title": "Révision par un employé et preuves de facture synthétique",
+      "sha256": "e59089f78de636f417e9f5620557fd304c1a439feb47c74a4fb1cbd7ff0b4281"
+    },
+    {
+      "id": "FSI-PRIVACY-EN",
+      "file": "privacy-en.txt",
+      "language": "en",
+      "version": "2",
+      "title": "Privacy, conversational memory and audit boundaries",
+      "sha256": "b11a923f6eb18167966917462e267d0df019b10ee9b591b1a55d124313b741a4"
+    },
+    {
+      "id": "FSI-PRIVACY-FR",
+      "file": "privacy-fr.txt",
+      "language": "fr",
+      "version": "2",
+      "title": "Confidentialité, mémoire conversationnelle et audit",
+      "sha256": "1ce374dd42ef84048b887768493c76fdc78b71d5827f57532d616749027459fa"
+    }
+  ],
+  "supporting_document": {
+    "id": "FSI-INVOICE-EN",
+    "file": "../documents/synthetic-repair-invoice.txt",
+    "language": "en",
+    "version": "1",
+    "generated_by": "workshop authors",
+    "authority": "synthetic",
+    "intended_use": "educational, non-binding",
+    "sha256": "9685848bf660f6555a062875b0155a770c7664a43d12efa700d8720989717ec4",
+    "transport": "Rendered deterministically to a one-page PDF in memory; no remote URL or blob upload"
+  },
+  "api_contract_sources": [
+    "https://learn.microsoft.com/en-us/azure/search/agentic-retrieval-how-to-create-knowledge-base",
+    "https://learn.microsoft.com/en-us/azure/search/agentic-knowledge-source-how-to-search-index",
+    "https://learn.microsoft.com/en-us/azure/search/agentic-retrieval-how-to-retrieve",
+    "https://learn.microsoft.com/en-us/rest/api/searchservice/knowledge-retrieval/retrieve?view=rest-searchservice-2026-04-01",
+    "https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api",
+    "https://learn.microsoft.com/en-us/rest/api/contentunderstanding/content-analyzers/analyze?view=rest-contentunderstanding-2025-11-01"
+  ]
+}

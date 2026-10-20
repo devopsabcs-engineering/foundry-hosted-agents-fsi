@@ -158,7 +158,7 @@ jobs:
         id: bicep-build
         run: |
           set -euo pipefail
-          for FILE in infra/main.bicep infra/modules/*.bicep; do
+          for FILE in infra/*.bicep infra/modules/*.bicep; do
             echo "::group::az bicep build $FILE"
             az bicep build --file "$FILE"
             echo "::endgroup::"
@@ -172,7 +172,7 @@ jobs:
             echo ''
             echo 'Templates compiled with `az bicep build` (compile-only; no login, no apply):'
             echo ''
-            for FILE in infra/main.bicep infra/modules/*.bicep; do
+            for FILE in infra/*.bicep infra/modules/*.bicep; do
               echo "- \`$FILE\`"
             done
             echo ''

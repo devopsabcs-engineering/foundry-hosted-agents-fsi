@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import json
 import time
 from types import SimpleNamespace
 
@@ -83,6 +85,26 @@ def test_forged_signature_denied(auth_fixture):
     with pytest.raises(HTTPException) as failure:
         auth.verify(jwt.encode(claims, other_key, algorithm="RS256"))
     assert failure.value.status_code == 401
+
+
+def test_deep_unverified_payload_fails_closed(auth_fixture, monkeypatch):
+    auth, key, _ = auth_fixture
+    public_jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+    public_jwk["kid"] = "synthetic"
+    auth.keys = jwt.PyJWKClient(f"https://login.microsoftonline.com/{auth.tenant_id}/discovery/v2.0/keys")
+    monkeypatch.setattr(auth.keys, "fetch_data", lambda: {"keys": [public_jwk]})
+    header = base64.urlsafe_b64encode(b'{"alg":"RS256","kid":"synthetic"}').rstrip(b"=")
+    payload = base64.urlsafe_b64encode(
+        b'{"nested":' + b"[" * 1200 + b"0" + b"]" * 1200 + b"}"
+    ).rstrip(b"=")
+    token = (header + b"." + payload + b".aW52YWxpZA").decode("ascii")
+    assert len(token) < 32768
+
+    with pytest.raises(HTTPException) as failure:
+        auth.verify(token)
+
+    assert failure.value.status_code == 401
+    assert failure.value.detail["code"] == "INVALID_TOKEN"
 
 
 def test_authorize_missing_header_localizes_to_french(auth_fixture):

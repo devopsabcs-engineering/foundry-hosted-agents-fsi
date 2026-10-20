@@ -78,6 +78,9 @@ def test_capture_preserves_successful_bilingual_response(capture_payload):
 
     assert captured[0]["response"] == "Submitted for employee review."
     assert captured[0]["output_items"][0]["content"][0]["text"] == captured[0]["response"]
+    assert len(captured[0]["capture_lineage"]["requested_trace_id"]) == 32
+    assert not captured[0]["capture_lineage"]["trace_verified"]
+    assert captured[0]["capture_lineage"]["response_id"] is None
 
 
 def test_main_does_not_produce_evaluation_evidence_after_capture_failure(

@@ -68,6 +68,14 @@ content is published as a browsable site at
 
 ## Try the web chatbot
 
+For the session-2 customer demonstration, use the
+[native Foundry showcase runbook](docs/native-showcase.md)
+([French](docs/fr/native-showcase.md)). It separates restored deployment
+evidence from verified native File Search RAG and operator skill consumption,
+and from the remaining memory, Foundry IQ, telemetry and release gates.
+Native grounding judges missed a known negative control; the runbook records
+that limitation rather than claiming a quality pass. Keep both environments deployed.
+
 The chat UI in `apps/web-chat/` is deployed out of band to production (see
 [Deployment links](#deployment-links) for the current URL). To run it
 locally instead, against the real deployed agent:
@@ -203,6 +211,8 @@ Check that record before using historical wiki links for a customer demo.
    CI must authenticate both Azure CLI and `azd` with GitHub OIDC:
    Foundry extensions require the native `azd` login even when
    `auth.useAzCliAuth` is enabled.
+   The workflow refreshes native `azd` OIDC authentication immediately before
+   each agent deployment, after potentially long infrastructure provisioning.
 6. The workflow invokes a synthetic case after each agent deployment,
    materializing the runtime identity on its first token request. It
    verifies the exact runtime principal in Cosmos authorization errors,

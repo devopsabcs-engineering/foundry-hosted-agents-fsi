@@ -73,6 +73,15 @@ sous forme de site navigable à l'adresse
 
 ## Essayer l'interface de clavardage
 
+Pour la démonstration client de la séance 2, consultez le
+[guide des fonctions natives Foundry](docs/fr/native-showcase.md)
+([anglais](docs/native-showcase.md)). Il distingue les preuves du
+déploiement restauré du RAG File Search natif et de la compétence opérateur
+réellement exécutés, puis des étapes restantes : mémoire, Foundry IQ,
+télémétrie et approbation de livraison. Les juges natifs ont manqué un contrôle
+négatif connu; cette limite est documentée, sans faux succès de qualité.
+Conservez les deux environnements déployés.
+
 L'interface dans [apps/web-chat/](apps/web-chat/) est déployée séparément en
 production (consultez les [liens de déploiement](#liens-de-déploiement)
 pour l'URL actuelle). Pour l'exécuter localement en utilisant l'agent
@@ -226,6 +235,8 @@ démonstration client.
    Le flux CI doit authentifier Azure CLI et `azd` avec GitHub OIDC :
    les extensions Foundry exigent une connexion native `azd` même lorsque
    `auth.useAzCliAuth` est activé.
+   Le flux renouvelle l'authentification OIDC native de `azd` juste avant
+   chaque déploiement d'agent, après le provisionnement potentiellement long.
 6. Après chaque déploiement, le flux invoque un cas synthétique : la première
    demande de jeton matérialise l'identité de l'agent. Il vérifie le principal
    exact dans les erreurs d'autorisation Cosmos, applique au besoin

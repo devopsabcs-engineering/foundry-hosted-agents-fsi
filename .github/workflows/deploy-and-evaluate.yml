@@ -314,8 +314,13 @@ jobs:
       - name: Deploy candidate to staging
         id: deploy
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd deploy --no-prompt
           PROJECT_ENDPOINT=$(azd env get-values --output json | jq -er '.FOUNDRY_PROJECT_ENDPOINT')
           echo "project_endpoint=$PROJECT_ENDPOINT" >> "$GITHUB_OUTPUT"
@@ -651,8 +656,13 @@ jobs:
       - name: Deploy evaluated source to production
         id: deploy
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd deploy --no-prompt
           azd ai agent show "$AGENT_NAME" --output json > /tmp/prod-agent-show.json
           AGENT_VERSION=$(jq -er '.version | select(type == "string" and test("^[0-9]+$"))' /tmp/prod-agent-show.json)
