@@ -17,9 +17,9 @@ Staging et production rétablissent le mode natif avant de renouveler le jeton.
 
 ## Conserver la démo restaurée
 
-L'agent actuellement vérifié utilise la version 3 en staging et la version 4
-en production. La [livraison 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
-a déployé le code approuvé `25f3e54`, avec des digests de chat et de reviewer
+L'agent actuellement vérifié utilise la version 4 en staging et la version 5
+en production. La [livraison 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
+a déployé le code approuvé `b0778c7`, avec des digests de chat et de reviewer
 identiques entre les environnements, vérifiés indépendamment.
 La [livraison 39293980605, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 avait restauré la référence v2/v3. Les deux environnements restent
@@ -38,7 +38,7 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | --- | --- | --- |
 | Agents hébergés | Projet Foundry, version, identité managée et Responses | Staging et production restaurés et vérifiés |
 | Fichiers | API Files native, `user_data`, texte synthétique | Téléversement vérifié ; génération à partir de texte, Markdown ou PDF, pas d'un nom JSON |
-| Données synthétiques | Job natif, UUID d'opération, statut et téléchargement | Job réussi et 8 exemples natifs téléchargés, maximum demandé de 15 ; aucun substitut local |
+| Données synthétiques | Job natif, UUID d'opération, statut et téléchargement | Deux jobs rétablis réussis, 6 et 5 lignes téléchargées, maximum demandé de 15 par job ; aucun substitut local |
 | Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Modèles de conversation et d'embedding compatibles requis ; staging n'a actuellement que son modèle de conversation |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
@@ -48,7 +48,7 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
 | Contrôles d'ancrage | `builtin.groundedness` v18 et `builtin.groundedness_pro` v8 | Les deux ont manqué une réponse française erronée connue ; contrôle négatif échoué, sans gain affirmé |
 | Red team | Taxonomie native puis évaluation ciblant un agent | Taxonomie créée pour staging v2 ; révision exacte avant toute attaque |
-| Traces | Étapes déterministes, requête Log Analytics et jeu de rejeu | Instrumentation locale avant déploiement approuvé ; identifiants demandés non vérifiés |
+| Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Ingestion racine vérifiée ; champs d'étapes et rejeu non vérifiés ; identifiants demandés non vérifiés |
 | État métier | Cosmos DB et approbation réservée à l'employé | Distinct de la mémoire ; l'agent n'approuve jamais |
 
 Les applications Web et les MCP en lecture seule s'exécutent dans Azure

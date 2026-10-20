@@ -9,11 +9,11 @@ description: Recorded native generation recovery, running demo versions and auth
 ## Release status
 
 Evidence collected on 2026-10-20 UTC. Both environments remain deployed.
-[Release 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
+[Release 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
 successfully deployed approved runtime source
-`25f3e54037a4063fa5bba1781af8e5b4b20ce1c8` through staging and production.
+`b0778c7d33460591dfe4056403b8c6674ed57e4b` through staging and production.
 Direct SDK queries against the two explicit project endpoints confirm
-`quote-preparation-agent:3` in staging and `quote-preparation-agent:4` in
+`quote-preparation-agent:4` in staging and `quote-preparation-agent:5` in
 production. Production passed its existing required-reviewer gate; no
 protection setting was changed. Subsequent evidence-only documentation
 commits do not represent another runtime deployment.
@@ -22,15 +22,17 @@ commits do not represent another runtime deployment.
 | --- | --- | --- |
 | Staging chat | `sha256:f036a1622e77ee1920a7d7530a9c0e67bf35d789c68c2c6d9a027acb0f95fc34` | `foundry-quote-chat-staging--0000002` |
 | Production chat | Same chat digest | `foundry-quote-chat--0000001` |
-| Staging reviewer | `sha256:3fc629e2ddc44604a23fa3f08603cea0dcf1a6aa3177c9e47dd40ec51dc8e132` | `foundry-quote-reviewer-staging--0000004` |
-| Production reviewer | Same reviewer digest | `foundry-quote-reviewer--0000001` |
+| Staging reviewer | `sha256:ed04abc06ce750d61bd04e2a5a8b8f451458c15abfd28b870b4de598ce15f630` | `foundry-quote-reviewer-staging--0000005` |
+| Production reviewer | Same reviewer digest | `foundry-quote-reviewer--0000002` |
 
 The application MCP digest is
-`sha256:019360cb0c87d69328ef0e0b7595130d4f706d00462a0040db3a5e1be19c8fac`;
+`sha256:a8235a2e88a707e3ff9f39811d23ea067076d23900aa36e4e705325ceb324265`;
 the rulebook MCP digest is
-`sha256:5ff4d4f5693944d2ae36b232eccf89664717aea83b8c3045f2dc7ee3bacaa0de`.
+`sha256:2f917c4379c776514caecdc4a00089f6e3512dcd0b07b77b248a649a41e67aae`.
 Each production MCP image matches its staging-tested digest. Both MCP services
 report their latest revision ready in each environment.
+Chat remains on its previously verified digest; this release rebuilt the
+reviewer/MCP images and deployed the agent's streaming fix, not the chat image.
 
 The workflow passed offline tests, Bicep validation/what-if, staging deployment,
 the deterministic release gate and production deployment, including each
@@ -64,15 +66,16 @@ separately from the successful agent-side Cosmos readiness checks.
 
 The deterministic evaluation artifact passed all 13 records. The separate
 advisory LLM judge completed as
-`evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` with 0/10 passing items and no
+`evalrun_350161dee4644d13addfac89320ee336` with 0/10 passing items and no
 service errors. Its coherence, groundedness and task-adherence results failed
 their criteria. The workflow deliberately treats this judge as advisory;
 release success must not be presented as a passing semantic-quality judge.
 
-### Successful release screenshot
+### Previous successful release screenshot
 
 Captured from the actual GitHub Actions release summary at
-`2026-10-20T02:46Z`, not a locally rendered mockup.
+`2026-10-20T02:46Z`, not a locally rendered mockup. This is the previous
+39356610865 release, not the replacement 39411002808 release linked above.
 
 ![Successful staging-to-production release for approved source 25f3e54](assets/evidence/release-39356610865.png)
 
@@ -161,24 +164,80 @@ details. It proves the observed agent/version/status, not a successful chat.
 
 ![Authenticated staging Foundry agent header with version 3 and running indicator](assets/evidence/foundry-staging-agent-v3.png)
 
-The real `CASE-SYN-001` playground request finished, but its assistant message
-displayed no text. This is not a passing portal conversation. Protocol tests
+The earlier v3 `CASE-SYN-001` playground request finished, but its assistant
+message displayed no text. That was not a passing portal conversation. Protocol tests
 confirmed that the previous stream lacked native text events and used an object
-where output text must be a string. The prepared fix sends the final bilingual
+where output text must be a string. The fix sends the final bilingual
 map as JSON text, with ordered content/text/completion events; it never streams
 intermediate workflow state. Non-streaming responses retain their existing map.
-Local serialized-event and real-graph regression tests pass, but a corrected
-runtime still requires release approval and an authenticated portal retest.
-The independently verified deployed API results above remain separate evidence.
+Serialized-event and real-graph regression tests pass. Following human approval,
+release 39411002808 deployed the corrected runtime to staging as version 4.
+The authenticated playground rendered the complete bounded English/French
+response for `CASE-SYN-001`, independently of the direct API tests.
 
-Production home also listed version 4 during authenticated navigation, but no
-production agent screenshot was saved. Subsequent navigation failed with browser
-`ERR_NETWORK_IO_SUSPENDED` errors and the original shared tabs became unavailable.
-A fresh tab reached the login route with an IndexedDB object-store error; this
-does not negate the earlier successful human authentication.
-Generation, indexed files, skill, evaluation and trace screenshots remain
-outstanding. The explicit follow-up is
-[#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
+Captured at `2026-10-20T11:07:34Z` from the actual staging playground.
+Presentation-only zoom and code wrapping make the response readable; the crop
+excludes the account banner and empty margins. No response values were changed.
+
+![Staging Foundry version 4 renders the complete bilingual response](assets/evidence/foundry-staging-playground-v4.png)
+
+### Authenticated production playground
+
+The same approved artifact was promoted through the existing production gate.
+The actual production v5 playground also rendered the complete bilingual
+`CASE-SYN-001` response. Captured at `2026-10-20T11:17:36Z`, using the same
+presentation-only wrapping and account-banner crop as staging.
+The SDK-provided version-5 playground link resolved the initially stale v4
+portal view; no agent configuration or authentication setting was changed.
+
+![Production Foundry version 5 renders the complete bilingual response](assets/evidence/foundry-production-playground-v5.png)
+
+### Recovered generation jobs in the portal
+
+Captured at `2026-10-20T10:56:21Z` from staging Data generation.
+Both recovered-v3 jobs show Succeeded, with 6 and 5 output rows. Historical
+failed operations remain visible; they were not relabeled or deleted.
+
+![Actual Foundry generation list with successful replacements and historical failures](assets/evidence/foundry-generation-portal.png)
+
+### Six indexed source files
+
+Captured at `2026-10-20T10:55:59Z` from Knowledge, Indexes,
+`showcase-synthetic-native-knowledge:1`. The native File Search vector store
+and all six English/French source files show completed status.
+This is not a Foundry IQ connection or a hosted quote-agent attachment.
+
+![Actual File Search index contains six completed bilingual source files](assets/evidence/foundry-index-portal.png)
+
+### Project-authored runtime skill
+
+Captured at `2026-10-20T10:57:03Z` from Tools, Skills Preview.
+`showcase-synthetic-bilingual-brief` is version 1. It is project-authored,
+not a Microsoft built-in skill. Separate operator-runtime evidence establishes
+consumption; this list alone establishes registration.
+
+![Actual native project skill registration at version 1](assets/evidence/foundry-skill-portal.png)
+
+### Honest evaluation results
+
+Captured at `2026-10-20T11:01:43Z` from historical run
+`evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` against staging v3.
+The portal shows coherence 0/10, groundedness 1/10 and task adherence 1/10.
+Individual metric passes do not change the overall 0/10 passing-item result.
+The Run details panel is collapsed to exclude creator identity.
+This capture is not the replacement release's evaluation.
+
+![Actual historical advisory evaluation shows failed criteria, not a quality pass](assets/evidence/foundry-evaluation-portal.png)
+
+### Native trace list
+
+Captured at `2026-10-20T10:58:50Z` from staging agent Traces.
+The actual v3 root invocations show Completed. The blank-response playground
+request also completed, illustrating why a completed root span alone does not
+prove useful output. Token counts are zero and costs are unavailable.
+No stage-level visibility or replay success is inferred from this list.
+
+![Actual Foundry root trace list with completed invocations](assets/evidence/foundry-traces-portal.png)
 
 ## Native quality boundaries
 

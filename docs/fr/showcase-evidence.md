@@ -9,11 +9,11 @@ description: Reprise des générations natives, versions réellement exécutées
 ## État du déploiement
 
 Preuves recueillies le 2026-10-20 UTC. Les deux environnements restent déployés.
-La [livraison 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
+La [livraison 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
 a déployé le code approuvé
-`25f3e54037a4063fa5bba1781af8e5b4b20ce1c8` en staging puis en production.
+`b0778c7d33460591dfe4056403b8c6674ed57e4b` en staging puis en production.
 Les requêtes SDK adressées aux deux projets distincts confirment
-`quote-preparation-agent:3` en staging et `quote-preparation-agent:4` en
+`quote-preparation-agent:4` en staging et `quote-preparation-agent:5` en
 production. Le contrôle d'approbation GitHub existant a été respecté, sans
 modifier sa protection. Les commits ultérieurs de documentation ne constituent
 pas un nouveau déploiement du runtime.
@@ -22,15 +22,17 @@ pas un nouveau déploiement du runtime.
 | --- | --- | --- |
 | Chat staging | `sha256:f036a1622e77ee1920a7d7530a9c0e67bf35d789c68c2c6d9a027acb0f95fc34` | `foundry-quote-chat-staging--0000002` |
 | Chat production | Même digest de chat | `foundry-quote-chat--0000001` |
-| Reviewer staging | `sha256:3fc629e2ddc44604a23fa3f08603cea0dcf1a6aa3177c9e47dd40ec51dc8e132` | `foundry-quote-reviewer-staging--0000004` |
-| Reviewer production | Même digest de reviewer | `foundry-quote-reviewer--0000001` |
+| Reviewer staging | `sha256:ed04abc06ce750d61bd04e2a5a8b8f451458c15abfd28b870b4de598ce15f630` | `foundry-quote-reviewer-staging--0000005` |
+| Reviewer production | Même digest de reviewer | `foundry-quote-reviewer--0000002` |
 
 Le MCP application utilise
-`sha256:019360cb0c87d69328ef0e0b7595130d4f706d00462a0040db3a5e1be19c8fac`;
+`sha256:a8235a2e88a707e3ff9f39811d23ea067076d23900aa36e4e705325ceb324265`;
 le MCP rulebook utilise
-`sha256:5ff4d4f5693944d2ae36b232eccf89664717aea83b8c3045f2dc7ee3bacaa0de`.
+`sha256:2f917c4379c776514caecdc4a00089f6e3512dcd0b07b77b248a649a41e67aae`.
 Chaque image MCP de production correspond au digest testé en staging.
 Les deux services déclarent leur dernière révision prête dans chaque environnement.
+Le chat conserve son digest vérifié antérieur. Cette livraison reconstruit
+reviewer/MCP et corrige le streaming de l'agent, sans nouvelle image de chat.
 
 Le workflow a réussi les tests hors ligne, la validation Bicep/what-if, le
 déploiement staging, le contrôle déterministe et le déploiement production,
@@ -66,16 +68,17 @@ La lecture ultérieure par le reviewer production authentifié, à
 distinctement des contrôles Cosmos réussis par les agents déployés.
 
 L'évaluation déterministe a réussi ses 13 cas. Le juge LLM consultatif
-`evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` a terminé sans erreur de service,
+`evalrun_350161dee4644d13addfac89320ee336` a terminé sans erreur de service,
 mais avec 0/10 cas réussis. Ses critères de cohérence, groundedness et
 task-adherence ont échoué. Le workflow le traite explicitement comme
 consultatif : la réussite du déploiement ne signifie pas que ce juge de
 qualité sémantique a réussi.
 
-### Capture du déploiement réussi
+### Capture de la livraison réussie précédente
 
 Capture du résumé GitHub Actions réel à `2026-10-20T02:46Z`,
-et non d'une maquette locale.
+et non d'une maquette locale. Il s'agit de l'ancienne livraison 39356610865,
+pas de son remplacement 39411002808 lié ci-dessus.
 
 ![Livraison staging puis production réussie pour le code approuvé 25f3e54](../assets/evidence/release-39356610865.png)
 
@@ -162,26 +165,81 @@ Elle prouve l'agent, sa version et son état observés, pas une conversation ré
 
 ![En-tête Foundry authentifié de l'agent staging, version 3, avec indicateur d'exécution](../assets/evidence/foundry-staging-agent-v3.png)
 
-La requête réelle `CASE-SYN-001` du playground s'est terminée, mais le message
-assistant n'affichait aucun texte. Ce n'est pas un test de conversation réussi.
+L'ancienne requête réelle `CASE-SYN-001` du playground v3 s'est terminée, mais
+le message assistant n'affichait aucun texte. Ce n'était pas un test réussi.
 Les tests de protocole ont confirmé l'absence d'événements de texte natifs et
 l'utilisation d'un objet là où le texte doit être une chaîne. Le correctif
-préparé transmet le message bilingue final en texte JSON, avec les événements de
+transmet le message bilingue final en texte JSON, avec les événements de
 contenu, texte et fin ordonnés, sans état intermédiaire du workflow. La réponse
 sans streaming conserve son objet bilingue existant. Les tests locaux des
-événements sérialisés et du graphe réel passent; le runtime corrigé exige encore
-l'approbation de publication et un nouveau test du portail authentifié. Les
-résultats API déployés vérifiés ci-dessus restent des preuves distinctes.
+événements sérialisés et du graphe réel passent. Après approbation humaine,
+la livraison 39411002808 a déployé le correctif en staging, version 4.
+Le playground authentifié a affiché la réponse bornée complète en anglais et
+en français pour `CASE-SYN-001`, indépendamment des tests API.
 
-L'accueil production affichait aussi la version 4 pendant la navigation
-authentifiée, mais aucune capture de l'agent production n'a été enregistrée.
-La navigation suivante a échoué avec `ERR_NETWORK_IO_SUSPENDED`, puis les onglets
-partagés sont devenus indisponibles. Un nouvel onglet a atteint la page de
-connexion avec une erreur de magasin IndexedDB; cela n'annule pas la connexion
-humaine réussie auparavant.
-Les captures des générations, fichiers indexés, skill, évaluations et traces
-restent à obtenir. Le suivi explicite est
-[#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
+Capture réelle du playground staging à `2026-10-20T11:07:34Z`.
+Seuls le zoom, le retour à la ligne du code et le cadrage ont été adaptés
+pour la lisibilité et pour exclure le bandeau du compte. Aucune valeur modifiée.
+
+![Foundry staging version 4 affiche la réponse bilingue complète](../assets/evidence/foundry-staging-playground-v4.png)
+
+### Playground production authentifié
+
+Le même artefact approuvé a franchi le contrôle production existant.
+Le playground réel v5 a aussi affiché la réponse bilingue complète
+`CASE-SYN-001`. Capture à `2026-10-20T11:17:36Z`, avec les mêmes adaptations
+de lisibilité et le même cadrage excluant le compte qu'en staging.
+Le lien v5 fourni par le SDK a remplacé la vue v4 initialement périmée du
+portail, sans modifier la configuration de l'agent ni l'authentification.
+
+![Foundry production version 5 affiche la réponse bilingue complète](../assets/evidence/foundry-production-playground-v5.png)
+
+### Générations rétablies dans le portail
+
+Capture staging Data generation à `2026-10-20T10:56:21Z`.
+Les deux jobs recovered-v3 affichent Succeeded, avec 6 et 5 lignes.
+Les échecs historiques restent visibles, sans suppression ni changement d'état.
+
+![Liste réelle des générations réussies et des échecs historiques](../assets/evidence/foundry-generation-portal.png)
+
+### Six fichiers sources indexés
+
+Capture Knowledge, Indexes, `showcase-synthetic-native-knowledge:1`,
+à `2026-10-20T10:55:59Z`. Le vector store File Search natif et les six
+fichiers français/anglais affichent l'état completed. Il ne s'agit ni de
+Foundry IQ ni d'un outil attaché à l'agent de soumission hébergé.
+
+![Index File Search réel avec six sources bilingues terminées](../assets/evidence/foundry-index-portal.png)
+
+### Skill natif créé par le projet
+
+Capture Tools, Skills Preview, à `2026-10-20T10:57:03Z`.
+`showcase-synthetic-bilingual-brief` est en version 1. Ce skill est créé par le
+projet, pas intégré par Microsoft. Les preuves distinctes du runtime opérateur
+établissent sa consommation; cette liste prouve seulement son enregistrement.
+
+![Enregistrement réel du skill natif version 1](../assets/evidence/foundry-skill-portal.png)
+
+### Résultats d'évaluation sans embellissement
+
+Capture à `2026-10-20T11:01:43Z` du run historique
+`evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` ciblant staging v3.
+Le portail affiche coherence 0/10, groundedness 1/10 et task adherence 1/10.
+Les réussites ponctuelles de métriques ne changent pas le résultat global :
+0/10 cas réussis. Le panneau Run details est replié pour exclure l'identité
+du créateur. Il ne s'agit pas de l'évaluation de la nouvelle livraison.
+
+![Évaluation consultative historique réelle avec critères échoués](../assets/evidence/foundry-evaluation-portal.png)
+
+### Liste native des traces
+
+Capture des Traces de l'agent staging à `2026-10-20T10:58:50Z`.
+Les invocations racines réelles de v3 affichent Completed. La requête du
+playground ayant produit un message vide est aussi terminée : un span terminé
+ne suffit pas à prouver une réponse utile. Les jetons sont à zéro et les coûts
+indisponibles. Cela ne prouve ni les étapes détaillées ni un rejeu réussi.
+
+![Liste réelle des invocations racines terminées dans Foundry](../assets/evidence/foundry-traces-portal.png)
 
 ## Limites de qualité natives
 

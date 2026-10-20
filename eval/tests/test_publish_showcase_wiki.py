@@ -52,6 +52,16 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
     assert "](assets/evidence/release-39356610865.png)" in rendered
     assert "](assets/evidence/foundry-staging-agent-v3.png)" in rendered
     assert f"](assets/evidence/production-reviewer-persistence-{language}.png)" in rendered
+    for name in (
+        "foundry-generation-portal.png",
+        "foundry-index-portal.png",
+        "foundry-skill-portal.png",
+        "foundry-evaluation-portal.png",
+        "foundry-traces-portal.png",
+        "foundry-staging-playground-v4.png",
+        "foundry-production-playground-v5.png",
+    ):
+        assert f"](assets/evidence/{name})" in rendered
     peer = "Native-Foundry-Evidence-FR" if source == "docs/showcase-evidence.md" else "Native-Foundry-Evidence"
     assert f"]({peer})" in rendered
 
