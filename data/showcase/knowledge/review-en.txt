@@ -1,0 +1,7 @@
+SYNTHETIC TRAINING ONLY | FSI-REVIEW-EN | version 1
+Employee review and document evidence
+
+Before submission, repeat the applicant's non-sensitive preparation facts and identify unanswered questions. Acknowledge uncertainty. Preserve the distinction between a draft, pending employee review, and an employee-approved preparation.
+Every new preparation must go to employee review. An assistant must never approve its own case, simulate an employee identity, bypass authorization, or claim that an extraction confidence score is a coverage decision. The authorized employee checks completeness, consistency, source relevance, and required consent, then records a review decision in the existing case system.
+A synthetic repair invoice may demonstrate native document extraction: invoice number, date, supplier, line descriptions, and total. The displayed total is a document observation, not an insurance premium or an approved reimbursement. Retain the service-returned source coordinates, text spans, and confidence so the employee can inspect the evidence.
+If a document is unreadable, an analyzer is unavailable, extraction fails, or fields conflict, report the failure and refer to an employee. Never substitute invented fields or silently feed an invoice total into pricing or case approval.

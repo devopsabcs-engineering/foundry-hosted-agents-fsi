@@ -1,0 +1,15 @@
+SYNTHETIC TRAINING ONLY - NOT A REAL INVOICE
+INVOICE
+Supplier: Workshop Fictional Auto Repair
+Customer: Workshop Training Organization
+Invoice number: SYN-REPAIR-001
+Invoice date: 2026-10-19
+Currency: CAD
+Description: Classroom demonstration of windshield inspection
+Quantity: 1
+Unit price: 100.00
+Subtotal: 100.00
+Tax: 0.00
+Invoice total: CAD 100.00
+This generated example is not a premium, claim, or reimbursement.
+Employee review is required. Never send extracted values to pricing.

@@ -6,10 +6,9 @@
 // Adapted from the sibling foundry-hosted-agents repository's
 // scripts/build-workshop-deck.js: same generation library (PptxGenJS) and
 // the same bilingual mechanism (one script, one language parameter per
-// deck). Slide content is limited to a title/objectives-per-lab summary,
-// scoped to this project's ten quote-preparation labs; it does not carry
-// forward the sibling's release-evidence slides, since this workshop
-// never deploys to Azure (see docs/labs/lab-09-teardown.md).
+// deck). The local curriculum is followed by the retained Azure demo and
+// native-first session-2 capabilities. Deployment and live-feature evidence
+// remain distinct from authored examples.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import PptxGenJS from 'pptxgenjs';
@@ -234,19 +233,114 @@ const LAB_SLIDES = [
   },
   {
     kicker: { en: 'Lab 09', fr: 'Atelier 09' },
-    title: { en: 'Teardown', fr: 'Démantèlement' },
+    title: { en: 'Local Cleanup, Retained Azure Demo', fr: 'Nettoyage local, démo Azure conservée' },
     bullets: {
       en: [
         'Stop any MCP server process started in Labs 04-05',
         'Remove any on-disk approval-repository state you created',
-        'Confirm this workshop provisioned no Azure resources',
-        'Confirm there is nothing to azd down or delete in a subscription',
+        'The local curriculum does not itself provision Azure resources',
+        'Keep the restored staging and production demo deployed; do not run azd down',
       ],
       fr: [
         'Arrêter tout processus de serveur MCP démarré aux ateliers 04-05',
         'Retirer tout état sur disque créé pour le dépôt d\u2019approbation',
-        'Confirmer que cet atelier n\u2019a provisionné aucune ressource Azure',
-        'Confirmer qu\u2019il n\u2019y a rien à supprimer via azd down ou dans un abonnement',
+        'Le parcours local ne provisionne pas lui-même de ressources Azure',
+        'Conserver la démo restaurée en staging et production ; ne pas lancer azd down',
+      ],
+    },
+  },
+];
+
+const SHOWCASE_SLIDES = [
+  {
+    kicker: { en: 'Session 2 / Native first', fr: 'Séance 2 / Natif en premier' },
+    title: { en: 'What Lives in Foundry?', fr: 'Que trouve-t-on dans Foundry ?' },
+    bullets: {
+      en: [
+        'Foundry: project, hosted agent identity/version, toolboxes, evaluations and native APIs',
+        'Azure Container Apps: chat, reviewer and read-only MCP services remain external to the project',
+        'Cosmos DB: auditable business approval state, not a substitute for native memory',
+        'Keep the restored demo running; evaluate additions separately before release',
+      ],
+      fr: [
+        'Foundry : projet, identité/version de l’agent, toolboxes, évaluations et API natives',
+        'Azure Container Apps : clavardage, révision et MCP restent externes au projet',
+        'Cosmos DB : état métier auditable des approbations, distinct de la mémoire native',
+        'Conserver la démo restaurée ; évaluer les ajouts séparément avant publication',
+      ],
+    },
+  },
+  {
+    kicker: { en: 'Session 2 / Knowledge and services', fr: 'Séance 2 / Connaissances et services' },
+    title: { en: 'Ground the Answer in Real Sources', fr: 'Ancrer la réponse dans les sources' },
+    bullets: {
+      en: [
+        'Native File Search verified: 6 versioned sources, 6 cited EN/FR answers and 2 refusals',
+        'Managed retrieval needs neither a new Search service nor an embedding deployment',
+        'Native Document Intelligence verified: 8 grounded invoice fields, without new model deployment',
+        'Foundry IQ/Search integration is separate; no hosted-agent knowledge attachment is claimed',
+      ],
+      fr: [
+        'File Search natif vérifié : 6 sources versionnées, 6 réponses EN/FR citées et 2 refus',
+        'La récupération gérée ne demande ni nouveau Search ni déploiement d’embedding',
+        'Document Intelligence natif vérifié : 8 champs de facture ancrés, sans nouveau modèle',
+        'Foundry IQ/Search reste distinct ; aucune connexion à l’agent hébergé n’est affirmée',
+      ],
+    },
+  },
+  {
+    kicker: { en: 'Session 2 / Memory and skills', fr: 'Séance 2 / Mémoire et compétences' },
+    title: { en: 'Reuse Without Overclaiming Isolation', fr: 'Réutiliser sans surestimer l’isolation' },
+    bullets: {
+      en: [
+        'Inspect actual stored synthetic memory and prove negative cross-scope lookup',
+        'A memory scope partitions data; it does not authorize the caller',
+        'Register a project-authored runtime skill; do not call it a Microsoft built-in',
+        'Verified: native skill v1 consumed by an isolated Responses runtime, not the hosted agent',
+      ],
+      fr: [
+        'Inspecter la mémoire synthétique réelle et tester l’absence dans un autre scope',
+        'Un scope partitionne les données ; il n’autorise pas l’appelant',
+        'Enregistrer une compétence de projet, sans la présenter comme intégrée par Microsoft',
+        'Vérifié : compétence native v1 consommée par Responses isolé, pas par l’agent hébergé',
+      ],
+    },
+  },
+  {
+    kicker: { en: 'Session 2 / Evaluate and investigate', fr: 'Séance 2 / Évaluer et investiguer' },
+    title: { en: 'Measured Native Evidence', fr: 'Des preuves natives mesurées' },
+    bullets: {
+      en: [
+        'Native generation succeeded: 8 examples downloaded; local fixtures are not a generation job',
+        'Built-in retrieval evaluator v15: relevant control 5/5, irrelevant control 1/5 in staging',
+        'Both native grounding judges missed a bad control; no quality pass or optimization claimed',
+        'Review the exact prohibited-actions taxonomy before a bounded native red-team run',
+        'Trace deterministic stages and policy hashes; never invent LLM tokens or model spans',
+      ],
+      fr: [
+        'Génération native réussie : 8 exemples téléchargés ; une donnée locale n’est pas un job natif',
+        'Évaluateur retrieval intégré v15 : contexte pertinent 5/5, non pertinent 1/5 en staging',
+        'Les deux juges d’ancrage ont manqué le contrôle erroné ; ni succès qualité ni gain affirmé',
+        'Réviser la taxonomie exacte avant un red team natif et borné',
+        'Tracer les étapes déterministes et le hachage ; ne pas inventer de jetons ou d’appels LLM',
+      ],
+    },
+  },
+  {
+    kicker: { en: 'Session 2 / Architecture decision', fr: 'Séance 2 / Décision d’architecture' },
+    title: { en: 'Compare Natively Before Adding Platforms', fr: 'Comparer nativement avant d’ajouter une plateforme' },
+    bullets: {
+      en: [
+        'Persist evaluator version, source revision, dataset hash, parameters and native run IDs',
+        'Foundry evaluations compare measured variants; they are not a renamed MLflow service',
+        'Azure ML offers MLflow tracking; do not imply a verified Foundry Experiments blade',
+        'Add Langfuse or Phoenix only for a documented unmet requirement and approved data boundary',
+      ],
+      fr: [
+        'Conserver version d’évaluateur, révision Git, hachage des données, paramètres et ID natifs',
+        'Les évaluations comparent des variantes ; ce n’est pas un service MLflow renommé',
+        'Azure ML offre MLflow ; aucun écran Experiments Foundry équivalent n’est confirmé',
+        'Ajouter Langfuse ou Phoenix seulement pour un écart mesuré et une frontière approuvée',
       ],
     },
   },
@@ -265,7 +359,7 @@ const TITLE_SLIDE = {
 
 const AGENDA_SLIDE = {
   kicker: { en: 'Agenda', fr: 'Programme' },
-  title: { en: 'Ten Labs, One Local Vertical Slice', fr: 'Dix ateliers, une tranche verticale locale' },
+  title: { en: 'Local Foundations, Hosted Demo, Native Showcase', fr: 'Bases locales, démo hébergée et fonctions natives' },
   bullets: {
     en: LAB_SLIDES.map((lab) => `${lab.kicker.en} \u2014 ${lab.title.en}`),
     fr: LAB_SLIDES.map((lab) => `${lab.kicker.fr} \u2014 ${lab.title.fr}`),
@@ -274,17 +368,17 @@ const AGENDA_SLIDE = {
 
 const CLOSING_SLIDE = {
   kicker: { en: 'Wrap-up', fr: 'Conclusion' },
-  title: { en: 'A Local, Synthetic Vertical Slice', fr: 'Une tranche verticale locale et synthétique' },
+  title: { en: 'A Retained, Synthetic Customer Demo', fr: 'Une démo client synthétique conservée' },
   bullets: {
     en: [
       'Every fixture, rulebook, and calculator output is synthetic and non-binding',
-      'The calculator, approval repository, MCP servers, and agent all run locally; no Azure deployment exists yet',
+      'Staging and production are restored; enhancements require separate measured live acceptance',
       'A human reviewer, never the agent, decides whether a draft can reach the applicant',
       'Full bilingual step-by-step labs: this deck\u2019s companion GitHub Pages site',
     ],
     fr: [
       'Chaque donnée, règle et résultat de calcul est synthétique et non contraignant',
-      'Le calculateur, le dépôt d\u2019approbation, les serveurs MCP et l\u2019agent s\u2019exécutent tous localement ; aucun déploiement Azure n\u2019existe encore',
+      'Staging et production sont restaurés ; les ajouts nécessitent des preuves réelles distinctes',
       'Une personne réviseure humaine, jamais l\u2019agent, décide si une ébauche peut atteindre le demandeur',
       'Ateliers complets, bilingues, pas à pas : le site GitHub Pages compagnon de ce deck',
     ],
@@ -315,7 +409,7 @@ function buildDeck(lang) {
   bullets(agendaSlide, AGENDA_SLIDE.bullets[lang]);
   footer(agendaSlide, lang === 'en' ? 'Desjardins Bilingual Hosted Agents Workshop' : 'Atelier bilingue Desjardins sur les agents hébergés');
 
-  for (const lab of LAB_SLIDES) {
+  for (const lab of [...LAB_SLIDES, ...SHOWCASE_SLIDES]) {
     const slide = newSlide(pptx);
     header(slide, { kicker: lab.kicker[lang], title: lab.title[lang] });
     bullets(slide, lab.bullets[lang]);

@@ -32,6 +32,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 EVAL_DIR = Path(__file__).resolve().parent
@@ -149,6 +150,8 @@ def capture(records: list[dict], args) -> list[dict]:
 
         captured = []
         for record in records:
+            requested_trace_id = uuid.uuid4().hex
+            parent_span_id = uuid.uuid4().hex[:16]
             body = json.dumps({"input": record["query"], "stream": False}).encode("utf-8")
             request = urllib.request.Request(
                 agent_endpoint,
@@ -156,23 +159,53 @@ def capture(records: list[dict], args) -> list[dict]:
                 method="POST",
                 headers={
                     "Content-Type": "application/json",
+                    "traceparent": f"00-{requested_trace_id}-{parent_span_id}-01",
                     "Authorization": f"Bearer {token.token}",
                 },
             )
             try:
                 with urllib.request.urlopen(request, timeout=120) as response:
+                    response_headers = dict(getattr(response, "headers", {}))
                     payload = json.loads(response.read().decode("utf-8"))
             except urllib.error.HTTPError as error:
                 raise RuntimeError(
                     f"Agent invocation failed for record {record.get('id')!r}: "
                     f"HTTP {error.code} {error.read().decode('utf-8', errors='replace')}"
                 ) from error
+            if not isinstance(payload, dict):
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    "expected a Responses object"
+                )
+            if payload.get("error") or payload.get("code") or payload.get("status") in {
+                "failed", "incomplete", "cancelled",
+            }:
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    f"{json.dumps(payload)}"
+                )
             output_items = payload.get("output", [])
+            response_text = _extract_response_text(output_items)
+            if not response_text.strip():
+                raise RuntimeError(
+                    f"Agent invocation failed for record {record.get('id')!r}: "
+                    "no assistant response text"
+                )
             captured.append(
                 {
                     **record,
-                    "response": _extract_response_text(output_items),
+                    "response": response_text,
                     "output_items": _normalize_output_items(output_items),
+                    "capture_lineage": {
+                        "response_id": payload.get("id"),
+                        "request_id": next(
+                            (value for key, value in response_headers.items()
+                             if key.lower() in {"apim-request-id", "x-request-id"}),
+                            None,
+                        ),
+                        "requested_trace_id": requested_trace_id,
+                        "trace_verified": False,
+                    },
                 }
             )
             print(f"Captured {record.get('id')!r}", flush=True)

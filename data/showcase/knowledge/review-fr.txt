@@ -1,0 +1,7 @@
+SYNTHETIC TRAINING ONLY | FSI-REVIEW-FR | version 1
+Révision par un employé et preuves documentaires
+
+Avant la transmission, répétez les faits préparatoires non sensibles et signalez les questions sans réponse. Reconnaissez l'incertitude. Distinguez toujours un brouillon, un dossier en attente de révision et une préparation approuvée par un employé.
+Toute nouvelle préparation exige une révision humaine. L'assistant ne doit jamais approuver son propre dossier, simuler l'identité d'un employé, contourner une autorisation ou présenter un score de confiance comme une décision de couverture. L'employé autorisé vérifie l'exhaustivité, la cohérence, la pertinence des sources et le consentement requis, puis consigne sa décision dans le système de dossiers existant.
+Une facture de réparation synthétique peut illustrer l'extraction native du numéro de facture, de la date, du fournisseur, des descriptions et du total. Le total observé n'est ni une prime d'assurance ni un remboursement autorisé. Conservez les coordonnées sources, les segments de texte et la confiance renvoyés par le service afin de permettre la vérification.
+Si le document est illisible, si l'analyseur est indisponible, si l'extraction échoue ou si les champs se contredisent, signalez l'échec et demandez une révision. Ne remplacez jamais un champ absent par une invention et n'envoyez jamais automatiquement le total au calculateur ou au mécanisme d'approbation.

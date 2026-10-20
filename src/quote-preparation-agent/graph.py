@@ -31,6 +31,7 @@ from langgraph.graph import END, START, StateGraph
 
 import toolbox
 from case_store import CaseStore, build_case_store
+from case_telemetry import trace_stage
 from state import (
     STAGE_COMPOSITION,
     STAGE_INTAKE,
@@ -181,6 +182,7 @@ def build_graph(
     repository = repository if repository is not None else build_case_store()
     model = model or default_model
 
+    @trace_stage(STAGE_INTAKE, AGENT_TASK_INSTRUCTIONS)
     def intake_node(state: QuotePreparationState) -> dict:
         """Validate/normalize the applicant-supplied case reference against
         the quote-contract's caseId pattern. Calls no MCP tool."""
@@ -197,6 +199,7 @@ def build_graph(
             result["issue_code"] = ISSUE_INVALID_CASE_ID
         return result
 
+    @trace_stage(STAGE_REFERENCE_LOOKUP, AGENT_TASK_INSTRUCTIONS)
     def reference_lookup_node(state: QuotePreparationState) -> dict:
         """Fetch the application input and the pinned rulebook via the
         Phase 4 MCP tool wrappers. Read-only; never writes anything."""
@@ -224,6 +227,7 @@ def build_graph(
             result["issue_code"] = issue_code
         return result
 
+    @trace_stage(STAGE_COMPOSITION, AGENT_TASK_INSTRUCTIONS)
     def composition_node(state: QuotePreparationState) -> dict:
         """Tool-free composer: run the calculator, create+submit a DRAFT
         case for human review, and assemble the bounded applicant message.

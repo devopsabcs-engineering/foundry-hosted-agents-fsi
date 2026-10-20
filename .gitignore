@@ -4,9 +4,13 @@ __pycache__/
 .venv/
 *.egg-info/
 .pytest_cache/
+node_modules/
 
 # Scratch directory the lab instructions use for the local SQLite case store.
 .local/
+
+# Resumable AI workflow state and research working papers.
+.copilot-tracking/
 
 # Local prep materials not meant for version control.
 assets/Hackathon - Rencontre prep des coachs.pdf

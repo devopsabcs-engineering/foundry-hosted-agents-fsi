@@ -170,6 +170,7 @@ jobs:
             exit 1
           fi
           python scripts/ci_results.py --evidence evidence --run source-run.json --jobs source-jobs.json --output ci-report --wiki wiki
+          python scripts/publish_showcase_wiki.py --wiki wiki --repository "$GITHUB_REPOSITORY"
           # Only refresh the wiki link table when this run actually carries links
           # captured with live azd context. Re-deriving them here would produce a
           # table missing every Azure destination and overwrite the last known

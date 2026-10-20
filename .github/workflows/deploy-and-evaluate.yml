@@ -179,7 +179,7 @@ jobs:
           RULEBOOK_MCP_IMAGE: ${{ vars.RULEBOOK_MCP_IMAGE }}
           REVIEWER_APP_IMAGE: ${{ vars.REVIEWER_APP_IMAGE }}
           REVIEWER_CLIENT_ID: ${{ vars.REVIEWER_CLIENT_ID }}
-          AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
+          AGENT_PRINCIPAL_ID: ''
         run: |
           set -euo pipefail
           # Every reviewer parameter below has a main.bicep default, so this list stays
@@ -236,8 +236,15 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # Foundry extensions use AzureDeveloperCLICredential, not Azure CLI's login.
       - name: Configure azd authentication
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
+          set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd config set auth.useAzCliAuth true
           azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
 
@@ -252,11 +259,10 @@ jobs:
           azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
           azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP }}"
           azd env set MCP_ACR_NAME "${{ vars.MCP_ACR_NAME }}"
-          # Both may legitimately be empty: main.bicep skips the reviewer module
-          # when reviewerClientId is empty and skips the agent's Cosmos grant
-          # when agentPrincipalId is empty. See the agent-identity step below.
+          # Grant the live runtime identity after deploy, never a cached identity
+          # from a previous Foundry account. The reviewer remains optional.
           azd env set REVIEWER_CLIENT_ID "${{ vars.REVIEWER_CLIENT_ID }}"
-          azd env set AGENT_PRINCIPAL_ID "${{ vars.AGENT_PRINCIPAL_ID }}"
+          azd env set AGENT_PRINCIPAL_ID ""
 
       - name: Build immutable staging MCP images
         id: build-mcp
@@ -308,8 +314,13 @@ jobs:
       - name: Deploy candidate to staging
         id: deploy
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd deploy --no-prompt
           PROJECT_ENDPOINT=$(azd env get-values --output json | jq -er '.FOUNDRY_PROJECT_ENDPOINT')
           echo "project_endpoint=$PROJECT_ENDPOINT" >> "$GITHUB_OUTPUT"
@@ -319,93 +330,26 @@ jobs:
           echo "Deployed candidate version: $AGENT_VERSION"
           echo "agent_version=$AGENT_VERSION" >> "$GITHUB_OUTPUT"
 
-      # WI-10. Foundry creates the hosted agent's dedicated Entra agent identity
-      # during `azd deploy`, after `azd provision` has already run, so
-      # main.bicep's agentPrincipalId cannot be resolved in-template and the
-      # agent's Cosmos data-plane grant is skipped until it is supplied.
-      #
-      # Microsoft's guidance is to read the agent identity off the Foundry
-      # project's ARM JSON view and use it as the assignee
-      # (learn.microsoft.com/azure/foundry/agents/concepts/agent-identity --
-      # "Shared project identity" and "Assign permissions to the agent
-      # identity"). No `azd`/`az` command is documented to print the identifier
-      # on its own, so this step publishes the project JSON verbatim rather than
-      # guessing at a property path, and never fails the deployment.
-      #
-      # An operator reads `agentIdentityId` out of the artifact once and sets it
-      # as the `AGENT_PRINCIPAL_ID` repository variable; the next run's
-      # `azd provision` then applies the grant. It is deliberately NOT parsed
-      # and auto-applied here: grabbing the wrong GUID (for example the
-      # project's managed-identity principalId) would grant Cosmos write access
-      # to the wrong principal and still leave the agent unable to write.
-      - name: Capture the Foundry project identity JSON (agent identity lookup)
-        if: always() && steps.deploy.outcome == 'success'
+      - name: Set up Python for live readiness verification
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Restore staging agent Cosmos access and verify a live case
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
         env:
-          CONFIGURED_AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
+          PROJECT_ENDPOINT: ${{ steps.deploy.outputs.project_endpoint }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
+          python -m pip install azure-identity==1.25.3
           mkdir -p agent-identity
-          PROJECT_ID=$(azd env get-values --output json | jq -r '.AZURE_AI_PROJECT_ID // empty')
-          if [ -n "$PROJECT_ID" ]; then
-            az resource show --ids "$PROJECT_ID" -o json > agent-identity/foundry-project.json || true
-          fi
-          # The grant in modules/cosmos-rbac.bicep targets the agent's own identity,
-          # which Foundry creates when the agent is deployed. Deleting and recreating
-          # the Foundry account mints a new one, leaving the configured variable
-          # pointing at a principal that no longer exists and the agent unable to
-          # write cases. Read the live value so a mismatch is visible on the run
-          # that caused it rather than on the first failed write.
-          PROJECT_ENDPOINT=$(azd env get-values --output json | jq -r '.AZURE_AI_PROJECT_ENDPOINT // empty')
-          LIVE_AGENT_PRINCIPAL_ID=""
-          if [ -n "$PROJECT_ENDPOINT" ]; then
-            TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken --output tsv 2>/dev/null || true)
-            if [ -n "$TOKEN" ]; then
-              curl -sS -H "Authorization: Bearer $TOKEN" "${PROJECT_ENDPOINT}/agents?api-version=v1" \
-                > agent-identity/agents.json || true
-              LIVE_AGENT_PRINCIPAL_ID=$(jq -r \
-                '[.data[]?.versions.latest.instance_identity.principal_id] | map(select(. != null)) | first // empty' \
-                agent-identity/agents.json 2>/dev/null || true)
-            fi
-          fi
-          {
-            echo '## Hosted agent identity (WI-10)'
-            echo ''
-            if [ -n "$LIVE_AGENT_PRINCIPAL_ID" ]; then
-              echo "Live agent principal ID: \`$LIVE_AGENT_PRINCIPAL_ID\`"
-              echo ''
-              # The agents API can report an identity that was never registered in
-              # Entra, or one left over from a deleted account. Granting Cosmos
-              # data-plane access to it fails the whole deployment with a BadRequest
-              # that azd reports as a name conflict, so check before recommending it.
-              if ! az ad sp show --id "$LIVE_AGENT_PRINCIPAL_ID" --output none 2>/dev/null; then
-                echo "::warning::The live agent principal \`$LIVE_AGENT_PRINCIPAL_ID\` does not resolve in Entra. Setting it as AGENT_PRINCIPAL_ID will fail the next provision with a BadRequest on the Cosmos role assignment."
-                echo '**This principal does not resolve in Entra**, so it cannot receive a Cosmos'
-                echo 'data-plane grant. Leave `AGENT_PRINCIPAL_ID` unset until it resolves;'
-                echo 'the agent serves requests but cannot write cases in the meantime.'
-                LIVE_AGENT_PRINCIPAL_ID=""
-              fi
-            fi
-            if [ -z "${CONFIGURED_AGENT_PRINCIPAL_ID:-}" ]; then
-              echo 'The `AGENT_PRINCIPAL_ID` environment variable is **not set**, so the hosted'
-              echo 'agent has no Cosmos data-plane grant and cannot write cases.'
-              echo ''
-              echo 'To fix: set the live principal ID above as the `AGENT_PRINCIPAL_ID`'
-              echo 'environment variable. The next run applies the grant with no template change.'
-            elif [ -n "$LIVE_AGENT_PRINCIPAL_ID" ] && [ "$LIVE_AGENT_PRINCIPAL_ID" != "$CONFIGURED_AGENT_PRINCIPAL_ID" ]; then
-              echo "::warning::AGENT_PRINCIPAL_ID is \`$CONFIGURED_AGENT_PRINCIPAL_ID\` but the live agent identity is \`$LIVE_AGENT_PRINCIPAL_ID\`. The Cosmos grant was applied to the wrong principal and the agent cannot write cases. Update the environment variable and rerun."
-              echo '**The configured `AGENT_PRINCIPAL_ID` does not match the live agent identity.**'
-              echo ''
-              echo "Configured: \`$CONFIGURED_AGENT_PRINCIPAL_ID\`"
-              echo ''
-              echo 'Foundry mints a new agent identity whenever the account is recreated, so this'
-              echo 'is the expected state after a network rebuild. Update the environment variable'
-              echo 'to the live value above and rerun to reapply the grant.'
-            else
-              echo 'The `AGENT_PRINCIPAL_ID` environment variable matches the live agent identity,'
-              echo 'so `azd provision` applied the agent'"'"'s Cosmos data-plane grant on this run.'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          cp /tmp/agent-show.json agent-identity/agent-version.json
+          COSMOS_ACCOUNT=$(azd env get-values --output json | jq -er '.cosmosAccountName')
+          python eval/ensure_agent_cosmos_access.py \
+            --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
+            --agent-details /tmp/agent-show.json \
+            --resource-group "$AZURE_RESOURCE_GROUP" --cosmos-account "$COSMOS_ACCOUNT"
 
       - name: Upload the Foundry project identity JSON
         if: always() && steps.deploy.outcome == 'success'
@@ -554,7 +498,7 @@ jobs:
         run: |
           python eval/convert_judge_dataset.py eval/judge-dataset.jsonl "$RUNNER_TEMP/judge-dataset.json" --locale en-CA
           python eval/run_judge_evaluation.py \
-            --endpoint "$PROJECT_ENDPOINT" --agent quote-preparation-agent \
+            --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
             --version "$AGENT_VERSION" --deployment "$JUDGE_DEPLOYMENT" \
             --dataset "$RUNNER_TEMP/judge-dataset.json" \
             --output-dir judge-evidence --minimum-pass-rate 1.0
@@ -587,16 +531,16 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # The judge is advisory about scores, not about reachability. No evidence
-      # file means it never reached the agent, which is a deployment failure
-      # that must not ride through to production as a green run.
-      - name: Fail when the judge could not reach the staging agent
+      # Scores are advisory; invocation and evaluation failures are not.
+      # Runtime errors (including HTTP 200 error bodies) and missing answers
+      # must fail before judge evidence can allow production promotion.
+      - name: Fail when the judge could not evaluate a staging agent answer
         if: always() && steps.judge.outcome == 'failure'
         run: |
           if [ ! -f judge-evidence/results.json ]; then
-            echo "::error::The LLM-judge could not reach the staging agent, so no evidence was produced." \
-              "A low judge score is advisory; an unreachable agent is not." \
-              "Check that the agent endpoint responds at the staging project endpoint above."
+            echo "::error::The LLM-judge could not evaluate a staging agent answer, so no evidence was produced." \
+              "A low judge score is advisory; failed invocations or missing answers are not." \
+              "Inspect the invocation and evaluation errors in the judge step above."
             exit 1
           fi
           echo "Judge produced evidence; score misses remain advisory."
@@ -645,13 +589,17 @@ jobs:
       - name: Configure azd authentication and select production environment
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
         env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           APPLICATION_MCP_IMAGE: ${{ needs.deploy-staging.outputs.application_mcp_image }}
           RULEBOOK_MCP_IMAGE: ${{ needs.deploy-staging.outputs.rulebook_mcp_image }}
           REVIEWER_APP_IMAGE: ${{ needs.deploy-staging.outputs.reviewer_app_image }}
           REVIEWER_CLIENT_ID: ${{ vars.REVIEWER_CLIENT_ID }}
-          AGENT_PRINCIPAL_ID: ${{ vars.AGENT_PRINCIPAL_ID }}
+          AGENT_PRINCIPAL_ID: ''
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd config set auth.useAzCliAuth true
           azd config set defaults.subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
           azd env select "$PRODUCTION_AZD_ENV_NAME" || azd env new "$PRODUCTION_AZD_ENV_NAME" --no-prompt
@@ -708,8 +656,13 @@ jobs:
       - name: Deploy evaluated source to production
         id: deploy
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
           azd deploy --no-prompt
           azd ai agent show "$AGENT_NAME" --output json > /tmp/prod-agent-show.json
           AGENT_VERSION=$(jq -er '.version | select(type == "string" and test("^[0-9]+$"))' /tmp/prod-agent-show.json)
@@ -725,15 +678,35 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Set up Python for live readiness verification
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Restore production agent Cosmos access and verify a live case
+        id: cosmos
+        working-directory: ${{ env.AGENT_PROJECT_DIR }}
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          set -euo pipefail
+          python -m pip install azure-identity==1.25.3
+          PROJECT_ENDPOINT=$(azd env get-values --output json | jq -er '.FOUNDRY_PROJECT_ENDPOINT')
+          COSMOS_ACCOUNT=$(azd env get-values --output json | jq -er '.cosmosAccountName')
+          python eval/ensure_agent_cosmos_access.py \
+            --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
+            --agent-details /tmp/prod-agent-show.json \
+            --resource-group "$AZURE_RESOURCE_GROUP" --cosmos-account "$COSMOS_ACCOUNT"
+
       - name: Production promotion summary
-        if: always() && steps.deploy.outcome == 'success'
+        if: always() && steps.deploy.outcome == 'success' && steps.cosmos.outcome == 'success'
         env:
           PREVIOUS_VERSION: ${{ needs.deploy-staging.outputs.agent_version }}
           NEW_VERSION: ${{ steps.deploy.outputs.agent_version }}
         run: echo "## Promoted $PREVIOUS_VERSION -> $NEW_VERSION" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deployment links summary
-        if: always() && steps.deploy.outcome == 'success'
+        if: always() && steps.deploy.outcome == 'success' && steps.cosmos.outcome == 'success'
         working-directory: ${{ env.AGENT_PROJECT_DIR }}
         # WEB_CHAT_APP_NAME/WEB_CHAT_URL are not azd outputs -- infra/web-chat.bicep
         # is applied out of band into production only (see infra/README.md), so
@@ -748,7 +721,7 @@ jobs:
       # context of its own, so it cannot re-derive these links -- it
       # downloads this artifact instead of guessing or omitting them.
       - name: Upload deployment links for the wiki-publish job
-        if: always() && steps.deploy.outcome == 'success'
+        if: always() && steps.deploy.outcome == 'success' && steps.cosmos.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: deployment-links-production

@@ -1,0 +1,7 @@
+SYNTHETIC TRAINING ONLY | FSI-SCOPE-EN | version 1
+Policy scope and supported cases
+
+Workshop authors generated this educational rulebook. It is not an insurer's policy, coverage promise, legal interpretation, or binding quote.
+The classroom workflow supports preparation of a personal-use automobile quote request for a fictional adult applicant and an ordinary private passenger vehicle. It collects missing non-sensitive facts, explains next steps, and submits a complete preparation package for employee review. A supported preparation is not an eligibility determination.
+Commercial fleets, rideshare or delivery use, modified vehicles, disputed losses, cross-border coverage interpretation, and requests to bind or cancel coverage are unsupported. Stop the automated preparation and ask an authorized employee to assess the case. Do not invent a referral outcome.
+Never derive premiums, discounts, coverage limits, or insurability from these documents. The demonstration calculator remains separate and must not receive extracted document fields automatically. Only an authorized employee may approve the preparation through the established review workflow.

@@ -39,4 +39,7 @@ file rather than implied as part of the learner experience.
 
 ## Labs
 
+For the retained Azure demo and session-2 follow-ups, see the
+[native Foundry showcase](native-showcase.md).
+
 The full lab curriculum lives in [Labs](labs/).

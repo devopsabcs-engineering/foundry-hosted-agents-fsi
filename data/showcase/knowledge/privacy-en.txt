@@ -1,0 +1,8 @@
+SYNTHETIC TRAINING ONLY | FSI-PRIVACY-EN | version 2
+Privacy, conversational memory, and audit
+
+Use generated classroom examples only. Do not upload real names, addresses, dates of birth, license numbers, vehicle identification numbers, policy identifiers, banking details, claims, or customer documents. A public Search endpoint still requires Entra authorization; a synthetic corpus does not authorize broader data collection.
+Conversational memory is optional working context for later interaction, not an authoritative audit record. Do not persist sensitive applicant attributes in memory. A user asking the assistant to forget a preference is not the same as deleting legally retained case evidence. Explain the distinction and route retention or erasure requests to the designated privacy process.
+Memory scope keys partition records into logical namespaces. They do not authenticate users or agents and do not authorize access or actions. A scope key is not proof of identity or permission. Project RBAC and application-level caller authorization remain necessary; never accept an arbitrary end-user scope as an access-control decision.
+An audit trail records authorized actions and their evidence, timestamps, review state, and relevant source versions under the organization's retention policy. Diagnostic logs and telemetry support operations; neither an assistant's recollection nor a trace screenshot substitutes for an approved case record.
+Cite the actual retrieved source ID and version when explaining training guidance. If retrieval provides no supported source, say the guidance is unavailable. These educational texts do not establish real retention periods, consent rules, or insurance obligations.

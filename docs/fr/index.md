@@ -43,4 +43,7 @@ présentée comme faisant partie du parcours de l'apprenant.
 
 ## Ateliers
 
+Pour la démo Azure conservée et les suivis de la séance 2, consultez les
+[fonctions natives Foundry](native-showcase.md).
+
 Le programme complet des ateliers se trouve dans [Ateliers](labs/).
