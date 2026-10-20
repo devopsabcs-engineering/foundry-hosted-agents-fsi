@@ -17,9 +17,12 @@ Staging et production rétablissent le mode natif avant de renouveler le jeton.
 
 ## Conserver la démo restaurée
 
-L'agent restauré utilise la version 2 en staging et la version 3 en production.
+L'agent actuellement vérifié utilise la version 3 en staging et la version 4
+en production. La [livraison 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
+a déployé le code approuvé `25f3e54`, avec des digests de chat et de reviewer
+identiques entre les environnements, vérifiés indépendamment.
 La [livraison 39293980605, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
-a restauré le fonctionnement de référence. Les deux environnements restent
+avait restauré la référence v2/v3. Les deux environnements restent
 déployés. Ne lancez aucun démantèlement, ne remplacez pas les identités et ne
 modifiez pas `quote-tools`. Le suffixe historique `-poc` désigne la production.
 Consultez les [liens de déploiement](../../README.fr.md#liens-de-déploiement).
@@ -354,6 +357,13 @@ pour l'identité opérateur. `force_flush()` ne prouve pas l'ingestion :
 la preuve conserve explicitement `trace_verified: false`. L'autorisation de
 publication doit suivre le processus d'accès approuvé. Ne retirez pas les
 identifiants Entra et n'affaiblissez pas l'authentification pour contourner ce refus.
+
+Le runtime déployé a depuis démontré l'ingestion native de `invoke_agent` dans
+les deux environnements. Seule l'invocation hébergée apparaît, sans les champs
+personnalisés étape/cas/politique nécessaires au rejeu.
+Consultez les [identifiants exacts et les preuves de livraison](showcase-evidence.md#ingestion-native-des-invocations-hébergées).
+Une invocation racine ne constitue pas une preuve de provenance utilisable
+par `trace-dataset`.
 
 ```powershell
 $workspace = '<ID-client-Log-Analytics-existant>'

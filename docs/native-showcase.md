@@ -16,9 +16,12 @@ Both staging and production switch back before refreshing the native credential.
 
 ## Keep the restored customer demo available
 
-The restored staging agent is version 2; production is version 3.
-[Release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
-restored the baseline. Both environments remain deployed. Do not run teardown,
+The current verified staging agent is version 3; production is version 4.
+[Release 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
+deployed approved runtime source `25f3e54`, with independently verified,
+matching chat and reviewer digests in both environments. The earlier
+[release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
+restored the v2/v3 baseline. Both environments remain deployed. Do not run teardown,
 replace agent identities, change `quote-tools`, or infer production from the
 historical `-poc` suffix. Use the [deployment links](../README.md#deployment-links).
 
@@ -350,6 +353,13 @@ with HTTP 403 for the operator credential. Exporter `force_flush()` is not
 proof of ingestion: the retained record explicitly says `trace_verified: false`.
 Resolve the publisher authorization through approved access management.
 Do not omit Entra credentials or weaken authentication to bypass the rejection.
+
+The current deployed runtime has separately verified native `invoke_agent`
+ingestion in both environments. The queries returned only the hosted invocation,
+without the custom stage/case/policy fields required for replay.
+See the [exact operation IDs and release evidence](showcase-evidence.md#native-hosted-trace-ingestion).
+Do not feed a root-only invocation into `trace-dataset` as if stage lineage
+had been verified.
 
 ```powershell
 $workspace = '<existing-Log-Analytics-workspace-customer-ID>'
