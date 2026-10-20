@@ -105,6 +105,31 @@ Evidence paths must be new. Native operation failures return nonzero and must
 not be presented as successful screenshots. Authentication uses Entra tokens,
 not checked-in secrets. Never expose the operator CLIs as end-user APIs.
 
+### Isolated memory embedding prerequisite
+
+Current staging has no embedding deployment; native memory remains unverified.
+`infra/memory-showcase.bicep` prepares only the separate
+`showcase-memory-embedding` deployment on an existing account:
+`text-embedding-3-small`, version `1`, regional `Standard`, capacity `1`,
+with automatic version upgrades disabled. The account catalog lists this SKU,
+and East US 2 currently has 350 unused units of its regional quota. Recheck
+availability and quota immediately before any approved deployment.
+
+This opt-in template is outside `main.bicep` and `azure.yaml`, like the existing
+isolated showcase template. It does not rewrite the account, existing chat
+deployment, agent, RBAC, network, storage or production. Do not reprovision the
+primary environment to add embeddings. Obtain exact-artifact and staging-target
+approval, preview this template in incremental mode, and require only the one
+new embedding resource before applying it. Compilation is not deployment.
+
+After approval, test an isolated `showcase-synthetic-memory` store with existing
+`gpt-4o-mini`, this embedding deployment and a 3600-second default TTL using
+[Lab 17](labs/lab-17-native-skills-memory.md). Model availability does not prove
+memory-service compatibility. Retain any explicit service rejection; do not
+replace the working chat model or attach memory to the hosted quote agent to
+hide a failure. Successful positive/cross-scope retrieval would still not prove
+unauthorized-agent denial.
+
 ## Demonstrate native files and generated data
 
 The exported JSON is an exact-content safety permit, not the reference uploaded

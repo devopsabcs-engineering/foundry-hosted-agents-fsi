@@ -108,6 +108,31 @@ non nul et ne doit pas être présenté comme une réussite. L'authentification
 utilise Entra, sans secret dans Git. Ces CLI sont réservées aux opérateurs,
 jamais exposées directement comme API à un utilisateur.
 
+### Prérequis d'embedding isolé pour la mémoire
+
+Staging n'a actuellement aucun embedding; la mémoire native reste non vérifiée.
+`infra/memory-showcase.bicep` prépare uniquement le déploiement distinct
+`showcase-memory-embedding` sur un compte existant :
+`text-embedding-3-small`, version `1`, SKU régional `Standard`, capacité `1`,
+sans mise à niveau automatique. Le catalogue du compte accepte ce SKU et le
+quota régional East US 2 comporte actuellement 350 unités libres. Vérifiez à
+nouveau disponibilité et quota immédiatement avant tout déploiement approuvé.
+
+Ce modèle facultatif est extérieur à `main.bicep` et `azure.yaml`, comme le
+modèle showcase isolé existant. Il ne réécrit ni compte, modèle de conversation,
+agent, RBAC, réseau, stockage ou production. Ne reprovisionnez pas l'environnement
+principal pour ajouter les embeddings. Obtenez l'approbation de l'artefact exact
+et de la cible staging, examinez l'aperçu incrémentiel et exigez une seule
+création de ressource embedding avant application. Compiler n'est pas déployer.
+
+Après approbation, testez le magasin isolé `showcase-synthetic-memory` avec
+`gpt-4o-mini`, cet embedding et une durée par défaut de 3600 secondes selon
+l'[Atelier 17](labs/lab-17-native-skills-memory.md). La disponibilité du modèle
+ne prouve pas sa compatibilité avec le service mémoire. Conservez tout rejet
+explicite, sans remplacer le modèle fonctionnel ni attacher la mémoire à
+l'agent de soumission. Une récupération positive et un contrôle inter-scopes
+réussis ne prouvent toujours pas le refus d'un agent non autorisé.
+
 ## Fichiers et génération native
 
 Le JSON exporté sert de permis de contenu exact. Le fichier envoyé au service

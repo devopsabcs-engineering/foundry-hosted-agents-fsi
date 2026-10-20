@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.48.1.52935",
+      "templateHash": "16310583149378722290"
+    }
+  },
+  "parameters": {
+    "accountName": {
+      "type": "string",
+      "minLength": 2,
+      "metadata": {
+        "description": "Existing staging Foundry account approved for the isolated synthetic memory demo."
+      }
+    },
+    "regionalQuotaConfirmed": {
+      "type": "bool",
+      "allowedValues": [
+        true
+      ],
+      "metadata": {
+        "description": "Confirm regional model/version/SKU availability and at least one unit of unused quota."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', parameters('accountName'), 'showcase-memory-embedding')]",
+      "sku": {
+        "name": "Standard",
+        "capacity": 1
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "text-embedding-3-small",
+          "version": "1"
+        },
+        "versionUpgradeOption": "NoAutoUpgrade"
+      },
+      "tags": {
+        "purpose": "synthetic-native-memory-showcase",
+        "issue": "20",
+        "regionalQuotaConfirmed": "[string(parameters('regionalQuotaConfirmed'))]"
+      }
+    }
+  ],
+  "outputs": {
+    "embeddingDeploymentName": {
+      "type": "string",
+      "value": "showcase-memory-embedding"
+    },
+    "embeddingDeploymentResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('accountName'), 'showcase-memory-embedding')]"
+    }
+  }
+}
