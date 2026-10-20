@@ -69,8 +69,15 @@ def trace_stage(stage: str, policy: str):
                 attributes=attributes,
                 record_exception=False,
                 set_status_on_exception=False,
-            ):
-                return function(state)
+            ) as span:
+                completed = False
+                try:
+                    result = function(state)
+                    completed = True
+                    return result
+                finally:
+                    if not completed:
+                        span.set_status(trace.StatusCode.ERROR)
 
         return invoke
 
