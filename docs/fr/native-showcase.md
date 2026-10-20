@@ -17,9 +17,9 @@ Staging et production rétablissent le mode natif avant de renouveler le jeton.
 
 ## Conserver la démo restaurée
 
-L'agent actuellement vérifié utilise la version 4 en staging et la version 5
-en production. La [livraison 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
-a déployé le code approuvé `b0778c7`, avec des digests de chat et de reviewer
+L'agent actuellement vérifié utilise la version 5 en staging et la version 6
+en production. La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
+a déployé le code approuvé `01af1fb`, avec des digests de chat et de reviewer
 identiques entre les environnements, vérifiés indépendamment.
 La [livraison 39293980605, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 avait restauré la référence v2/v3. Les deux environnements restent
@@ -39,7 +39,7 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Agents hébergés | Projet Foundry, version, identité managée et Responses | Staging et production restaurés et vérifiés |
 | Fichiers | API Files native, `user_data`, texte synthétique | Téléversement vérifié ; génération à partir de texte, Markdown ou PDF, pas d'un nom JSON |
 | Données synthétiques | Job natif, UUID d'opération, statut et téléchargement | Deux jobs rétablis réussis, 6 et 5 lignes téléchargées, maximum demandé de 15 par job ; aucun substitut local |
-| Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Modèles de conversation et d'embedding compatibles requis ; staging n'a actuellement que son modèle de conversation |
+| Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Magasin staging vérifié avec embedding approuvé; refus par rôle 403, pas une ACL par agent |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
 | Connaissances | Source, base et récupération extractive Azure AI Search GA | Déploiement Search facultatif et isolé ; un index seul n'est pas Foundry IQ |
@@ -48,7 +48,7 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
 | Contrôles d'ancrage | `builtin.groundedness` v18 et `builtin.groundedness_pro` v8 | Les deux ont manqué une réponse française erronée connue ; contrôle négatif échoué, sans gain affirmé |
 | Red team | Taxonomie native puis évaluation ciblant un agent | Taxonomie créée pour staging v2 ; révision exacte avant toute attaque |
-| Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Ingestion racine vérifiée ; champs d'étapes et rejeu non vérifiés ; identifiants demandés non vérifiés |
+| Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Neuf spans réels, trois étapes personnalisées, rejeu natif 1/1; pas de récupération du prompt privé |
 | État métier | Cosmos DB et approbation réservée à l'employé | Distinct de la mémoire ; l'agent n'approuve jamais |
 
 Les applications Web et les MCP en lecture seule s'exécutent dans Azure
@@ -110,13 +110,12 @@ jamais exposées directement comme API à un utilisateur.
 
 ### Prérequis d'embedding isolé pour la mémoire
 
-Staging n'a actuellement aucun embedding; la mémoire native reste non vérifiée.
-`infra/memory-showcase.bicep` prépare uniquement le déploiement distinct
+Le déploiement staging approuvé `issue20-isolated-memory` a réussi.
+`infra/memory-showcase.bicep` provisionne uniquement le déploiement distinct
 `showcase-memory-embedding` sur un compte existant :
 `text-embedding-3-small`, version `1`, SKU régional `Standard`, capacité `1`,
-sans mise à niveau automatique. Le catalogue du compte accepte ce SKU et le
-quota régional East US 2 comporte actuellement 350 unités libres. Vérifiez à
-nouveau disponibilité et quota immédiatement avant tout déploiement approuvé.
+sans mise à niveau automatique. Réutilisez ce déploiement pour la démo.
+Vérifiez disponibilité et quota avant de provisionner une autre cible.
 
 Ce modèle facultatif est extérieur à `main.bicep` et `azure.yaml`, comme le
 modèle showcase isolé existant. Il ne réécrit ni compte, modèle de conversation,
@@ -125,13 +124,14 @@ principal pour ajouter les embeddings. Obtenez l'approbation de l'artefact exact
 et de la cible staging, examinez l'aperçu incrémentiel et exigez une seule
 création de ressource embedding avant application. Compiler n'est pas déployer.
 
-Après approbation, testez le magasin isolé `showcase-synthetic-memory` avec
+Le magasin isolé `showcase-synthetic-memory` a été testé avec
 `gpt-4o-mini`, cet embedding et une durée par défaut de 3600 secondes selon
-l'[Atelier 17](labs/lab-17-native-skills-memory.md). La disponibilité du modèle
-ne prouve pas sa compatibilité avec le service mémoire. Conservez tout rejet
+l'[Atelier 17](labs/lab-17-native-skills-memory.md). Alimentation, liste,
+recherche et contrôles inter-scopes ont réussi. Conservez tout rejet
 explicite, sans remplacer le modèle fonctionnel ni attacher la mémoire à
-l'agent de soumission. Une récupération positive et un contrôle inter-scopes
-réussis ne prouvent toujours pas le refus d'un agent non autorisé.
+l'agent de soumission. La liste mémoire du reviewer existant a reçu HTTP 403,
+avec contrôle opérateur positif. Ce refus par rôle ne prouve ni isolation
+par agent ni autorisation par scope.
 
 ## Fichiers et génération native
 
@@ -168,14 +168,14 @@ essais trop petits ont échoué explicitement et ne sont pas comptés comme réu
 
 ## Contenu réel de la mémoire et segmentation
 
-Après approbation et provisionnement de modèles compatibles, fournissez leurs
-noms exacts. Le magasin de démonstration a une durée de vie explicite.
+Réutilisez le magasin staging approuvé sans refaire `memory-create`
+(HTTP 409). Pour un nouveau magasin approuvé séparément, utilisez
+`gpt-4o-mini`, `showcase-memory-embedding` et une durée de 3600 secondes.
+Les entrées expirent après une heure; réalimentez avant la démo avec de
+nouveaux chemins de preuve.
 
 ```powershell
-$chat = '<déploiement-conversation-compatible>'
-$embedding = '<déploiement-embedding-compatible>'
 $store = 'showcase-synthetic-memory'
-& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-create.json" memory-create --store $store --chat-model $chat --embedding-model $embedding --ttl-seconds 3600
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\alice-seed.json" memory-seed --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-seed.json" memory-seed --store $store --scope fixture-bob
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-contents.json" memory-list --store $store --scope fixture-alice
@@ -412,19 +412,22 @@ la preuve conserve explicitement `trace_verified: false`. L'autorisation de
 publication doit suivre le processus d'accès approuvé. Ne retirez pas les
 identifiants Entra et n'affaiblissez pas l'authentification pour contourner ce refus.
 
-Le runtime déployé a depuis démontré l'ingestion native de `invoke_agent` dans
-les deux environnements. Seule l'invocation hébergée apparaît, sans les champs
-personnalisés étape/cas/politique nécessaires au rejeu.
-Consultez les [identifiants exacts et les preuves de livraison](showcase-evidence.md#ingestion-native-des-invocations-hébergées).
-Une invocation racine ne constitue pas une preuve de provenance utilisable
-par `trace-dataset`.
+Le runtime staging v5 approuvé a exporté neuf spans réels pour l'opération
+`f63bbcfefd1b3b252a4c343bdc99fd2b`, dont `quote.INTAKE`,
+`quote.REFERENCE_LOOKUP` et `quote.COMPOSITION`, avec parents/statuts/politique.
+Calcul et persistance sont internes à `COMPOSITION`.
+Cherchez les dépendances SDK séparément des racines de requêtes plateforme :
+leurs identifiants peuvent différer. Une requête racine seule ne prouve pas
+l'absence des étapes. Le rejeu natif a réussi 1/1 sur les trois critères.
+Consultez les [preuves actuelles](showcase-evidence.md#traces-personnalisées-et-rejeu-natif-vérifiés).
+Ne fournissez pas une racine seule à `trace-dataset`.
 
 ```powershell
 $workspace = '<ID-client-Log-Analytics-existant>'
 $traceId = '<ID-opération-réel-de-32-caractères>'
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py trace-export --workspace-id $workspace --operation-id $traceId --output-dir "$evidence\trace"
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py trace-dataset --trace-file "$evidence\trace\trace.json" --operation-id $traceId --source-revision $revision --output-dir "$evidence\replay"
-& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 2 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
+& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 5 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
 ```
 
 L'absence de spans provoque un échec. Un `traceparent` demandé reste non vérifié

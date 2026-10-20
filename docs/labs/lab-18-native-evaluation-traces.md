@@ -108,9 +108,17 @@ fabricated model spans or invented token usage.
 > [!IMPORTANT]
 > Trace replay requires real spans already ingested into the existing
 > Application Insights/Log Analytics backend through the authorized telemetry
-> provider. The retained release has verified hosted root spans, but custom
-> stage fields and deterministic replay remain unverified. Do not deploy or
-> change access in this lab.
+> provider. Approved staging v5 has nine exported spans with all three custom
+> stages and a passing native replay. Do not deploy or change access in this lab.
+
+Recorded operation `f63bbcfefd1b3b252a4c343bdc99fd2b` contains
+`quote.INTAKE`, `quote.REFERENCE_LOOKUP` and `quote.COMPOSITION`.
+Calculation and persistence are inside `COMPOSITION`. Search SDK dependencies
+independently from platform request roots, whose operation IDs can differ.
+Native replay run `evalrun_7fe89f5118b54b6d8bb68ae619479875` passed 1/1
+on each criterion with zero errors. This reconstructs a synthetic case, not
+the original private user prompt. See the
+[current evidence](../showcase-evidence.md#verified-custom-trace-and-native-replay).
 
 The isolated local export previously received HTTP 403 for the operator identity
 and retained `trace_verified: false`. `force_flush()` and a requested W3C
@@ -136,10 +144,11 @@ Get-Content "$evidence\replay\replay-dataset.json"
 Verify operation ID, policy hash, source revision, trace-file hash and synthetic
 case mapping. Missing spans fail; requested IDs are unverified until the native
 query finds them. Replay reconstructs a fixture, not the original private prompt.
-Only after that inspection, submit the retained dataset against staging v2:
+Only after that inspection, submit the retained dataset against staging v5
+(confirm the current deployment first; `--version` is metadata, not routing):
 
 ```powershell
-& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 2 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
+& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 5 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
 ```
 
 Record actual evaluation IDs and failures. If real ingestion is unavailable,

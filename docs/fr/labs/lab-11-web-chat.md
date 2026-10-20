@@ -154,7 +154,7 @@ Envoyer un message exige deux choses dont votre exécution locale ne dispose pas
 
 Le clavardage déployé dispose des deux. `scripts/setup-web-chat-identity.ps1` enregistre les origines déployées aux côtés de `http://localhost:8000`, la connexion fonctionne donc sur l'adresse déployée alors que les valeurs d'identité fictives de l'exercice 11.2 ne le permettent pas.
 
-`infra/web-chat.bicep` est appliqué hors bande (pas via `deploy-and-evaluate.yml`), et uniquement dans le groupe de ressources de production -- il n'existe aucun déploiement de clavardage en préproduction (staging).
+`infra/web-chat.bicep` est appliqué hors bande, pas via `deploy-and-evaluate.yml`. Le clavardage existe en staging et en production. Conservez la configuration d'environnement et d'identité de chaque application; limitez la mise à jour à l'image sans changement d'infrastructure prévu. Consultez les [versions et digests vérifiés](../showcase-evidence.md#livraison-approuvée-actuelle).
 
 ```powershell
 # Charger les valeurs de l'environnement azd (AZURE_RESOURCE_GROUP et autres) dans cette session

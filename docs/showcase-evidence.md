@@ -6,7 +6,100 @@ description: Recorded native generation recovery, running demo versions and auth
 
 [Français](fr/showcase-evidence.md) | [Native runbook](native-showcase.md) | [Labs](labs/index.md)
 
-## Release status
+## Current approved release
+
+[Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
+succeeded on approved runtime source
+`01af1fbdb3c43e91510d0f902e0716a4c70f7789` on 2026-10-20 UTC.
+Staging runs `quote-preparation-agent:5`; production runs version `6`.
+The protected production approval remained enabled. Both environments remain
+deployed; subsequent documentation commits are not runtime releases.
+
+| Application | Running digest, identical in both environments | Ready revision, staging / production |
+| --- | --- | --- |
+| Chat | `sha256:50bf8a52bd062aa86621fffa4a9330d1461706892f954900edf868fdcfbd8929` | `foundry-quote-chat-staging--0000003` / `foundry-quote-chat--0000002` |
+| Reviewer | `sha256:2b8ae4900bfb3f6554909d6ef485dbe6b8e80b5a0a1ea93c9cbe17794dc00660` | `foundry-quote-reviewer-staging--0000006` / `foundry-quote-reviewer--0000003` |
+| Application MCP | `sha256:c264c27211cd0321ac3a2903fbf355f913a173038ccfea8e8fb919cfa0ea80e1` | `mcp-staging-application-server--0000006` / `mcp-application-server--0000003` |
+| Rulebook MCP | `sha256:1197e17f92212ef6e8a68a488279e3cf850d84a66d1f87bf2c9e0712e0f157bd` | `mcp-staging-rulebook-server--0000006` / `mcp-rulebook-server--0000003` |
+
+Chat was built from the same approved source using ACR remote build `chu` and
+updated separately from the agent release. Production used an image-only
+Container Apps update, not a broader infrastructure redeployment. Readback
+confirmed all eight latest revisions ready with provisioning state `Succeeded`.
+
+### Current regression and native judges
+
+CI passed 476 offline tests with 36 conditional skips, the deterministic
+13/13 release gate, frontend builds and infrastructure validation. Independent
+native calls in each environment passed `CASE-SYN-001` (`READY`),
+`CASE-SYN-003` (`UNSUPPORTED`), `CASE-SYN-005` (`INCOMPLETE`) and
+`NOT-A-CASE-ID` (`REJECTED_INTAKE`). Both applicant locale fields were nonempty
+without monetary/numeric disclosures. All four application health/config checks
+passed; anonymous protected chat/reviewer requests returned HTTP 401.
+
+The new independently grounded applicant-message benchmark passed 5/5 on
+coherence, groundedness and task adherence in each language, with zero errors:
+
+* English staging v5: `evalrun_80031091728f4b5f9ce459f0df23902d`
+* French staging v5: `evalrun_b34fdb38ba084a928e230b6898b28637`
+
+This evaluates observable applicant acknowledgements, not hidden workflow
+execution. It is a corrected contract and different dataset, not a measured
+improvement over the historical 0/10 run preserved below. Two deliberately
+synthetic false answers failed all three criteria in calibration run
+`evalrun_9c0960204b0945e8aa1d713b09f95211`. Their inherited valid-response
+capture IDs are not provenance for those synthetic control answers.
+
+### Verified isolated memory
+
+The separately approved additive staging deployment `issue20-isolated-memory`
+created only `showcase-memory-embedding`: `text-embedding-3-small`, version `1`,
+regional `Standard`, capacity `1`, without automatic upgrades. No baseline
+account, production resource or RBAC was rewritten.
+Store `showcase-synthetic-memory` uses existing `gpt-4o-mini`, this embedding
+deployment and a 3600-second default TTL, with automatic extraction disabled.
+Actual seed/list/search operations found Alice and Bob markers in their own
+scopes and not in the opposite scope.
+
+An existing staging reviewer workload identity obtained a genuine token and
+received HTTP 403 on memory list; the authorized operator's positive control
+returned its seeded entry. This proves caller/project-role denial, not a
+per-agent ACL or namespace authorization. No role was added for the probe.
+Entries expire after one hour. [Lab 17](labs/lab-17-native-skills-memory.md)
+reseeds the existing store without recreating it. The quote agent is not
+attached to this store; Cosmos remains the business authority.
+
+### Verified custom trace and native replay
+
+Actual staging operation `f63bbcfefd1b3b252a4c343bdc99fd2b` exported nine spans
+including `quote.INTAKE`, `quote.REFERENCE_LOOKUP` and `quote.COMPOSITION`.
+All three stage parents and successful status were recorded. Calculation
+and draft persistence occur inside `COMPOSITION`; no separate calculation
+stage is claimed. SDK application dependencies must be searched independently
+from platform `invoke_agent` request roots, whose operation IDs can differ.
+
+Trace-file SHA-256:
+`6f3e7d9d5ea9e4d9ea8da61354475b7ea8d7e29af05ab5a66e8d9dd067e9501e`.
+Policy SHA-256:
+`88dadb91caf1e796db058955caf1cb8acd5fd7bd7ccb03bd2f3778b1da6ea662`.
+Trace-derived evaluation `eval_f1b517827fca4114bf53e0039f9e3cbf`,
+run `evalrun_7fe89f5118b54b6d8bb68ae619479875`, passed 1/1 on all three
+criteria with zero errors. This is synthetic-case replay with retained
+trace/case/policy/source lineage, not recovery of an original private prompt.
+Follow [Lab 18](labs/lab-18-native-evaluation-traces.md).
+
+### Screenshot provenance and remaining limits
+
+The authentic captures below remain historical v4/v5 or earlier evidence;
+they are not relabelled as this v5/v6 release. Refresh attempts hit browser
+DNS/connection failures and unavailable Foundry snapshots, including a fresh
+memory page. Current runtime, memory and replay claims therefore rely on
+native API/workflow receipts, not new portal screenshots. Raw agent-version
+configuration and credentials are not published.
+Optional Foundry IQ, Content Understanding model setup, reviewed red-team
+execution and the failed RAG grounding controls remain bounded limitations.
+
+## Previous release status
 
 Evidence collected on 2026-10-20 UTC. Both environments remain deployed.
 [Release 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
@@ -255,6 +348,10 @@ verified below.
 
 ### Native hosted trace ingestion
 
+The following root-only observations belong to the previous release.
+The [current nine-span export and replay](#verified-custom-trace-and-native-replay)
+supersede the earlier stage/memory limitations without altering these receipts.
+
 Exact-operation Log Analytics queries found one successful `invoke_agent` span
 for each independently invoked hosted agent:
 
@@ -266,10 +363,9 @@ for each independently invoked hosted agent:
 The production span was recorded at `2026-10-20T02:42:26.5330371Z`.
 The custom stage, case ID, policy hash and execution-kind fields were empty.
 This proves hosted invocation ingestion, not deterministic stage-level
-visibility or trace-to-dataset replay. Those deeper acceptance checks remain
-open; no case lineage or replay dataset was fabricated. The native inventory
-also still lists zero memory stores, so no live native-memory demonstration
-is claimed.
+visibility or trace-to-dataset replay. At that time the deeper checks remained
+open and the inventory listed zero memory stores. The new successful staging
+memory and stage-replay results are recorded separately above.
 
 See the [native runbook](native-showcase.md) and
 [Microsoft Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/)

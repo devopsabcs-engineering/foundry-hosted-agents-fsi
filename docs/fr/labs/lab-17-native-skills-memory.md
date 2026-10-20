@@ -12,8 +12,8 @@ description: "Enregistrer et consommer la compétence du projet dans un moteur i
 Prévoyez 40 minutes. Terminez l'[Atelier 16](lab-16-native-search-invoice.md)
 ou obtenez le même environnement Python et l'accès opérateur approuvé à staging.
 La compétence utilise `gpt-4o-mini` existant avec ses frais d'inférence.
-L'exercice mémoire exige des déploiements de conversation et d'embedding
-compatibles approuvés séparément; staging n'a que son modèle de conversation.
+L'exercice mémoire réutilise les modèles staging approuvés séparément et le
+magasin isolé existant `showcase-synthetic-memory`.
 
 Tout est synthétique et non contraignant, sans produit, tarif ou police
 Desjardins réel. Ne modifiez ni agent hébergé, ni `quote-tools`, ni état métier
@@ -71,7 +71,7 @@ Identifiez le moteur exécutant : Responses opérateur isolé, pas agent héberg
 client MCP de toolbox ou fournisseur de compétences Agent Framework.
 Aucun déploiement ni approbation métier ne change.
 
-## Exercice 17.3 : Identifier le prérequis mémoire manquant
+## Exercice 17.3 : Vérifier les prérequis mémoire approuvés
 
 Lisez `preflight.json` et relevez les déploiements disponibles. Comparez-les
 aux entrées de conversation et d'embedding exigées :
@@ -80,28 +80,29 @@ aux entrées de conversation et d'embedding exigées :
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint memory-create --help
 ```
 
-Staging n'a actuellement pas le déploiement d'embedding compatible nécessaire;
-la mémoire native n'est donc pas vérifiée en exécution réelle. Consignez un
-blocage de prérequis, pas une réussite ou un échec d'isolation. Une liste de
-modèles ou l'aide de la CLI ne prouve pas le fonctionnement mémoire. Ne
-substituez pas un modèle de conversation à celui d'embedding.
+Staging dispose maintenant de `gpt-4o-mini` et de `showcase-memory-embedding`
+(`text-embedding-3-small`, version `1`). Le magasin isolé utilise une durée
+de vie par défaut de 3600 secondes, sans extraction automatique.
+Alimentation, liste et recherche natives ont réussi, contrairement à l'ancien
+blocage de prérequis. Une liste de modèles ne prouve pas le fonctionnement.
+Ne substituez pas un modèle de conversation à l'embedding et ne redéployez
+pas l'infrastructure principale.
 
 ## Exercice 17.4 : Tester les namespaces après approbation des prérequis
 
-Ignorez les commandes réelles suivantes tant que les déploiements compatibles
-ne sont pas approuvés et provisionnés. Remplacez les deux paramètres par leurs
-noms exacts. Utilisez un magasin synthétique isolé avec une durée de vie
-par défaut d'une heure :
+Réutilisez le magasin staging approuvé existant sans le recréer (HTTP 409).
+Pour une autre cible approuvée seulement, créez un nouveau magasin isolé
+avec les modèles ci-dessus et `--ttl-seconds 3600`. Ces commandes réalimentent
+les entrées expirées après une heure et conservent de nouvelles preuves,
+sans modifier la configuration du magasin :
 
 ```powershell
-$chat = '<supported-memory-chat-deployment>'
-$embedding = '<supported-embedding-deployment>'
 $store = 'showcase-synthetic-memory'
-& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-create.json" memory-create --store $store --chat-model $chat --embedding-model $embedding --ttl-seconds 3600
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\alice-seed.json" memory-seed --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-seed.json" memory-seed --store $store --scope fixture-bob
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-contents.json" memory-list --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-isolation.json" memory-search --store $store --scope fixture-alice
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-isolation.json" memory-search --store $store --scope fixture-bob
 Get-Content "$evidence\memory-isolation.json"
 ```
 
@@ -119,6 +120,13 @@ de projet/magasin distinctes pour renforcer l'isolation. N'acceptez jamais
 de scope arbitraire d'un chatbot. Un scope partagé n'est pas une liste
 d'accès par agent.
 
+Le contrôle d'autorisation conservé utilise l'identité existante du reviewer
+staging : acquisition de jeton réussie, puis liste mémoire refusée HTTP 403.
+L'opérateur autorisé a lu l'entrée comme contrôle positif.
+Ce refus par rôle d'appelant/projet ne prouve pas une ACL par agent.
+Ne modifiez pas RBAC et n'exposez aucun jeton pour le reproduire. Consultez
+les [preuves](../showcase-evidence.md#mémoire-isolée-vérifiée).
+
 La durée de vie mémoire n'est pas la rétention Cosmos DB. La mémoire ne fait
 autorité ni pour la soumission ni pour l'audit. Le rattachement à l'agent
 hébergé exige une vérification de compatibilité d'exécution distincte.
@@ -128,8 +136,9 @@ hébergé exige une vérification de compatibilité d'exécution distincte.
 * Conservez enregistrement et rattachement séparément de la consommation.
 * Notez réponse native, version immuable, hachage des instructions et contrôles
   bilingues, ou l'erreur exacte.
-* Consignez le blocage mémoire de staging. Seulement si les prérequis approuvés
-  existent, conservez les recherches positives et négatives.
+* Conservez les recherches positives et négatives inter-scopes dans les deux sens.
+* Distinguez refus par rôle 403 et partitionnement; notez l'expiration après
+  une heure et réalimentez avant une démonstration.
 * Expliquez pourquoi un namespace ne donne ni approbation ni autorisation.
 
 Gardez les preuves sous `.local`, ignoré par Git; aucun démantèlement requis.

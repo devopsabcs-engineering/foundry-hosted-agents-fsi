@@ -113,9 +113,17 @@ sans données de demandeur, montants, appels LLM ou jetons inventés.
 > [!IMPORTANT]
 > Le rejeu exige des spans déjà réellement ingérés par le fournisseur de
 > télémétrie autorisé dans Application Insights/Log Analytics existant.
-> La livraison conservée a des spans racines vérifiés, mais les champs d'étapes
-> et le rejeu déterministe restent non vérifiés. Ne déployez rien et ne modifiez
-> pas les accès dans cet atelier.
+> Staging v5 approuvé a neuf spans exportés, les trois étapes personnalisées
+> et un rejeu natif réussi. Ne déployez rien et ne modifiez pas les accès.
+
+L'opération conservée `f63bbcfefd1b3b252a4c343bdc99fd2b` contient
+`quote.INTAKE`, `quote.REFERENCE_LOOKUP` et `quote.COMPOSITION`.
+Calcul et persistance sont internes à `COMPOSITION`. Cherchez les dépendances
+SDK séparément des racines plateforme, dont les identifiants peuvent différer.
+Le rejeu `evalrun_7fe89f5118b54b6d8bb68ae619479875` a réussi 1/1 sur
+chaque critère, sans erreur. Il reconstruit un cas synthétique, pas le prompt
+privé d'origine. Consultez les
+[preuves actuelles](../showcase-evidence.md#traces-personnalisées-et-rejeu-natif-vérifiés).
 
 L'export local isolé a reçu HTTP 403 pour l'identité opérateur et conservé
 `trace_verified: false`. Ni `force_flush()` ni un W3C `traceparent` demandé
@@ -142,10 +150,11 @@ Vérifiez opération, hachage de politique, révision source, hachage du fichier
 de trace et correspondance au dossier synthétique. L'absence de spans échoue;
 un ID demandé reste non vérifié avant confirmation native. Le rejeu reconstruit
 une donnée de test, pas le prompt privé d'origine. Après cette inspection
-seulement, soumettez le jeu conservé à staging v2 :
+seulement, soumettez le jeu conservé à staging v5 (vérifiez le déploiement
+courant; `--version` est une métadonnée, pas un routage) :
 
 ```powershell
-& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 2 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
+& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 5 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
 ```
 
 Notez identifiants d'évaluation réels et erreurs. Sans ingestion réelle,
