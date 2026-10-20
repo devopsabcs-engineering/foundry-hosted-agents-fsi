@@ -24,6 +24,13 @@ deployment inventory. Future infrastructure changes still require approval.
 
 ## Application architecture
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Application architecture](assets/architecture/architecture-en-1.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -70,6 +77,13 @@ fixed templates and a pure calculator. Having a model/toolbox in the project
 does not mean the graph calls a chat model or the Foundry toolbox gateway.
 
 ## Component relationships and actual tool routing
+
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Component relationships](assets/architecture/architecture-en-2.png)
+
+</details>
 
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
@@ -121,6 +135,13 @@ a checkpointer: Foundry conversation IDs do not create durable LangGraph state.
 
 ## Request lifecycle and missing-plan example
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Request lifecycle](assets/architecture/architecture-en-3.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -157,6 +178,13 @@ not instructions to auto-approve a live case.
 
 ## Employee approval and persistence boundary
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Employee approval states](assets/architecture/architecture-en-4.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart LR
@@ -189,6 +217,13 @@ identity authorization nor hosted-agent readiness.
 
 ## Isolated native showcase, not hidden production dependencies
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Native showcase isolation](assets/architecture/architecture-en-5.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -220,6 +255,13 @@ IQ and Content Understanding model setup.
 
 ## Telemetry to native evaluation
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Telemetry and evaluation lineage](assets/architecture/architecture-en-6.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart LR
@@ -247,6 +289,13 @@ evidence blocks promotion. Historical 0/10 judge and RAG negative-control
 failures remain preserved. This is not a same-dataset improvement claim.
 
 ## Release and documentation architecture
+
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Release and publication architecture](assets/architecture/architecture-en-7.png)
+
+</details>
 
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid

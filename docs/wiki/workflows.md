@@ -28,6 +28,13 @@ runs; those are not extra checked-in release entry points.
 
 ## Staging to production
 
+<details>
+<summary>Rendered image if the Mermaid embed is unavailable</summary>
+
+![Staging to production release](../assets/architecture/workflows-1.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -71,6 +78,18 @@ byte-for-byte. Test trends retain their own artifact-driven generator/history.
 Actual staging/production deployment-link fragments replace the marked Home
 section only when supplied; missing new artifacts preserve the last section.
 This prevents a docs-only run from erasing live customer links.
+
+Architecture and workflow guides retain editable Mermaid and include PNG
+fallbacks for restricted embedded renderers. After changing a diagram, refresh
+the images with the existing Mermaid CLI available on your PATH:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\render_architecture_diagrams.py
+```
+
+The checked-in manifest binds each image to its diagram source and PNG hash.
+CI verifies these hashes and copies the images unchanged; it does not install
+or invoke a renderer during wiki publication.
 
 See [Microsoft Foundry](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents)
 and the [evidence guide](release-evidence.md) for platform and provenance limits.

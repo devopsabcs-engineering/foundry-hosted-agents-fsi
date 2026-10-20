@@ -2,6 +2,7 @@
 
 import sys
 import re
+import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -9,6 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import publish_showcase_wiki as wiki  # noqa: E402
+from render_architecture_diagrams import diagram_blocks, digest  # noqa: E402
 
 
 @pytest.mark.parametrize("source", wiki.PAGES)
@@ -48,6 +50,10 @@ def test_publish_twice_is_idempotent_and_preserves_existing_wiki_home(tmp_path):
         expected = (wiki.ROOT / "docs" / "assets" / "evidence" / name).read_bytes()
         assert expected.startswith(b"\x89PNG\r\n\x1a\n")
         assert (tmp_path / "assets" / "evidence" / name).read_bytes() == expected
+    for name in wiki.DIAGRAM_IMAGES:
+        expected = (wiki.ROOT / "docs" / "assets" / "architecture" / name).read_bytes()
+        assert expected.startswith(b"\x89PNG\r\n\x1a\n")
+        assert (tmp_path / "assets" / "architecture" / name).read_bytes() == expected
 
 
 @pytest.mark.parametrize("source", ["docs/showcase-evidence.md", "docs/fr/showcase-evidence.md"])
@@ -149,3 +155,23 @@ def test_diagram_structure_and_architecture_coverage(source):
         assert len(nodes) < 40
         identifiers.extend(nodes)
     assert len(identifiers) == len(set(identifiers))
+
+
+def test_rendered_fallbacks_match_all_mermaid_sources_and_image_hashes():
+    directory = wiki.ROOT / "docs" / "assets" / "architecture"
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    records = manifest["diagrams"]
+    assert {record["asset"] for record in records} == set(wiki.DIAGRAM_IMAGES)
+    assert len(records) == len(wiki.DIAGRAM_IMAGES)
+    for source, (prefix, count) in wiki.DIAGRAMS.items():
+        text = (wiki.ROOT / source).read_text(encoding="utf-8")
+        blocks = diagram_blocks(text)
+        assert len(blocks) == count
+        rendered = wiki.render(source, text, "owner/repo")
+        for index, block in enumerate(blocks, 1):
+            name = f"{prefix}-{index}.png"
+            record = next(record for record in records if record["asset"] == name)
+            assert record["source"] == source and record["index"] == index
+            assert record["diagram_sha256"] == digest(block.encode("utf-8"))
+            assert record["image_sha256"] == digest((directory / name).read_bytes())
+            assert f"](assets/architecture/{name})" in rendered
