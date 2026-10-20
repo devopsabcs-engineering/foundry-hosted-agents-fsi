@@ -243,6 +243,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd config set auth.useAzCliAuth false
           azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
             --federated-credential-provider github
           azd config set auth.useAzCliAuth true
@@ -319,6 +320,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd config set auth.useAzCliAuth false
           azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
             --federated-credential-provider github
           azd deploy --no-prompt
@@ -598,6 +600,7 @@ jobs:
           AGENT_PRINCIPAL_ID: ''
         run: |
           set -euo pipefail
+          azd config set auth.useAzCliAuth false
           azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
             --federated-credential-provider github
           azd config set auth.useAzCliAuth true
@@ -661,6 +664,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
+          azd config set auth.useAzCliAuth false
           azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
             --federated-credential-provider github
           azd deploy --no-prompt
