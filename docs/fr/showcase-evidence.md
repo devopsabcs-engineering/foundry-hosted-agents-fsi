@@ -139,13 +139,30 @@ Capture `2026-10-20T02:50Z` du
 
 ![Le reviewer production exige une connexion Microsoft avant toute action employé](../assets/evidence/production-reviewer-en.png)
 
-### Captures Foundry en attente
+### Agent staging Foundry authentifié
 
-Le navigateur intégré n'est pas connecté à Foundry. Les preuves API sont réelles,
-mais ne remplacent pas des captures du portail. Un onglet de projet authentifié
-partagé permettra de capturer générations, index, skills, évaluations et traces
-sans divulguer les détails du compte.
-Le suivi interactif explicite est
+Après la connexion humaine, le playground staging affichait
+`quote-preparation-agent`, version 3, avec l'indicateur d'exécution. Cette capture
+d'en-tête date de `2026-10-20T03:34:42Z`; le cadrage exclut les détails du compte.
+Elle prouve l'agent, sa version et son état observés, pas une conversation réussie.
+
+![En-tête Foundry authentifié de l'agent staging, version 3, avec indicateur d'exécution](../assets/evidence/foundry-staging-agent-v3.png)
+
+La requête réelle `CASE-SYN-001` du playground s'est terminée, mais le message
+assistant n'affichait aucun texte. Ce défaut de compatibilité du streaming est
+en cours d'analyse; il ne constitue pas un test de conversation réussi. Les
+résultats API bilingues sans streaming vérifiés ci-dessus restent des preuves
+distinctes. Aucun runtime de streaming corrigé n'a été déployé ou vérifié dans
+cette capture.
+
+L'accueil production affichait aussi la version 4 pendant la navigation
+authentifiée, mais aucune capture de l'agent production n'a été enregistrée.
+La navigation suivante a échoué avec `ERR_NETWORK_IO_SUSPENDED`, puis les onglets
+partagés sont devenus indisponibles. Un nouvel onglet a atteint la page de
+connexion avec une erreur de magasin IndexedDB; cela n'annule pas la connexion
+humaine réussie auparavant.
+Les captures des générations, fichiers indexés, skill, évaluations et traces,
+ainsi que la lecture reviewer autorisée, restent à obtenir. Le suivi explicite est
 [#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
 
 ## Limites de qualité natives

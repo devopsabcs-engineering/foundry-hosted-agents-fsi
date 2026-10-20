@@ -20,6 +20,7 @@ SCREENSHOTS = (
     "staging-chat-fr.png",
     "production-reviewer-en.png",
     "release-39356610865.png",
+    "foundry-staging-agent-v3.png",
 )
 
 

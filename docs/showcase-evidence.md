@@ -138,13 +138,28 @@ Captured at `2026-10-20T02:50Z` from the
 
 ![Deployed production reviewer requires Microsoft sign-in before employee actions](assets/evidence/production-reviewer-en.png)
 
-### Foundry portal screenshots still pending
+### Authenticated Foundry staging agent
 
-The integrated browser is signed out of Foundry. API evidence above is genuine,
-but it must not be presented as a portal screenshot. Share an authenticated
-project tab to capture generation jobs, indexed files, skill versions,
-evaluation runs and traces without exposing account details.
-The explicit interactive-only follow-up is
+After the human signed in, the actual staging playground showed
+`quote-preparation-agent`, version 3, with the running indicator. The following
+header capture was taken at `2026-10-20T03:34:42Z` and cropped to exclude account
+details. It proves the observed agent/version/status, not a successful chat.
+
+![Authenticated staging Foundry agent header with version 3 and running indicator](assets/evidence/foundry-staging-agent-v3.png)
+
+The real `CASE-SYN-001` playground request finished, but its assistant message
+displayed no text. This is a streaming compatibility defect under investigation,
+not a passing portal conversation. The independently verified non-streaming
+bilingual API results above remain separate evidence. No corrected streaming
+runtime has been deployed or verified in this capture.
+
+Production home also listed version 4 during authenticated navigation, but no
+production agent screenshot was saved. Subsequent navigation failed with browser
+`ERR_NETWORK_IO_SUSPENDED` errors and the original shared tabs became unavailable.
+A fresh tab reached the login route with an IndexedDB object-store error; this
+does not negate the earlier successful human authentication.
+Generation, indexed files, skill, evaluation and trace screenshots, together with
+authorized reviewer readback, remain outstanding. The explicit follow-up is
 [#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
 
 ## Native quality boundaries
