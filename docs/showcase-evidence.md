@@ -58,8 +58,8 @@ conversation creation and reviewer case-list requests returned HTTP 401.
 These checks do not claim a newly authenticated browser conversation or a
 human reviewer decision.
 An independent operator Cosmos read was denied by data-plane RBAC (HTTP 403);
-no extra operator grant was added. Authenticated reviewer persistence readback
-is retained in [follow-up #17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17),
+no extra operator grant was added. Subsequent authenticated production reviewer
+readback at `2026-10-20T03:53:42Z` confirmed four persisted synthetic records,
 separately from the successful agent-side Cosmos readiness checks.
 
 The deterministic evaluation artifact passed all 13 records. The separate
@@ -138,6 +138,20 @@ Captured at `2026-10-20T02:50Z` from the
 
 ![Deployed production reviewer requires Microsoft sign-in before employee actions](assets/evidence/production-reviewer-en.png)
 
+### Authenticated production reviewer persistence
+
+The normal Microsoft sign-in flow subsequently completed. The authorized
+production reviewer queue displayed `CASE-SYN-001`, `CASE-SYN-002`,
+`CASE-SYN-003` and `CASE-SYN-005`, all `PENDING_REVIEW`, revision 1.
+The submission times remained visible in the actual queue. No employee
+decision, queue clearing or record mutation was performed.
+
+Captured at `2026-10-20T03:55:43Z`, the following actual English queue screenshot
+is cropped to synthetic IDs, states and revisions. Account details, preparer
+fields and premium columns are excluded; no UI values were altered.
+
+![Authenticated production reviewer queue shows four persisted synthetic cases pending review at revision 1](assets/evidence/production-reviewer-persistence-en.png)
+
 ### Authenticated Foundry staging agent
 
 After the human signed in, the actual staging playground showed
@@ -162,8 +176,8 @@ production agent screenshot was saved. Subsequent navigation failed with browser
 `ERR_NETWORK_IO_SUSPENDED` errors and the original shared tabs became unavailable.
 A fresh tab reached the login route with an IndexedDB object-store error; this
 does not negate the earlier successful human authentication.
-Generation, indexed files, skill, evaluation and trace screenshots, together with
-authorized reviewer readback, remain outstanding. The explicit follow-up is
+Generation, indexed files, skill, evaluation and trace screenshots remain
+outstanding. The explicit follow-up is
 [#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
 
 ## Native quality boundaries

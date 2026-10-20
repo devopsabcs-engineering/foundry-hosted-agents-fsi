@@ -61,9 +61,9 @@ Cela ne prouve ni une nouvelle conversation authentifiée dans le navigateur
 ni une décision humaine de reviewer.
 La lecture Cosmos indépendante par l'opérateur a reçu HTTP 403, conformément
 aux droits de données existants; aucun droit supplémentaire n'a été ajouté.
-La lecture de persistance par un reviewer authentifié reste dans le
-[suivi #17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17),
-distincte des contrôles Cosmos réussis par les agents déployés.
+La lecture ultérieure par le reviewer production authentifié, à
+`2026-10-20T03:53:42Z`, a confirmé quatre dossiers synthétiques persistés,
+distinctement des contrôles Cosmos réussis par les agents déployés.
 
 L'évaluation déterministe a réussi ses 13 cas. Le juge LLM consultatif
 `evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` a terminé sans erreur de service,
@@ -139,6 +139,20 @@ Capture `2026-10-20T02:50Z` du
 
 ![Le reviewer production exige une connexion Microsoft avant toute action employé](../assets/evidence/production-reviewer-en.png)
 
+### Persistance vérifiée par le reviewer production authentifié
+
+Le parcours normal de connexion Microsoft a ensuite abouti. La file du reviewer
+production autorisé affichait `CASE-SYN-001`, `CASE-SYN-002`, `CASE-SYN-003` et
+`CASE-SYN-005`, tous `PENDING_REVIEW`, révision 1. Les heures de soumission
+restaient visibles dans la file réelle. Aucune décision employé, suppression
+de file ou modification de dossier n'a été effectuée.
+
+Cette capture française réelle date de `2026-10-20T03:55:08Z`. Le cadrage ne
+conserve que les identifiants synthétiques, états et révisions, sans détails du
+compte, préparateurs ni primes. Aucune valeur de l'interface n'a été modifiée.
+
+![File du reviewer production authentifié montrant quatre dossiers synthétiques persistés en attente de révision, révision 1](../assets/evidence/production-reviewer-persistence-fr.png)
+
 ### Agent staging Foundry authentifié
 
 Après la connexion humaine, le playground staging affichait
@@ -165,8 +179,8 @@ La navigation suivante a échoué avec `ERR_NETWORK_IO_SUSPENDED`, puis les ongl
 partagés sont devenus indisponibles. Un nouvel onglet a atteint la page de
 connexion avec une erreur de magasin IndexedDB; cela n'annule pas la connexion
 humaine réussie auparavant.
-Les captures des générations, fichiers indexés, skill, évaluations et traces,
-ainsi que la lecture reviewer autorisée, restent à obtenir. Le suivi explicite est
+Les captures des générations, fichiers indexés, skill, évaluations et traces
+restent à obtenir. Le suivi explicite est
 [#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
 
 ## Limites de qualité natives

@@ -21,6 +21,8 @@ SCREENSHOTS = (
     "production-reviewer-en.png",
     "release-39356610865.png",
     "foundry-staging-agent-v3.png",
+    "production-reviewer-persistence-en.png",
+    "production-reviewer-persistence-fr.png",
 )
 
 
