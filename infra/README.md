@@ -1,4 +1,7 @@
-# Infrastructure
+---
+title: Infrastructure
+description: Bicep templates for retained pilot environments and isolated opt-in showcases.
+---
 
 Bicep source for the quote preparation pilot. Deployment runs from
 `.github/workflows/deploy-and-evaluate.yml` against a single shared resource
@@ -34,6 +37,16 @@ it in its own template removes that failure mode entirely.
 `web-chat.bicep` is deployed out of band with a direct
 `az deployment group create --template-file infra/web-chat.bicep` against the
 environment `main.bicep` already provisioned, rather than by the main graph.
+
+`memory-showcase.bicep` / `memory-showcase.json` is another opt-in, additive
+template outside the primary environment graph. It creates only the isolated
+`showcase-memory-embedding` deployment on an existing staging Foundry account:
+`text-embedding-3-small` version `1`, regional `Standard`, capacity `1`.
+It does not create a memory store or attach memory to the hosted agent.
+Obtain separate target/artifact approval and preview in incremental mode;
+do not reprovision `main.bicep` or the whole azd project for this prerequisite.
+See the [native runbook](../docs/native-showcase.md#isolated-memory-embedding-prerequisite)
+for compatibility, quota, retention and authorization boundaries.
 
 ## Modules
 

@@ -1,9 +1,8 @@
 """Tests for eval/run_judge_evaluation.py.
 
 Proves `criteria()` produces the three correctly-shaped testing criteria,
-proves `agent_instructions()` correctly extracts the real
-`AGENT_TASK_INSTRUCTIONS` constant from `src/quote-preparation-agent/graph.py`
-via AST parsing (against the real file, not mocked), proves
+proves `agent_instructions()` scopes the rubric to observable applicant
+composition without inventing hidden executed prompts, proves
 `_extract_response_text()` correctly selects the bilingual `applicant_message`
 locale out of a Responses-protocol `output` list, and proves `main()` reads
 the converted dataset's `data` list and drives `capture()`/`evaluate()`
@@ -122,20 +121,21 @@ def test_criteria_produces_three_entries_with_expected_data_mapping():
         assert entry["data_mapping"]["context"] == "{{item.context}}"
 
     coherence, groundedness, task_adherence = entries
-    assert coherence["data_mapping"]["query"] == "{{item.query}}"
+    assert coherence["data_mapping"]["query"] == "{{item.evaluation_query}}"
     assert coherence["data_mapping"]["response"] == "{{item.response}}"
-    assert groundedness["data_mapping"]["query"] == "{{item.query}}"
+    assert groundedness["data_mapping"]["query"] == "{{item.evaluation_query}}"
     assert groundedness["data_mapping"]["response"] == "{{item.response}}"
     assert task_adherence["data_mapping"]["query"] == "{{item.task_query}}"
     assert task_adherence["data_mapping"]["response"] == "{{item.output_items}}"
 
 
-def test_agent_instructions_extracts_the_real_constant_from_graph_py():
+def test_instructions_explicitly_scope_judging_to_applicant_composition():
     instructions = rje.agent_instructions()
 
     assert isinstance(instructions, str)
     assert instructions.strip()
     assert "quote-preparation composition stage" in instructions
+    assert "not an executed system prompt" in instructions
 
 
 def test_extract_response_text_selects_requested_locale():
@@ -146,9 +146,60 @@ def test_extract_response_text_selects_requested_locale():
     assert rje._extract_response_text(output_items, locale="fr-CA") == "Texte francais"
 
 
-def test_extract_response_text_falls_back_when_locale_missing():
+def test_extract_response_text_rejects_missing_locale():
     output_items = [{"content": [{"text": {"fr-CA": "Texte francais"}}]}]
-    assert rje._extract_response_text(output_items, locale="en-CA") == "Texte francais"
+    with pytest.raises(ValueError, match="en-CA"):
+        rje._extract_response_text(output_items, locale="en-CA")
+
+
+@pytest.mark.parametrize("text", [None, [], {"bad": "value"}, 42, True, "   "])
+def test_extract_response_text_rejects_invalid_selected_locale(text):
+    with pytest.raises(ValueError, match="en-CA"):
+        rje._extract_response_text([{"content": [{"text": {"en-CA": text}}]}])
+
+
+def test_main_refuses_to_overwrite_existing_evidence(tmp_path, monkeypatch):
+    monkeypatch.setattr(rje, "capture", lambda *args: pytest.fail("Must not invoke agent"))
+    with pytest.raises(FileExistsError):
+        rje.main([
+            "--endpoint", "https://example.test", "--agent", "quote-preparation-agent",
+            "--version", "4", "--deployment", "gpt-4o-mini",
+            "--dataset", str(tmp_path / "unused.json"), "--output-dir", str(tmp_path),
+        ])
+
+
+def test_applicant_evaluation_uses_independent_context_not_hidden_workflow_or_answer():
+    captured = [{
+        "id": "ready", "query": "CASE-SYN-001", "context": "Draft submitted; employee decision pending.",
+        "locale": "en-CA", "response": "I approved your quote for $100.",
+        "output_items": [{"type": "message", "role": "assistant", "content": [
+            {"type": "output_text", "text": "I approved your quote for $100."},
+        ]}],
+    }]
+    record = rje.evaluation_records(captured)[0]
+    assert record["context"] == captured[0]["context"]
+    assert record["response"] not in record["evaluation_query"]
+    assert "employee" in record["evaluation_query"]
+    assert "Do not infer" in record["task_query"][0]["content"]
+    assert "Run the calculator" not in record["task_query"][0]["content"]
+    assert record["evaluation_scope"] == "applicant_message_only"
+
+
+def test_capture_selects_french_from_converted_record(monkeypatch):
+    import urllib.request
+    import azure.identity
+
+    monkeypatch.setattr(azure.identity, "DefaultAzureCredential",
+                        lambda: nullcontext(SimpleNamespace(
+                            get_token=lambda scope: SimpleNamespace(token="test-token"))))
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: BytesIO(
+        json.dumps({"output": [{"content": [{"text": {
+            "en-CA": "English", "fr-CA": "Francais",
+        }}]}]}).encode()))
+    captured = rje.capture([{"id": "fr", "query": "CASE-SYN-001", "locale": "fr-CA"}],
+                           SimpleNamespace(endpoint="https://example.test", agent="agent"))
+    assert captured[0]["response"] == "Francais"
+    assert captured[0]["output_items"][0]["content"][0]["text"] == "Francais"
 
 
 def test_extract_response_text_returns_empty_string_for_no_output():

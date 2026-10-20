@@ -16,9 +16,9 @@ Both staging and production switch back before refreshing the native credential.
 
 ## Keep the restored customer demo available
 
-The current verified staging agent is version 4; production is version 5.
-[Release 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
-deployed approved runtime source `b0778c7`, with independently verified,
+The current verified staging agent is version 5; production is version 6.
+[Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
+deployed approved runtime source `01af1fb`, with independently verified,
 matching chat and reviewer digests in both environments. The earlier
 [release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 restored the v2/v3 baseline. Both environments remain deployed. Do not run teardown,
@@ -37,7 +37,7 @@ different claims. Only recorded live evidence establishes the last claim.
 | Hosted agents | Foundry project, version, managed identity and Responses endpoint | Restored staging and production passed live checks |
 | Files | Native project OpenAI Files, `user_data`, synthetic text | Native upload verified; generation accepts text, Markdown or PDF, not JSON filenames |
 | Synthetic data | Native generation job, explicit operation UUID, status and output download | Two recovered jobs succeeded with 6 and 5 downloaded rows; maximum requested 15 per job, no local fallback |
-| Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Requires compatible chat and embedding deployments; the current staging account has only its chat deployment |
+| Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Staging store verified with approved embedding; caller-role negative returned 403, not a per-agent ACL |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
 | Knowledge | Azure AI Search GA source, knowledge base and extractive retrieve | Optional isolated Search deployment; an index alone is not Foundry IQ |
@@ -46,13 +46,42 @@ different claims. Only recorded live evidence establishes the last claim.
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
 | Grounding controls | `builtin.groundedness` v18 and `builtin.groundedness_pro` v8 | Both missed a known erroneous French baseline; negative-control gate fails, not an improvement claim |
 | Red team | Native taxonomy and bounded agent-targeted evaluation | Taxonomy created for staging v2; inspect and approve exact categories before attacks |
-| Traces | Deterministic instrumentation, native Log Analytics query and replay fixture | Hosted root ingestion verified; custom stage fields and replay remain unverified; requested W3C IDs are not verified trace IDs |
+| Traces | Deterministic instrumentation, native Log Analytics query and replay fixture | Nine actual spans exported, three custom stages verified, trace-derived native replay passed 1/1; not original-prompt recovery |
 | Business state | Cosmos DB and employee-only approval | Independent of native memory; never approve a quote from the agent |
 
 The web applications and read-only MCP servers run in Azure Container Apps.
 They are Azure-hosted, but not inside the Foundry project. Search is a separate
 Azure service underpinning the knowledge demonstration. Application Insights and
 Log Analytics provide the existing Azure observability backend.
+
+## Applicant-message judge contract
+
+The historical 10-row judge run remains a failure: its generic queries asked
+for a quote and hidden workflow execution, while the captured answer contained
+only the English applicant acknowledgement. Do not reinterpret that evidence
+as a passing run or claim a same-dataset quality improvement.
+
+The separate `eval/applicant-message-dataset.jsonl` benchmark contains five
+synthetic cases with independently authored facts. It evaluates only the
+selected-locale acknowledgement, not hidden calculations, persistence or
+authorization. On the retained staging version 4, all five English and all
+five French cases passed coherence, groundedness and task adherence, with
+zero evaluator errors:
+
+* English: `evalrun_7556a65eb27544b7be68fd918979df8d`
+* French: `evalrun_2a731e4ec7d14e8aa03bb300dba6b6fd`
+
+Separate calibration run `evalrun_9c0960204b0945e8aa1d713b09f95211` rejected
+both deliberate falsehoods on every criterion: invented approval with a price,
+and successful submission for an invalid reference. No threshold was reduced.
+These controls do not erase the earlier RAG grounding false positives below.
+The release workflow now evaluates both locales and retains full native
+results and capture provenance. Scores remain advisory, but missing, errored
+or incomplete native evidence blocks promotion.
+
+The invocation URL targets the current deployment; `--version` records the
+operator-observed version, not a routing pin. Confirm the deployment before
+running [Lab 18](labs/lab-18-native-evaluation-traces.md#exercise-185-judge-observable-applicant-messages).
 
 ## Setup and read-only checks
 
@@ -75,6 +104,31 @@ $revision = git rev-parse HEAD
 Evidence paths must be new. Native operation failures return nonzero and must
 not be presented as successful screenshots. Authentication uses Entra tokens,
 not checked-in secrets. Never expose the operator CLIs as end-user APIs.
+
+### Isolated memory embedding prerequisite
+
+Approved staging deployment `issue20-isolated-memory` succeeded.
+`infra/memory-showcase.bicep` provisions only the separate
+`showcase-memory-embedding` deployment on an existing account:
+`text-embedding-3-small`, version `1`, regional `Standard`, capacity `1`,
+with automatic version upgrades disabled. Reuse the existing deployment for
+the demo. Recheck availability and quota before provisioning another target.
+
+This opt-in template is outside `main.bicep` and `azure.yaml`, like the existing
+isolated showcase template. It does not rewrite the account, existing chat
+deployment, agent, RBAC, network, storage or production. Do not reprovision the
+primary environment to add embeddings. Obtain exact-artifact and staging-target
+approval, preview this template in incremental mode, and require only the one
+new embedding resource before applying it. Compilation is not deployment.
+
+The isolated `showcase-synthetic-memory` store was tested with existing
+`gpt-4o-mini`, this embedding deployment and a 3600-second default TTL using
+[Lab 17](labs/lab-17-native-skills-memory.md). Seed/list/search and both
+cross-scope negative checks passed. Retain any explicit service rejection; do not
+replace the working chat model or attach memory to the hosted quote agent to
+hide a failure. The existing reviewer workload's memory-list request returned
+403, with an operator positive control. This proves caller-role denial, not
+per-agent isolation or authorization by scope.
 
 ## Demonstrate native files and generated data
 
@@ -111,14 +165,13 @@ the earlier undersized examples failed explicitly and were not counted as passes
 
 ## Inspect real memory and test its limits
 
-After compatible chat and embedding deployments have been approved and
-provisioned, supply their exact names:
+Reuse the approved existing staging store. Do not run `memory-create` again
+against that name (HTTP 409). For a separately approved new store, use
+`gpt-4o-mini`, `showcase-memory-embedding` and a 3600-second TTL.
+Entries expire after one hour; reseed before the demo with fresh evidence paths:
 
 ```powershell
-$chat = '<supported-memory-chat-deployment>'
-$embedding = '<supported-embedding-deployment>'
 $store = 'showcase-synthetic-memory'
-& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-create.json" memory-create --store $store --chat-model $chat --embedding-model $embedding --ttl-seconds 3600
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\alice-seed.json" memory-seed --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-seed.json" memory-seed --store $store --scope fixture-bob
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-contents.json" memory-list --store $store --scope fixture-alice
@@ -354,19 +407,22 @@ proof of ingestion: the retained record explicitly says `trace_verified: false`.
 Resolve the publisher authorization through approved access management.
 Do not omit Entra credentials or weaken authentication to bypass the rejection.
 
-The current deployed runtime has separately verified native `invoke_agent`
-ingestion in both environments. The queries returned only the hosted invocation,
-without the custom stage/case/policy fields required for replay.
-See the [exact operation IDs and release evidence](showcase-evidence.md#native-hosted-trace-ingestion).
-Do not feed a root-only invocation into `trace-dataset` as if stage lineage
-had been verified.
+The approved staging v5 runtime exported nine actual spans for operation
+`f63bbcfefd1b3b252a4c343bdc99fd2b`, including `quote.INTAKE`,
+`quote.REFERENCE_LOOKUP` and `quote.COMPOSITION`, with parent/status/policy
+lineage. Calculation and persistence execute inside `COMPOSITION`.
+Search SDK dependencies independently from platform request roots: their
+operation IDs can differ. A root-only query is not proof of missing stages.
+The trace-derived native replay passed 1/1 on all three criteria.
+See [current evidence](showcase-evidence.md#verified-custom-trace-and-native-replay).
+Do not feed a root-only invocation into `trace-dataset`.
 
 ```powershell
 $workspace = '<existing-Log-Analytics-workspace-customer-ID>'
 $traceId = '<actual-32-character-operation-ID>'
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py trace-export --workspace-id $workspace --operation-id $traceId --output-dir "$evidence\trace"
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py trace-dataset --trace-file "$evidence\trace\trace.json" --operation-id $traceId --source-revision $revision --output-dir "$evidence\replay"
-& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 2 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
+& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 5 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
 ```
 
 Missing spans fail. A requested `traceparent` is marked unverified until the

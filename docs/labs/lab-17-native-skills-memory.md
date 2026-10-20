@@ -11,8 +11,8 @@ description: "Register and consume the project-authored skill in an isolated run
 Allow 40 minutes. Complete [Lab 16](lab-16-native-search-invoice.md), or obtain
 the same Python environment and approved staging operator access. The skill
 exercise uses the existing `gpt-4o-mini` deployment and incurs inference charges.
-The memory exercise is conditional on separately approved compatible chat and
-embedding deployments; current staging has only its chat deployment.
+The memory exercise reuses the separately approved staging chat and embedding
+deployments and the existing isolated `showcase-synthetic-memory` store.
 
 All content is synthetic and non-binding, not a real Desjardins product, rate
 or policy. Do not change the hosted quote agent, `quote-tools`, Cosmos DB
@@ -68,7 +68,7 @@ Write down which runtime executed: the isolated operator Responses runtime,
 not the hosted quote agent, toolbox MCP client or Agent Framework skills
 provider. No deployment or business approval changed.
 
-## Exercise 17.3: Identify the memory prerequisite limit
+## Exercise 17.3: Verify the approved memory prerequisites
 
 Inspect `preflight.json` and list available deployment names. Compare them with
 the memory command's required chat and embedding inputs:
@@ -77,26 +77,28 @@ the memory command's required chat and embedding inputs:
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint memory-create --help
 ```
 
-Current staging has no compatible embedding deployment for this path, so native
-memory is not live-verified. Record this as blocked by prerequisites, not as a
-passing or failing isolation result. Listing models or reading CLI help does
-not prove memory operation. Do not substitute a chat model for embeddings.
+Staging now has `gpt-4o-mini` and the approved `showcase-memory-embedding`
+(`text-embedding-3-small`, version `1`). The isolated store was created with
+a 3600-second default TTL, with user-profile and chat-summary extraction
+disabled. Native seed,
+list and search passed, unlike the earlier prerequisite-blocked state.
+Listing models alone does not prove operation. Do not substitute a chat model
+for embeddings or redeploy the baseline infrastructure.
 
 ## Exercise 17.4: Test namespaces only after prerequisites are approved
 
-Skip these live commands unless compatible deployments have already been
-approved and provisioned. Replace both placeholders with their exact deployment
-names. Use an isolated synthetic store and a one-hour default TTL:
+Reuse the existing approved staging store; do not recreate it (HTTP 409).
+For a different approved target only, create a new isolated store using the
+deployment names above and `--ttl-seconds 3600`. The following commands reseed
+expired one-hour fixtures and retain new evidence without changing store setup:
 
 ```powershell
-$chat = '<supported-memory-chat-deployment>'
-$embedding = '<supported-embedding-deployment>'
 $store = 'showcase-synthetic-memory'
-& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-create.json" memory-create --store $store --chat-model $chat --embedding-model $embedding --ttl-seconds 3600
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\alice-seed.json" memory-seed --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-seed.json" memory-seed --store $store --scope fixture-bob
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-contents.json" memory-list --store $store --scope fixture-alice
 & .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-isolation.json" memory-search --store $store --scope fixture-alice
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-isolation.json" memory-search --store $store --scope fixture-bob
 Get-Content "$evidence\memory-isolation.json"
 ```
 
@@ -114,6 +116,13 @@ and consider separate project/store boundaries for stronger isolation. Never
 accept an arbitrary scope string from a chatbot. Sharing a scope is not a
 per-agent access-control list.
 
+The recorded authorization control used the existing staging reviewer workload
+identity: token acquisition succeeded, but memory list returned HTTP 403.
+An authorized operator read the seeded entry as the positive control.
+This is caller/project-role denial, not per-agent ACL enforcement.
+Do not change RBAC or expose workload tokens to repeat it. Inspect the
+[recorded evidence](../showcase-evidence.md#verified-isolated-memory) instead.
+
 Memory TTL is not Cosmos DB retention. Memory is not the authoritative quote
 state or audit trail. Hosted-agent memory attachment needs a separate runtime
 compatibility check.
@@ -123,8 +132,9 @@ compatibility check.
 * Retain registration and attachment evidence separately from actual consumption.
 * Record native response ID, immutable skill version, instruction hash and
   bilingual output checks, or the exact failure.
-* Record memory as prerequisite-blocked on current staging. Only if approved
-  prerequisites exist, retain both positive and negative retrieval evidence.
+* Retain positive and cross-scope negative results in both directions.
+* Distinguish the recorded caller-role 403 from scope partitioning and note
+  the one-hour expiry; reseed before a live demo.
 * Explain why namespace isolation never grants approval or caller authorization.
 
 Keep evidence under git-ignored `.local`; no teardown is required. Continue to

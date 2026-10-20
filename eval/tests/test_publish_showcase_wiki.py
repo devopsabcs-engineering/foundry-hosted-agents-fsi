@@ -60,6 +60,10 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
         "foundry-traces-portal.png",
         "foundry-staging-playground-v4.png",
         "foundry-production-playground-v5.png",
+        "release-39424857559.png",
+        "foundry-memory-portal.png",
+        "foundry-staging-playground-v5.png",
+        "foundry-production-playground-v6.png",
     ):
         assert f"](assets/evidence/{name})" in rendered
     peer = "Native-Foundry-Evidence-FR" if source == "docs/showcase-evidence.md" else "Native-Foundry-Evidence"

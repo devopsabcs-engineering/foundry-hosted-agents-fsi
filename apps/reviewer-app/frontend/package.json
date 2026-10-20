@@ -8,6 +8,9 @@
     "build": "vite build",
     "test": "node --test tests/*.test.js"
   },
+  "overrides": {
+    "source-map-js": "1.2.2"
+  },
   "dependencies": {
     "@azure/msal-browser": "^4.0.0",
     "@fontsource-variable/dm-sans": "^5.0.0",

@@ -108,9 +108,17 @@ fabricated model spans or invented token usage.
 > [!IMPORTANT]
 > Trace replay requires real spans already ingested into the existing
 > Application Insights/Log Analytics backend through the authorized telemetry
-> provider. The retained release has verified hosted root spans, but custom
-> stage fields and deterministic replay remain unverified. Do not deploy or
-> change access in this lab.
+> provider. Approved staging v5 has nine exported spans with all three custom
+> stages and a passing native replay. Do not deploy or change access in this lab.
+
+Recorded operation `f63bbcfefd1b3b252a4c343bdc99fd2b` contains
+`quote.INTAKE`, `quote.REFERENCE_LOOKUP` and `quote.COMPOSITION`.
+Calculation and persistence are inside `COMPOSITION`. Search SDK dependencies
+independently from platform request roots, whose operation IDs can differ.
+Native replay run `evalrun_7fe89f5118b54b6d8bb68ae619479875` passed 1/1
+on each criterion with zero errors. This reconstructs a synthetic case, not
+the original private user prompt. See the
+[current evidence](../showcase-evidence.md#verified-custom-trace-and-native-replay).
 
 The isolated local export previously received HTTP 403 for the operator identity
 and retained `trace_verified: false`. `force_flush()` and a requested W3C
@@ -136,10 +144,11 @@ Get-Content "$evidence\replay\replay-dataset.json"
 Verify operation ID, policy hash, source revision, trace-file hash and synthetic
 case mapping. Missing spans fail; requested IDs are unverified until the native
 query finds them. Replay reconstructs a fixture, not the original private prompt.
-Only after that inspection, submit the retained dataset against staging v2:
+Only after that inspection, submit the retained dataset against staging v5
+(confirm the current deployment first; `--version` is metadata, not routing):
 
 ```powershell
-& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 2 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
+& .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version 5 --deployment gpt-4o-mini --dataset "$evidence\replay\replay-dataset.json" --output-dir "$evidence\replayed-evaluation"
 ```
 
 Record actual evaluation IDs and failures. If real ingestion is unavailable,
@@ -164,6 +173,36 @@ The [evaluation capture](../showcase-evidence.md#honest-evaluation-results) pres
 failed judge criteria rather than presenting workflow success as a judge pass.
 These are reference observations, not substitutes for your own live checks.
 
+## Exercise 18.5: Judge observable applicant messages
+
+Use the independent five-case applicant benchmark, not the historical ten-case
+workflow dataset. Inspect its trusted facts before capturing replies. Check the
+currently deployed version in Foundry and record it below; the endpoint calls
+the current deployment and `--version` does not pin routing.
+
+```powershell
+$agentVersion = '<currently-deployed-staging-version>'
+foreach ($locale in 'en-CA', 'fr-CA') {
+    & .venv\Scripts\python.exe eval\convert_judge_dataset.py eval\applicant-message-dataset.jsonl "$evidence\applicant-$locale.json" --locale $locale
+    if ($LASTEXITCODE -ne 0) { throw "Dataset conversion failed: $locale" }
+    & .venv\Scripts\python.exe eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version $agentVersion --deployment gpt-4o-mini --dataset "$evidence\applicant-$locale.json" --output-dir "$evidence\applicant-$locale"
+    if ($LASTEXITCODE -ne 0) { throw "Inspect native judge results: $locale" }
+}
+```
+
+Require five completed items and three scored criteria per item in each
+`results.json`. Inspect `captured.json` for the correct locale and independent
+context. The retained v4 runs passed 5/5 per criterion in each language.
+A separate two-item calibration rejected invented approval/pricing and a false
+submission for an invalid reference on all three criteria. Native identities
+are recorded in the [runbook](../native-showcase.md#applicant-message-judge-contract).
+
+This is a corrected evaluation contract on a new dataset, not a measured
+quality gain over the historical run. The rubric is evaluation metadata, not
+an executed prompt. It cannot prove calculator execution, Cosmos persistence,
+reviewer authorization or RAG grounding-control recovery. Keep those checks
+separate and preserve historical failures.
+
 ## Completion evidence
 
 * Retain two native retrieval runs, their comparison and the self-comparison
@@ -172,6 +211,8 @@ These are reference observations, not substitutes for your own live checks.
   gates, or mark reproduction blocked by missing retained artifacts.
 * Retain verified trace export, replay provenance and native evaluation only
   if ingestion prerequisites exist; otherwise document the precise block.
+* Retain both applicant-message runs with hashes, locale, capture provenance
+  and native identities; distinguish them from the historical benchmark.
 
 Return to [Lab 17](lab-17-native-skills-memory.md), the [labs index](index.md)
 or the [native showcase runbook](../native-showcase.md). Leave staging and

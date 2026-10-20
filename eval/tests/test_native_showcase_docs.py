@@ -17,7 +17,7 @@ NATIVE_LABS = {
     ),
     "lab-17-native-skills-memory.md": (
         "skill-register", "skill-attach", "skill-consume", "memory-create",
-        "memory-seed", "memory-list", "memory-search", "--ttl-seconds 3600",
+        "memory-seed", "memory-list", "memory-search",
     ),
     "lab-18-native-evaluation-traces.md": (
         "catalog", "retrieval-compare", "compare-runs", "grounding-compare",
@@ -163,3 +163,31 @@ def test_native_labs_preserve_failed_controls_and_prerequisite_boundaries(folder
     assert evaluation.index("trace-export --workspace-id") < evaluation.index(
         "trace-dataset --trace-file"
     ) < evaluation.index("run_judge_evaluation.py --endpoint")
+
+
+@pytest.mark.parametrize("folder", ["docs/labs", "docs/fr/labs"])
+def test_memory_lab_reuses_existing_store_and_checks_both_scopes(folder):
+    text = (ROOT / folder / "lab-17-native-skills-memory.md").read_text(encoding="utf-8")
+    script = "\n".join(powershell_blocks(text))
+    assert "memory-create --help" in script
+    assert "memory-create --store" not in script
+    assert "--ttl-seconds 3600" in text
+    for scope in ("fixture-alice", "fixture-bob"):
+        assert f"memory-search --store $store --scope {scope}" in script
+    for token in ("HTTP 409", "HTTP 403", "3600", "showcase-memory-embedding"):
+        assert token in text
+
+
+@pytest.mark.parametrize("source", ["docs/showcase-evidence.md", "docs/fr/showcase-evidence.md"])
+def test_current_evidence_keeps_approved_runtime_and_native_run_provenance(source):
+    text = (ROOT / source).read_text(encoding="utf-8")
+    for token in (
+        "39424857559", "01af1fbdb3c43e91510d0f902e0716a4c70f7789",
+        "quote-preparation-agent:5", "version `6`", "476", "36", "13/13",
+        "evalrun_80031091728f4b5f9ce459f0df23902d",
+        "evalrun_b34fdb38ba084a928e230b6898b28637",
+        "evalrun_7fe89f5118b54b6d8bb68ae619479875",
+        "f63bbcfefd1b3b252a4c343bdc99fd2b", "quote.COMPOSITION",
+        "3600", "HTTP 403", "0/10", "DNS",
+    ):
+        assert token in text, f"{source} omits {token}"

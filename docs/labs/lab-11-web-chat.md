@@ -153,7 +153,7 @@ Sending a message requires two things your local run does not have: a live `AGEN
 
 The deployed chat has both. `scripts/setup-web-chat-identity.ps1` registers the deployed origins alongside `http://localhost:8000`, so signing in against the deployed URL works while the placeholder identity values from Exercise 11.2 cannot.
 
-`infra/web-chat.bicep` is applied out of band (not through `deploy-and-evaluate.yml`), and only into the production resource group -- there is no staging web-chat deployment.
+`infra/web-chat.bicep` is applied out of band, not through `deploy-and-evaluate.yml`. Both staging and production chat deployments exist. Keep each application's current environment and identity configuration; use an image-only update when infrastructure changes are not intended. See the [verified release and image digests](../showcase-evidence.md#current-approved-release).
 
 ```powershell
 # Load the azd environment values (AZURE_RESOURCE_GROUP and others) into this session

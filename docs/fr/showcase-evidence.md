@@ -6,7 +6,125 @@ description: Reprise des générations natives, versions réellement exécutées
 
 [English](../showcase-evidence.md) | [Guide natif](native-showcase.md) | [Laboratoires](labs/index.md)
 
-## État du déploiement
+## Livraison approuvée actuelle
+
+La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
+a réussi le 2026-10-20 UTC sur le code approuvé
+`01af1fbdb3c43e91510d0f902e0716a4c70f7789`.
+Staging exécute `quote-preparation-agent:5`; production exécute la version `6`.
+L'approbation de production est restée active. Les deux environnements sont
+conservés; les commits documentaires suivants ne sont pas des livraisons runtime.
+
+| Application | Digest identique dans les deux environnements | Révision prête, staging / production |
+| --- | --- | --- |
+| Chat | `sha256:50bf8a52bd062aa86621fffa4a9330d1461706892f954900edf868fdcfbd8929` | `foundry-quote-chat-staging--0000003` / `foundry-quote-chat--0000002` |
+| Reviewer | `sha256:2b8ae4900bfb3f6554909d6ef485dbe6b8e80b5a0a1ea93c9cbe17794dc00660` | `foundry-quote-reviewer-staging--0000006` / `foundry-quote-reviewer--0000003` |
+| MCP application | `sha256:c264c27211cd0321ac3a2903fbf355f913a173038ccfea8e8fb919cfa0ea80e1` | `mcp-staging-application-server--0000006` / `mcp-application-server--0000003` |
+| MCP rulebook | `sha256:1197e17f92212ef6e8a68a488279e3cf850d84a66d1f87bf2c9e0712e0f157bd` | `mcp-staging-rulebook-server--0000006` / `mcp-rulebook-server--0000003` |
+
+Le chat a été construit depuis le même code approuvé par ACR, build `chu`,
+puis déployé séparément. En production, seule l'image Container Apps a changé,
+sans redéploiement général. La relecture confirme les huit dernières révisions
+prêtes et l'état de provisionnement `Succeeded`.
+
+### Régression actuelle et juges natifs
+
+La CI a réussi 476 tests hors ligne avec 36 exclusions conditionnelles,
+le contrôle déterministe 13/13, les builds frontend et la validation
+d'infrastructure. Les appels natifs indépendants dans chaque environnement
+ont réussi `CASE-SYN-001` (`READY`), `CASE-SYN-003` (`UNSUPPORTED`),
+`CASE-SYN-005` (`INCOMPLETE`) et `NOT-A-CASE-ID` (`REJECTED_INTAKE`).
+Les deux messages linguistiques sont non vides, sans divulgation numérique
+ou monétaire. Les quatre applications ont réussi santé/configuration;
+les routes protégées anonymes ont retourné HTTP 401.
+
+Le nouveau jeu indépendant de messages au demandeur a réussi 5/5 pour coherence,
+groundedness et task adherence dans chaque langue, sans erreur :
+
+* Anglais staging v5 : `evalrun_80031091728f4b5f9ce459f0df23902d`
+* Français staging v5 : `evalrun_b34fdb38ba084a928e230b6898b28637`
+
+Ce contrat évalue les messages observables, pas les étapes internes. Le jeu
+et le contrat diffèrent de l'ancien résultat 0/10 conservé ci-dessous :
+aucun gain sur le même jeu n'est affirmé. Deux fausses réponses synthétiques
+ont échoué sur chaque critère dans
+`evalrun_9c0960204b0945e8aa1d713b09f95211`. Leurs identifiants de capture
+hérités de réponses valides ne sont pas la provenance de ces contrôles.
+
+### Mémoire isolée vérifiée
+
+Le déploiement staging additif approuvé `issue20-isolated-memory` a créé
+uniquement `showcase-memory-embedding` : `text-embedding-3-small`, version `1`,
+SKU régional `Standard`, capacité `1`, sans mise à niveau automatique.
+Aucun compte existant, ressource de production ou droit RBAC n'a été réécrit.
+Le magasin `showcase-synthetic-memory` utilise `gpt-4o-mini` existant,
+ce modèle d'embedding et une durée de vie par défaut de 3600 secondes,
+sans extraction de profil utilisateur ni résumé de conversation.
+Alimentation, liste et recherche réelles ont
+retrouvé les marqueurs Alice/Bob dans leur scope et pas dans l'autre.
+
+L'identité managée existante du reviewer staging a obtenu un vrai jeton mais
+reçu HTTP 403 sur la liste mémoire; le contrôle opérateur autorisé a retrouvé
+son entrée. Cela prouve un refus par rôle d'appelant/projet, pas une ACL par
+agent ni une autorisation par namespace. Aucun rôle n'a été ajouté.
+Les entrées expirent après une heure. L'[Atelier 17](labs/lab-17-native-skills-memory.md)
+réalimente le magasin existant sans le recréer. Ce magasin n'est pas rattaché
+à l'agent de soumission; Cosmos reste l'autorité métier.
+
+### Traces personnalisées et rejeu natif vérifiés
+
+L'opération staging réelle `f63bbcfefd1b3b252a4c343bdc99fd2b` a exporté neuf
+spans, dont `quote.INTAKE`, `quote.REFERENCE_LOOKUP` et `quote.COMPOSITION`.
+Les trois parents et statuts réussis sont conservés. Calcul et persistance
+s'exécutent dans `COMPOSITION`, sans étape de calcul distincte.
+Cherchez les dépendances SDK indépendamment des racines de requêtes plateforme
+`invoke_agent`, dont les identifiants d'opération peuvent différer.
+
+SHA-256 du fichier trace :
+`6f3e7d9d5ea9e4d9ea8da61354475b7ea8d7e29af05ab5a66e8d9dd067e9501e`.
+SHA-256 de politique :
+`88dadb91caf1e796db058955caf1cb8acd5fd7bd7ccb03bd2f3778b1da6ea662`.
+L'évaluation dérivée `eval_f1b517827fca4114bf53e0039f9e3cbf`,
+exécution `evalrun_7fe89f5118b54b6d8bb68ae619479875`, a réussi 1/1 sur
+les trois critères, sans erreur. Ce rejeu synthétique conserve provenance
+trace/cas/politique/source, sans récupérer le prompt privé d'origine.
+Suivez l'[Atelier 18](labs/lab-18-native-evaluation-traces.md).
+
+### Captures authentiques actuelles
+
+Après les erreurs DNS/connexion/affichage, de nouvelles pages authentifiées
+ont fonctionné vers `2026-10-20T17:46Z`. Ce sont des captures réelles du portail,
+avec seulement zoom, retour à la ligne, taille du panneau et recadrage de
+l'en-tête du compte. Aucune valeur n'a été modifiée. Configuration brute et
+identifiants ne sont pas publiés. Les anciennes captures plus bas restent
+historiques, sans nouvelle étiquette.
+
+![Livraison approuvée 39424857559 réussie avec staging version 5](../assets/evidence/release-39424857559.png)
+
+La page mémoire réelle montre `gpt-4o-mini`, `showcase-memory-embedding`
+et la durée de vie de 3600 secondes. La mémoire procédurale est une valeur
+par défaut du service; aucun appel d'extraction ni rattachement à l'agent
+hébergé n'a été effectué.
+
+![Modèles et rétention d'une heure du magasin mémoire natif staging](../assets/evidence/foundry-memory-portal.png)
+
+De nouveaux appels `CASE-SYN-001` dans les deux playgrounds ont affiché
+le message EN/FR complet et borné. Réponse production :
+`resp_srDGyFupOpTLUoADJq5YTeNHKQOMxGRkIgAogh613MGlI9rjOZ`.
+Réponse staging :
+`resp_zgF0s07nmmiFiJPn7O7lFcEU4VDwAQoNAskyzmm3SeEkXzS7KM`.
+Ces contrôles navigateur s'ajoutent aux régressions SDK indépendantes.
+
+![Playground staging v5 authentifié et accusé de réception synthétique](../assets/evidence/foundry-staging-playground-v5.png)
+
+![Playground production v6 authentifié et accusé de réception synthétique](../assets/evidence/foundry-production-playground-v6.png)
+
+### Limites restantes
+
+Foundry IQ facultatif, modèles Content Understanding, exécution red-team
+révisée et contrôles d'ancrage RAG échoués restent des limites explicites.
+
+## État du déploiement précédent
 
 Preuves recueillies le 2026-10-20 UTC. Les deux environnements restent déployés.
 La [livraison 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
@@ -257,6 +375,10 @@ Cela se distingue des invocations hébergées réellement ingérées ci-dessous.
 
 ### Ingestion native des invocations hébergées
 
+Ces observations de racines seules datent de la livraison précédente.
+L'[export actuel de neuf spans et le rejeu](#traces-personnalisées-et-rejeu-natif-vérifiés)
+remplacent les limites antérieures sans modifier les preuves historiques.
+
 Des requêtes Log Analytics ciblant les opérations exactes ont trouvé un span
 `invoke_agent` réussi pour chaque agent appelé indépendamment :
 
@@ -269,9 +391,9 @@ Le span production a été enregistré à `2026-10-20T02:42:26.5330371Z`.
 Les champs personnalisés étape, référence de cas, hachage de politique et type
 d'exécution sont vides. Cela prouve l'ingestion de l'invocation, pas la
 visibilité des étapes déterministes ni le rejeu trace-vers-dataset.
-Ces contrôles restent ouverts; aucune provenance de cas ni aucun dataset de
-rejeu n'ont été inventés. L'inventaire natif contient toujours zéro magasin
-mémoire : aucune démonstration de mémoire native active n'est revendiquée.
+À cette date les contrôles restaient ouverts et l'inventaire contenait zéro
+magasin mémoire. Les résultats réussis actuels de mémoire et de rejeu staging
+sont consignés séparément plus haut.
 
 Consultez le [guide natif](native-showcase.md) et la
 [documentation Microsoft Foundry](https://learn.microsoft.com/azure/ai-foundry/).

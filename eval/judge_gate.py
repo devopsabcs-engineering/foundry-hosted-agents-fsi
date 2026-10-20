@@ -25,6 +25,16 @@ def validate_results(
 ) -> dict:
     if expected_count < 1 or not 0 < minimum_pass_rate <= 1:
         raise ValueError("A nonempty dataset and pass rate in (0, 1] are required")
+    rates = validate_completion(run, items, expected_count)
+    if any(rate < minimum_pass_rate for rate in rates.values()):
+        raise ValueError(f"Quality threshold {minimum_pass_rate:.0%} not met: {rates}")
+    return rates
+
+
+def validate_completion(run: dict, items: list[dict], expected_count: int) -> dict:
+    """Require complete, scored evidence independently of advisory score policy."""
+    if expected_count < 1:
+        raise ValueError("A nonempty dataset is required")
     if run.get("status") != "completed" or run.get("error"):
         raise ValueError(f"Evaluation did not complete successfully: {run.get('error')}")
     counts = run.get("result_counts", {})
@@ -51,7 +61,4 @@ def validate_results(
             ):
                 raise ValueError(f"Unscored or errored evaluator result: {result}")
             passes[result["name"]] += int(result["passed"])
-    rates = {metric: passed / expected_count for metric, passed in passes.items()}
-    if any(rate < minimum_pass_rate for rate in rates.values()):
-        raise ValueError(f"Quality threshold {minimum_pass_rate:.0%} not met: {rates}")
-    return rates
+    return {metric: passed / expected_count for metric, passed in passes.items()}

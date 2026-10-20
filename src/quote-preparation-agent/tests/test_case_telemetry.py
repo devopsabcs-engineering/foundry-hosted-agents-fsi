@@ -18,9 +18,11 @@ class Tracer:
         self.spans = []
 
     @contextmanager
-    def start_as_current_span(self, name, *, attributes):
+    def start_as_current_span(self, name, *, attributes, record_exception, set_status_on_exception):
+        assert record_exception is False
+        assert set_status_on_exception is False
         self.spans.append({"name": name, "attributes": attributes})
-        yield
+        yield case_telemetry.trace.NonRecordingSpan(case_telemetry.trace.INVALID_SPAN_CONTEXT)
 
 
 @pytest.mark.parametrize("reference", ["CASE-SYN-001", "person@example.test", "CASE-SYN-001\n"])
@@ -57,3 +59,65 @@ def test_telemetry_does_not_swallow_stage_failure(monkeypatch):
     with pytest.raises(RuntimeError, match="tool unavailable"):
         stage({"case_id": "CASE-SYN-002"})
     assert len(tracer.spans) == 1
+
+
+def test_hosted_tracing_does_not_hide_initialization_failure(monkeypatch):
+    class BrokenSdk:
+        def init_tracing(self):
+            raise ValueError("invalid telemetry configuration")
+
+    class Adapter(case_telemetry.HostedTracing, BrokenSdk):
+        pass
+
+    monkeypatch.setattr(
+        case_telemetry.trace, "get_tracer_provider", case_telemetry.trace.ProxyTracerProvider
+    )
+    with pytest.raises(ValueError, match="invalid telemetry configuration"):
+        Adapter().init_tracing()
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_real_stage_status_is_payload_free_and_preserves_exception(monkeypatch, fails):
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(case_telemetry, "TRACER", provider.get_tracer("stage-status-test"))
+    failure = RuntimeError("private applicant payload")
+    result = {"status": "bounded"}
+
+    @case_telemetry.trace_stage("composition", "synthetic policy")
+    def stage(state):
+        if fails:
+            raise failure
+        return result
+
+    try:
+        # A handled caller exception must not mark a successful stage as failed.
+        try:
+            raise ValueError("private caller payload")
+        except ValueError:
+            if fails:
+                with pytest.raises(RuntimeError) as raised:
+                    stage({"case_id": "person@example.test", "private": "applicant data"})
+                assert raised.value is failure
+                assert raised.traceback[-1].name == "stage"
+            else:
+                assert stage({"case_id": "CASE-SYN-001"}) is result
+
+        (span,) = exporter.get_finished_spans()
+        expected = (
+            case_telemetry.trace.StatusCode.ERROR
+            if fails else case_telemetry.trace.StatusCode.UNSET
+        )
+        assert span.status.status_code is expected
+        assert span.status.description is None
+        assert not span.events
+        assert not any("exception" in key for key in span.attributes)
+        assert "private" not in str(dict(span.attributes))
+        assert "person@example.test" not in str(dict(span.attributes))
+    finally:
+        provider.shutdown()
