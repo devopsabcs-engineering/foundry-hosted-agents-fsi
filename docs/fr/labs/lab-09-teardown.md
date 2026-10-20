@@ -59,7 +59,11 @@ Ajustez le chemin si vous avez utilisé un autre nom de fichier aux ateliers 03 
 
 Les ateliers 00 à 08 ne provisionnent jamais d'infrastructure Azure. Chaque composant s'exécute localement : le calculateur et le dépôt d'approbation sont du Python pur avec SQLite, les serveurs MCP s'exécutent comme processus locaux, et l'agent s'exécute en processus sans aucun appel à Foundry hébergé. Il n'existe aucun groupe de ressources, ressource d'abonnement ni environnement `azd` créé par ces ateliers à supprimer.
 
-Cela change à partir de l'atelier 10, où les surfaces du pilote introduisent une fondation Azure, un enregistrement d'application Entra et un flux de démantèlement dédié. Chacun de ces ateliers nettoie ce qu'il a créé.
+À partir de l'atelier 10 apparaissent ressources Azure, enregistrements Entra
+et démantèlement contrôlé. Le nettoyage n'est pas automatique. Conservez la
+démonstration partagée pour les ateliers 15–18; toute suppression exige un bac
+à sable jetable explicitement approuvé. Réactivez l'environnement de l'atelier
+00 avant les exercices Python suivants.
 
 ## Liste de vérification
 

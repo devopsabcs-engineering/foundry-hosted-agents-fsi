@@ -7,6 +7,12 @@ Bicep source for the quote preparation pilot. Deployment runs from
 `.github/workflows/deploy-and-evaluate.yml` against a single shared resource
 group that holds both the staging and production environments.
 
+See the [architecture](../docs/architecture.md)
+([French](../docs/fr/architecture.md)) for component and identity boundaries.
+The [approved release evidence](../docs/showcase-evidence.md#current-approved-release)
+records runtime `01af1fb`, staging v5 and production v6. Preserve these retained
+environments; compiling a template is not permission to deploy or tear it down.
+
 > [!NOTE]
 > The production `azd` environment's name (and every resource name derived
 > from it -- e.g. `cosmos-desjardins-quote-preparation-poc`,
@@ -20,7 +26,7 @@ group that holds both the staging and production environments.
 
 ## Templates
 
-Two templates deploy into that resource group, and the split is deliberate.
+The primary foundation uses two templates, and the split is deliberate.
 
 * `network.bicep` — virtual network, five subnets, the Cosmos private DNS
   zone, and its virtual network link. Deployed once for the whole resource
@@ -47,6 +53,14 @@ Obtain separate target/artifact approval and preview in incremental mode;
 do not reprovision `main.bicep` or the whole azd project for this prerequisite.
 See the [native runbook](../docs/native-showcase.md#isolated-memory-embedding-prerequisite)
 for compatibility, quota, retention and authorization boundaries.
+
+The existing staging store `showcase-synthetic-memory` is a separate service
+resource, not an output of this template. Its verified configuration uses
+`gpt-4o-mini`, `showcase-memory-embedding`, a 3600-second default TTL, disabled
+user-profile/chat-summary extraction and service-default procedural extraction.
+Positive and cross-scope checks and the reviewer workload's HTTP 403 are
+distinct retrieval and caller-role controls, not a per-agent ACL. Memory is
+not attached to the quote agent and does not replace the Cosmos approval store.
 
 ## Modules
 
@@ -80,6 +94,17 @@ Foundry account are creation-time only. Moving an existing environment onto the
 network requires deleting and recreating it, which is what
 `.github/workflows/network-rebuild-teardown.yml` exists to do.
 
+## Runtime identity and case-store access
+
+The hosted agent's Entra principal is distinct from the Foundry project identity.
+`agentPrincipalId` optionally grants Cosmos access in Bicep, but CI does not
+trust a cached `AGENT_PRINCIPAL_ID`. After deployment, a synthetic invocation
+materializes the runtime principal; `eval/ensure_agent_cosmos_access.py` checks it,
+and the workflow applies the existing Cosmos RBAC module when needed before
+rechecking live access. Private DNS/network reachability and data-plane
+authorization must both succeed. The reviewer workload has its own identity;
+browser role claims authorize reviewer commands, not direct Cosmos access.
+
 ## Working on these templates
 
 `main.json` and `network.json` are committed build artifacts. Regenerate and
@@ -90,5 +115,7 @@ az bicep build --file infra/network.bicep --outfile infra/network.json
 az bicep build --file infra/main.bicep --outfile infra/main.json
 ```
 
-No tenant ID, subscription ID, credential, or endpoint is hard-coded in any
-template here. All of them arrive as parameters.
+Deployment target identities and endpoints are parameterized or derived from
+resources; service URLs, resource-name defaults and placeholder images are not
+credentials. Review environment parameters and digest-pinned images before an
+approved deployment.

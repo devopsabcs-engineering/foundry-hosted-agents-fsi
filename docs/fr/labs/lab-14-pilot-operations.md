@@ -12,7 +12,7 @@ description: "Exécuter localement le pipeline de validation, lire la porte d'é
 
 > [!WARNING]
 > Pour poursuivre les ateliers 15 à 18, ne démantelez pas la démo restaurée
-> partagée. Gardez staging v2 et production v3 déployés; étudiez les protections
+> partagée. Gardez staging v5 et production v6 déployés; étudiez les protections
 > sans supprimer ces environnements.
 
 ## Aperçu
@@ -34,7 +34,7 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 * Expliquer pourquoi le pipeline s'authentifie par OIDC et ne porte presque aucun secret
 * Décrire la conception de sécurité du flux de démantèlement
 * Expliquer pourquoi certaines ressources doivent être supprimées plutôt que reconfigurées
-* Démanteler toutes les ressources Azure créées par le pilote, localement avec `azd` ou par un flux de travail contrôlé
+* Identifier les commandes de démantèlement réservées à un bac à sable jetable explicitement approuvé
 
 ## Exercices
 
@@ -44,30 +44,38 @@ Vous avez maintenant vu chaque composant : le calculateur, la machine à états,
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Résultat attendu : neuf flux de travail.
+Résultat attendu : dix flux de travail.
 
 | Flux de travail | Déclencheur | Objet |
 | --- | --- | --- |
 | `continuous-validation.yml` | poussée, demande de tirage, manuel | Tests de régression hors ligne et compilation Bicep |
-| `reviewer-app-build.yml` | poussée et demande de tirage filtrées par chemin | Tests et image de l'application de révision |
-| `web-chat-build.yml` | poussée et demande de tirage filtrées par chemin | Tests et image du clavardage |
-| `publish-test-trends.yml` | après la validation | Publie les preuves de tests dans le wiki |
+| `reviewer-app-build.yml` | poussée/PR filtrées, manuel | Tests; publication ACR sur poussée `main` |
+| `web-chat-build.yml` | poussée/PR filtrées, manuel | Tests; publication ACR sur poussée `main` |
+| `publish-test-trends.yml` | après validation, manuel | Publie les preuves conservées dans le wiki |
+| `require-linked-issue.yml` | cycle de vie des PR | Exige une référence fermant une issue dans la PR |
 | `deploy-and-evaluate.yml` | appel et manuel seulement | Provisionnement et déploiement, préproduction puis production |
 | `hosted-agent-cd.yml` | appel et manuel seulement | Déploiement de l'agent hébergé |
 | `reviewer-app-teardown.yml` | manuel seulement | Supprime les ressources propres à la révision |
 | `network-rebuild-teardown.yml` | manuel seulement | Supprime les ressources dont la configuration réseau est immuable |
 | `full-teardown.yml` | manuel seulement | Supprime des groupes de ressources entiers à la fin de l'atelier |
 
-Seuls les trois premiers s'exécutent automatiquement. Rien qui touche Azure ne s'exécute sur une poussée.
+Validation, liaison d'issue et publication wiki sont automatiques selon leurs
+événements. Les deux flux applicatifs utilisent Azure OIDC et publient des images
+ACR sur les poussées admissibles à `main`. Publication n'est pas déploiement :
+livraison de l'agent et démantèlement restent explicites, par appel/manuellement,
+avec approbation d'environnement pour la production.
 
 ### Exercice 14.2 (pratique) : Exécuter la suite hors ligne localement
 
-Ce sont les commandes qu'exécute `continuous-validation.yml`.
+À la racine, réactivez l'environnement de l'atelier 00 et installez les
+dépendances des ateliers précédents. Ces commandes couvrent les mêmes suites
+Python que `continuous-validation.yml`. Inspectez les raisons des omissions
+conditionnelles lorsque des SDK facultatifs sont absents.
 
 ```powershell
-pytest src/quote-preparation-agent/tests -v
-pytest eval -v
-pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests -v
+python -m pytest src/quote-preparation-agent/tests -v
+python -m pytest eval -v
+python -m pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests -v
 ```
 
 Résultat attendu : les trois suites réussissent. Les surfaces applicatives sont testées par leurs propres flux de travail :
@@ -95,7 +103,11 @@ Gate: PASS
 
 La porte est déterministe. Elle n'appelle aucun modèle et n'effectue aucune requête réseau, un échec signifie donc toujours un changement de comportement plutôt qu'un fournisseur instable.
 
-La parité bilingue mérite qu'on s'y arrête. Un changement qui améliorerait le message anglais en laissant le message français périmé réussirait chaque test unitaire de ce dépôt tout en constituant un défaut, car les deux langues sont le produit. La porte traite une rupture de parité comme un échec.
+La parité est couverte par les tests unitaires et par la porte des données de
+référence. Une amélioration seulement anglaise peut rompre le contrat bilingue.
+Les juges natifs sont distincts : scores consultatifs, mais preuves complètes
+et sans erreur EN/FR obligatoires pour promouvoir. Conservez le 0/10 historique
+avec son contrat d'origine.
 
 ### Exercice 14.4 : Comprendre la posture d'authentification
 
@@ -103,7 +115,9 @@ La parité bilingue mérite qu'on s'y arrête. Un changement qui améliorerait l
 Select-String -Path .github/workflows/*.yml -Pattern "secrets\." | Select-Object -ExpandProperty Line
 ```
 
-Résultat attendu : le seul secret référencé dans tout le pipeline est le jeton de poussée du wiki. Tout le reste provient de variables de dépôt.
+Résultat attendu : `WIKI_PUSH_TOKEN` est la seule référence `secrets.*`
+personnalisée. Les flux utilisent aussi `github.token` intégré pour GitHub
+et OIDC pour Azure; les variables contiennent les identifiants de déploiement.
 
 L'accès à Azure passe par la fédération d'identité de charge de travail :
 
@@ -121,17 +135,12 @@ C'est également pourquoi l'atelier 12 devait être exécuté par une personne a
 actionlint
 ```
 
-Résultat attendu : code de sortie 1 avec exactement cinq constats, tous signalant `unexpected key "queue"` :
-
-| Fichier | Ligne |
-| --- | --- |
-| `deploy-and-evaluate.yml` | 53 |
-| `full-teardown.yml` | 77 |
-| `network-rebuild-teardown.yml` | 78 |
-| `publish-test-trends.yml` | 49 |
-| `reviewer-app-teardown.yml` | 80 |
-
-Ces constats sont attendus. `concurrency.queue` est valide pour le modèle de déploiement de ce dépôt et non reconnu par le schéma de l'analyseur. Traitez tout sixième constat comme réel, et laissez ces cinq-là tels quels.
+Le résultat dépend de la version et du schéma actionlint. Les anciennes versions
+signalent `unexpected key "queue"` aux cinq déclarations `concurrency.queue`
+des flux de livraison, wiki et démantèlement. Comparez chaque diagnostic à la
+déclaration réelle et à la syntaxe Actions prise en charge; les numéros de ligne
+ne sont pas une liste d'exemptions. Examinez tout autre constat. Cinq erreurs
+arbitraires ne doivent jamais être ignorées parce qu'elles sont cinq.
 
 ### Exercice 14.6 : Lire la conception de sécurité du démantèlement
 
@@ -179,14 +188,18 @@ Cette boucle existe à cause d'un détail de synchronisation facile à manquer. 
 
 ### Exercice 14.8 (pratique) : Tout démanteler
 
-Une fois l'atelier terminé, supprimez les ressources Azure pour qu'elles cessent d'engendrer des coûts. Listez vos environnements azd et le groupe de ressources vers lequel chacun pointe :
+Pour la démonstration conservée, l'exercice reste en lecture seule. Ne supprimez
+que votre bac à sable jetable, après approbation explicite du propriétaire et
+inventaire. Aucune option ne doit viser le groupe partagé staging/production.
+Listez d'abord les environnements et leurs groupes :
 
 ```powershell
 azd env list
 azd env get-value AZURE_RESOURCE_GROUP -e <environment>
 ```
 
-Le déploiement de référence compte deux groupes :
+L'inventaire historique contenait ces deux groupes; ce n'est ni une vérification
+d'existence actuelle ni une autorisation de suppression :
 
 | Groupe de ressources | Contenu |
 | --- | --- |
@@ -217,7 +230,10 @@ gh workflow run full-teardown.yml -f target=poc -f confirm=poc
 gh workflow run full-teardown.yml -f target=poc -f confirm=poc -f execute=true
 ```
 
-Résultat attendu : chaque exécution attend une approbation sur l'environnement `production`. Le résumé de l'essai à blanc liste chaque type de ressource du groupe ; la seconde exécution le supprime. Utilisez `target=shared` ou `target=both` pour inclure le groupe de préproduction et de production.
+Résultat attendu : approbation de l'environnement protégé `production`.
+La première commande inventorie; la seconde supprime la cible `poc` approuvée.
+Les cibles `shared`/`both` existent, mais ne doivent pas viser la démonstration
+conservée. L'approbation d'un essai à blanc n'autorise pas une suppression.
 
 Le flux conserve les quatre protections des autres flux de démantèlement et en ajoute une cinquième : les noms de groupes de ressources doivent correspondre à un motif de liste d'autorisation, une variable de dépôt mal saisie ne peut donc pas le diriger vers un groupe sans rapport. Il purge aussi chaque compte Foundry avant de supprimer le groupe, car les rôles de l'identité sont limités au groupe et auraient disparu au moment d'une purge ultérieure.
 
@@ -226,18 +242,18 @@ Le flux conserve les quatre protections des autres flux de démantèlement et en
 
 ## Liste de vérification
 
-* [ ] Vous avez listé les neuf flux de travail et identifié ceux qui s'exécutent automatiquement
+* [ ] Vous avez listé les dix flux, dont publication ACR automatique et liaison d'issue
 * [ ] Chaque suite de tests locale réussit
 * [ ] `python eval/evaluation_gate.py` rapporte `Gate: PASS`
-* [ ] Le seul secret du pipeline est le jeton de poussée du wiki
-* [ ] `actionlint` rapporte exactement cinq constats `queue` connus
+* [ ] Vous distinguez secret wiki personnalisé, jeton GitHub intégré et Azure OIDC
+* [ ] Vous avez comparé les diagnostics actionlint au schéma et aux déclarations réelles
 * [ ] Vous pouvez nommer les quatre protections précédant les flux de démantèlement
 * [ ] Vous pouvez expliquer pourquoi le démantèlement pour reconstruction réseau préserve les comptes Cosmos
-* [ ] Vous avez supprimé les groupes de ressources dont vous n'avez plus besoin, avec `azd down` ou `full-teardown.yml`
+* [ ] Vous avez conservé les environnements partagés et identifié l'approbation requise pour supprimer un bac à sable
 
 ## Vérification des connaissances
 
-* Pourquoi un échec de parité bilingue serait-il invisible aux suites de tests unitaires ?
+* Comment tests unitaires de parité et porte sur le jeu complet se complètent-ils ?
 * Pourquoi une variable de dépôt convient-elle à `AZURE_CLIENT_ID` alors qu'un secret client ne conviendrait pas ?
 * Le flux de démantèlement supprime une attribution de rôle AcrPull mais jamais le registre de conteneurs. Pourquoi ?
 * Si `execute` vaut false par défaut, que produit réellement une première exécution du flux de démantèlement ?

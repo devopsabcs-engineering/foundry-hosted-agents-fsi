@@ -1,4 +1,4 @@
-"""Render the bilingual showcase docs into an already-cloned wiki; never push."""
+"""Render maintained documentation into an already-cloned wiki; never push."""
 
 from __future__ import annotations
 
@@ -14,6 +14,13 @@ PAGES = {
     "docs/fr/native-showcase.md": ("Native-Foundry-Showcase-FR", "Fonctions natives Foundry"),
     "docs/showcase-evidence.md": ("Native-Foundry-Evidence", "Native Foundry evidence"),
     "docs/fr/showcase-evidence.md": ("Native-Foundry-Evidence-FR", "Preuves natives Foundry"),
+    "docs/architecture.md": ("Architecture", "Architecture"),
+    "docs/fr/architecture.md": ("Architecture-FR", "Architecture"),
+    "docs/wiki/home.md": ("Home", "Foundry hosted agents FSI"),
+    "docs/wiki/sidebar.md": ("_Sidebar", "Navigation"),
+    "docs/wiki/operations.md": ("Operations", "Operations"),
+    "docs/wiki/workflows.md": ("Workflows", "Workflows"),
+    "docs/wiki/release-evidence.md": ("Release-Evidence", "Release evidence"),
 }
 SCREENSHOTS = (
     "staging-chat-en.png",
@@ -41,7 +48,7 @@ def render(source: str, text: str, repository: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*", repository):
         raise ValueError("repository must have the GitHub owner/name format")
     if source not in PAGES:
-        raise ValueError("Only pinned showcase source pages can be published")
+        raise ValueError("Only pinned documentation source pages can be published")
     frontmatter = re.match(r"\A---\r?\n.*?\r?\n---\r?\n", text, re.DOTALL)
     if not frontmatter:
         raise ValueError("Showcase source is missing frontmatter")
@@ -56,7 +63,8 @@ def render(source: str, text: str, repository: str) -> str:
         target = match.group(2)
         if not target.startswith(("#", "https://", "http://", "mailto:")):
             target = urljoin(base, target)
-            target = page_links.get(target, target)
+            path, separator, fragment = target.partition("#")
+            target = page_links.get(path, path) + separator + fragment
             for filename in SCREENSHOTS:
                 if target == f"https://github.com/{repository}/blob/main/docs/assets/evidence/{filename}":
                     target = f"assets/evidence/{filename}"
@@ -64,6 +72,17 @@ def render(source: str, text: str, repository: str) -> str:
 
     body = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", link, body)
     return f"# {PAGES[source][1]}\n\n{body.rstrip()}\n"
+
+
+def deployment_section(text: str) -> str:
+    start = "<!-- deployment-links:start -->"
+    end = "<!-- deployment-links:end -->"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise ValueError("Wiki Home must contain exactly one complete deployment-links section")
+    first, last = text.index(start), text.index(end)
+    if last < first:
+        raise ValueError("Wiki Home deployment-links markers are out of order")
+    return text[first:last + len(end)]
 
 
 def main(argv=None) -> int:
@@ -77,30 +96,16 @@ def main(argv=None) -> int:
         args.wiki / f"{page}.md": render(source, (ROOT / source).read_text(encoding="utf-8"), args.repository)
         for source, (page, _) in PAGES.items()
     }
+    home = args.wiki / "Home.md"
+    if home.exists():
+        existing = deployment_section(home.read_text(encoding="utf-8"))
+        rendered[home] = rendered[home].replace(deployment_section(rendered[home]), existing, 1)
     for path, content in rendered.items():
         path.write_text(content, encoding="utf-8")
     assets = args.wiki / "assets" / "evidence"
     assets.mkdir(parents=True, exist_ok=True)
     for filename in SCREENSHOTS:
         shutil.copyfile(ROOT / "docs" / "assets" / "evidence" / filename, assets / filename)
-    home = args.wiki / "Home.md"
-    text = home.read_text(encoding="utf-8") if home.exists() else "# Home\n"
-    marker = "<!-- native-showcase:start -->"
-    end = "<!-- native-showcase:end -->"
-    section = (
-        f"{marker}\n## Native Foundry showcase / Fonctions natives\n\n"
-        "[English](Native-Foundry-Showcase) | [Français](Native-Foundry-Showcase-FR)\n"
-        "\n[Evidence and screenshots](Native-Foundry-Evidence) | "
-        "[Preuves et captures](Native-Foundry-Evidence-FR)\n"
-        f"{end}"
-    )
-    if marker in text:
-        if end not in text:
-            raise ValueError("Wiki Home has an incomplete native showcase section")
-        text = re.sub(re.escape(marker) + ".*?" + re.escape(end), section, text, flags=re.DOTALL)
-    else:
-        text = text.rstrip() + "\n\n" + section + "\n"
-    home.write_text(text, encoding="utf-8")
     return 0
 
 

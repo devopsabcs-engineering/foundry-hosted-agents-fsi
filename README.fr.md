@@ -44,8 +44,12 @@ l'apprenant.
   MCP en lecture seule exposant les données synthétiques des demandes.
 * [mcp/rulebook-server/](mcp/rulebook-server/) contient un service MCP en
   lecture seule exposant les données synthétiques du référentiel de règles.
-* [apps/workshop/](apps/workshop/) contient le calculateur déterministe,
-  le dépôt des approbations et les vues du demandeur et du réviseur.
+* [apps/workshop/](apps/workshop/) contient le calculateur déterministe
+  et le dépôt SQLite des approbations des exercices locaux.
+* [apps/reviewer-app/](apps/reviewer-app/) contient la file bilingue de
+  révision par un employé. Son service et l'agent partagent le contrat
+  `CaseStore` dans `src/quote-preparation-agent/case_store.py`, avec SQLite
+  localement et Cosmos DB privé dans les environnements conservés.
 * [apps/web-chat/](apps/web-chat/) contient une interface de clavardage
   pilote interne pour l'agent hébergé, reprise du dépôt voisin. Elle est
   déployée séparément ([infra/web-chat.bicep](infra/web-chat.bicep)), aux
@@ -56,9 +60,9 @@ l'apprenant.
   synthétiques et le schéma JSON du contrat de préparation de soumissions.
 * [eval/](eval/) contient le banc d'évaluation des calculs, des
   approbations, des injections et de la parité bilingue.
-* [infra/](infra/) contient les modules d'infrastructure Bicep, réservés
-  aux auteurs jusqu'à la validation des exigences de plateforme et de
-  réglementation.
+* [infra/](infra/) contient les modules Bicep du pilote synthétique contrôlé.
+  Une livraison pilote approuvée n'est pas une approbation réglementaire
+  ni celle d'un assureur.
 * [scripts/](scripts/) contient les utilitaires partagés, dont le
   générateur de présentations bilingues pour l'atelier.
 
@@ -71,29 +75,49 @@ sous forme de site navigable à l'adresse
 <https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/fr/>
 (une connexion à GitHub est requise tant que ce dépôt est privé).
 
+Lisez l'[architecture et les frontières de confiance](docs/fr/architecture.md)
+([anglais](docs/architecture.md)) avant les exercices Azure. Le graphe
+achemine un identifiant synthétique validé par `INTAKE`, `REFERENCE_LOOKUP`
+et `COMPOSITION`; calcul et persistance de l'ébauche ont lieu dans
+`COMPOSITION`, pas dans des étapes supplémentaires. Le clavardage reçoit
+seulement des messages bilingues bornés; l'API de révision expose le calcul
+et consigne les décisions des employés.
+
 ## Essayer l'interface de clavardage
 
 Pour la démonstration client de la séance 2, consultez le
 [guide des fonctions natives Foundry](docs/fr/native-showcase.md)
 ([anglais](docs/native-showcase.md)). Il distingue les preuves du
 déploiement restauré du RAG File Search natif et de la compétence opérateur
-réellement exécutés, puis des étapes restantes : mémoire, Foundry IQ,
-télémétrie et approbation de livraison. Les juges natifs ont manqué un contrôle
+réellement exécutés, des contrôles mémoire isolés et du rejeu de traces
+personnalisées. Foundry IQ, les prérequis Content Understanding et les travaux
+facultatifs de red team conservent leurs limites distinctes. Les juges natifs ont manqué un contrôle
 négatif connu; cette limite est documentée, sans faux succès de qualité.
 Conservez les deux environnements déployés.
 
 Consultez les [preuves actuelles et captures](docs/fr/showcase-evidence.md)
 pour les remplacements réussis des deux générations échouées et la distinction
-entre les images publiées et les versions réellement déployées.
+entre les images publiées et les versions réellement déployées. La livraison
+approuvée [`39424857559`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
+a déployé la révision `01af1fb` en staging v5 et production v6, avec les
+interfaces de clavardage/révision et les deux services MCP prêts dans chaque
+environnement. Les vrais playgrounds ont réussi. Le juge des messages au
+demandeur a réussi 5/5 dans chaque langue sur les trois critères, sans erreur;
+l'ancien résultat 0/10 relève d'un autre contrat et reste conservé.
+Ces résultats ne garantissent pas une disponibilité continue.
 
 L'interface dans [apps/web-chat/](apps/web-chat/) est déployée séparément en
-production (consultez les [liens de déploiement](#liens-de-déploiement)
+staging et en production (consultez les [liens de déploiement](#liens-de-déploiement)
 pour l'URL actuelle). Pour l'exécuter localement en utilisant l'agent
-réellement déployé :
+réellement déployé, activez l'environnement virtuel de l'atelier 00 et partez
+de la racine du dépôt. Fournissez le vrai point de terminaison du projet
+Foundry, l'inscription Entra et le groupe pilote de cet environnement.
+Authentifiez votre identité Azure locale avec l'accès Foundry requis :
 
 ```powershell
+python -m pip install -r apps/web-chat/requirements.txt
 cd apps/web-chat/frontend
-npm install
+npm ci
 npm run build
 cd ..
 $env:AGENT_ENDPOINT = "$env:FOUNDRY_PROJECT_ENDPOINT/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1"
@@ -103,11 +127,12 @@ $env:PILOT_GROUP_ID = "<ID d'objet du groupe de sécurité pilote>"
 python -m uvicorn app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-Ouvrez ensuite <http://127.0.0.1:8000/>. L'écran d'accueil s'affiche sans
-configuration Entra. Le bouton **Sign in with Microsoft** et la zone de
-saisie des messages deviennent utilisables uniquement lorsque
-`ENTRA_CLIENT_ID` et `PILOT_GROUP_ID` correspondent à une inscription
-d'application et à un groupe pilote réels.
+Ouvrez ensuite <http://localhost:8000/> pour respecter l'origine de redirection
+enregistrée. Les quatre paramètres ci-dessus sont obligatoires au démarrage;
+les trois identifiants doivent être des UUID valides. Les valeurs fictives
+de l'atelier 11 servent seulement à afficher la barrière d'accès. La connexion
+et l'envoi exigent la configuration réelle, l'appartenance au groupe, le point
+de terminaison Responses déployé et un appelant serveur autorisé.
 
 ![Interface de clavardage pour la préparation de soumissions](assets/web-chat-ui.png)
 
@@ -155,11 +180,12 @@ Aucune URL de démonstration active n'est inscrite en dur ici, car les noms
 d'hôtes Container Apps et le nom du projet Foundry dépendent de
 l'environnement et peuvent changer lors d'un reprovisionnement.
 La [page d'accueil du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home)
-contient plutôt un tableau Deployment Links, actualisé automatiquement
-après chaque exécution en préproduction ou en production du flux
+contient plutôt un tableau Deployment Links publié depuis les artefacts
+de déploiement conservés après le flux
 [`Deploy and Evaluate (Staging -> Production)`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/workflows/deploy-and-evaluate.yml).
-Il fournit les liens vers les ressources déployées, dont les deux
-interfaces pilotes :
+La publication dépend de la réussite de l'étape wiki. Vérifiez son exécution
+source et les preuves actuelles avant de traiter ses liens comme actifs.
+Le tableau inclut les deux interfaces pilotes :
 
 * L'application de révision (file d'approbation des dossiers) et
   l'interface de clavardage destinée aux demandeurs
@@ -171,10 +197,9 @@ interfaces pilotes :
 
 Utilisez toujours la
 [page d'accueil du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home)
-pour obtenir les URL actuelles des interfaces. Les deux applications de
-conteneur peuvent recevoir un nouveau nom d'hôte lors d'un
-reprovisionnement, et cette page est la seule copie actualisée à chaque
-déploiement.
+pour obtenir les URL publiées plutôt que recopier d'anciens noms d'hôtes.
+Les deux applications peuvent changer d'hôte lors d'un reprovisionnement;
+un échec ou retard de publication du wiki n'actualise pas l'ancien tableau.
 
 Consultez également la page
 [Continuous Test Trends](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Continuous-Test-Trends)
@@ -207,11 +232,12 @@ redéploiement du clavardage sous un nouveau nom d'hôte.
 
 ## Restaurer la démonstration après une suppression complète
 
-Les résultats de la dernière reconstruction et les blocages restants sont
-suivis dans le
-[ticket #7](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/7).
-Consultez ce suivi avant d'utiliser les anciens liens du wiki pour une
-démonstration client.
+Les [preuves actuelles](docs/fr/showcase-evidence.md#livraison-approuvée-actuelle)
+consignent la livraison conservée réussie. Le
+[ticket #7](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/7)
+préserve l'ancien incident de suppression/reconstruction, pas le verdict
+actuel de disponibilité. La procédure suivante vise seulement une future
+suppression approuvée séparément; ne l'exécutez pas sur la démo conservée.
 
 > [!IMPORTANT]
 > Un déploiement réussi dans le passé ne signifie pas que la démonstration

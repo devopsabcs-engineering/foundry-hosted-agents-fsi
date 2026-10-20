@@ -1,18 +1,10 @@
 """Collect CI measurements and render durable, run-linked GitHub wiki trends.
 
-Adapted from the sibling `foundry-hosted-agents` repository's
-`scripts/ci_results.py`. That script's `evaluation_totals()`/`load_totals()`
-read artifacts this repository's pipelines do not produce (`captured.json`,
-`candidate-policy.json`, `run-identity.json`, `concurrent-sessions.json` --
-there is no hosted-agent capture pipeline or load-test harness here; see
-`eval/run_judge_evaluation.py`'s own AUTHOR-ONLY banner). This port drops
-those two functions and the "load" dimension entirely, and adds two
-repository-specific replacements: `deterministic_gate_totals()` (reads this
-repository's real `eval/evaluation_gate.py` output) and `judge_totals()`
-(reads LLM-judge evidence once `eval/run_judge_evaluation.py` is activated;
-returns `None` gracefully today, matching every real run so far -- no
-fabricated data). `junit_totals()`, `collect()`, `publish_history()`,
-`chart()`, and `run_label()` are ported verbatim except where noted inline.
+Adapted from the sibling `foundry-hosted-agents` repository. This version
+reads this repository's JUnit, deterministic gate and native judge artifacts.
+Live judge captures are produced by approved release runs, not offline CI.
+Missing measurements remain unavailable rather than fabricated as zero.
+There is no load-test harness or sibling capture/policy artifact contract.
 `web-chat-build.yml` invokes only this script's `--junit` mode (`junit_totals`
 alone), so its by_type labels ("Web chat backend"/"Web chat frontend") are
 preserved for compatibility.
@@ -35,9 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # eval/evaluation_gate.py is eval/judge_gate.py (see that module's own
 # docstring): eval/evaluation_gate.py is the deterministic gate and has no
 # METRICS/validate_results shape by design. judge_totals() below imports
-# from judge_gate so a real judge_rates breakdown can be computed once
-# eval/run_judge_evaluation.py actually runs against a hosted endpoint;
-# until then judge_totals() returns None for every run.
+# from judge_gate to compute rates from actual hosted-endpoint evidence.
 from eval.judge_gate import METRICS, validate_results
 
 
@@ -111,13 +101,10 @@ def deterministic_gate_totals(path: Path = Path("eval/results.json")):
 def judge_totals(directory):
     """Read LLM-judge evaluation evidence, if any.
 
-    This repository has no capture/policy-check pipeline distinct from the
-    evaluation run itself (`eval/run_judge_evaluation.py`'s `capture()` is
-    AUTHOR-ONLY and raises rather than producing a `captured.json`). Once a
-    real hosted endpoint exists and this step actually runs, the judge
-    harness's run/items payload is expected at `directory/judge-results.json`;
-    until then this returns `None` for every run today, matching the
-    repository's no-fabrication convention -- never raises for a missing file.
+    Approved release runs capture actual hosted applicant messages and write
+    the native run/items payload to `directory/judge-results.json`. Offline
+    validation does not invoke the endpoint. Missing judge artifacts return
+    `None`, not a fabricated measurement.
     """
     results = read_json(directory / "judge-results.json")
     if results is None:
@@ -302,8 +289,9 @@ def summary(record):
     lines += [
         "",
         "N/A means not measured or unavailable, not zero. "
-        "This repository has no hosted-agent capture pipeline; LLM-judge evaluation "
-        "is author-only and inert until a real endpoint exists (see eval/run_judge_evaluation.py).",
+        "Approved release runs capture real hosted applicant messages for native judge evaluation; "
+        "offline validation does not invoke that endpoint. Scores are advisory, but missing, "
+        "incomplete or errored judge evidence blocks promotion.",
     ]
     lines += [f"- {cell(issue)}" for issue in record["data_issues"]]
     return "\n".join(lines) + "\n"
@@ -360,9 +348,11 @@ def render_trends(records):
         "Chart labels use V (validation) or R (release), workflow run number, and attempt. "
         "The table links each label to the full run ID.",
         "Failed and cancelled runs stay visible. Charts show measurements, not workflow status.",
-        "This repository has no hosted-agent capture pipeline; LLM-judge evaluation is "
-        "author-only and inert until a real endpoint exists and Gates G2/G3/G6 clear "
-        "(see eval/run_judge_evaluation.py).",
+        "Approved release runs capture real hosted applicant messages for native judge evaluation. "
+        "Offline validation does not invoke that endpoint. Scores are advisory, but missing, "
+        "incomplete or errored judge evidence blocks promotion. "
+        "See [current release evidence](Release-Evidence) for the verified baseline; "
+        "historical measurements retain their original run provenance.",
         "",
         "## Recent Runs",
         "",

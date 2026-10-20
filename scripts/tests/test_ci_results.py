@@ -199,6 +199,11 @@ def test_render_trends_fallback_when_no_judge_data():
     assert "No comparable evaluation lineage has been collected yet." in trends
     assert "## Deterministic Gate" in trends
     assert "## Evaluation Trends" in trends
+    for rendered in (trends, ci_results.summary(record)):
+        assert "real hosted applicant messages" in rendered
+        assert "blocks promotion" in rendered
+        assert "author-only" not in rendered
+        assert "inert" not in rendered
 
 
 def _judge_results_payload(item_outcomes: list[dict[str, bool]]) -> dict:
@@ -231,8 +236,7 @@ def _judge_results_payload(item_outcomes: list[dict[str, bool]]) -> dict:
 
 
 def test_render_trends_charts_judge_metrics_when_evidence_is_present(tmp_path):
-    """This exercises the plumbing that stays dormant while
-    `deploy-and-evaluate.yml`'s LLM-judge step is guarded (`if: false`):
+    """Exercise the live release evidence contract:
     once real `judge-results.json`/`context.json` evidence exists,
     `render_trends` must chart coherence/groundedness/task_adherence
     rather than falling back to the "no lineage collected" placeholder.

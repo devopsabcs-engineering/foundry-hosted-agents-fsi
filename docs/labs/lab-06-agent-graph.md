@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 * Name the agent's three sequential stages: intake, reference lookup, composition
 * Explain the supervisor's routing rule in `decide_next_step`, including the short-circuit for an invalid case reference
-* Explain why `toolbox.py` calls the Lab 04/05 MCP tool functions in-process instead of opening a network client session
+* Distinguish the local in-process MCP functions from the hosted HTTP client path
 * Confirm the agent's own code never calls `approve`, `reject`, or `revise` on the approval repository
 
 ## Exercises
@@ -32,9 +32,21 @@ By the end of this lab, you will be able to:
 
 Open `src/quote-preparation-agent/graph.py` and read `decide_next_step`. The supervisor always visits `intake` first. If intake found the case reference valid, it routes to `reference_lookup` next; if intake found it invalid, it skips straight to `composition` so composition can still produce a bounded rejection message. Once composition completes, the graph ends.
 
-### Exercise 6.2: Read Why Toolbox Calls Are In-Process
+### Exercise 6.2: Compare Local and Hosted Toolbox Calls
 
-Open `src/quote-preparation-agent/toolbox.py` and read its module docstring. It explains that this phase calls `get_application` and `get_rulebook` by loading each MCP server's `main.py` directly, rather than opening an `mcp` Python SDK `ClientSession` against a running server. This keeps tests fast and free of any open port, while still exercising the exact functions each server exposes over MCP. Note also that `approve`, `reject`, `revise`, and `open_training_preview` are intentionally never imported here: only a human reviewer may call those.
+Read `src/quote-preparation-agent/toolbox.py`, including its implementation
+after the original local-phase docstring. In this checkout it loads each MCP
+server's `main.py` and calls the functions in-process, keeping these exercises
+network-free. In the hosted image the monorepo server directories are absent;
+the wrappers instead call `_call_remote_mcp_tool` with a streamable-HTTP
+`ClientSession` and `APPLICATION_MCP_URL`/`RULEBOOK_MCP_URL` from `azure.yaml`.
+You do not need to start the Lab 04/05 servers for the local graph.
+
+`approve`, `reject`, `revise`, and `open_training_preview` are not exposed by
+the toolbox. Employee decisions use the separate reviewer surface. Calculation
+and case-store submission happen inside `COMPOSITION`; `AGENT_TASK_INSTRUCTIONS`
+is evaluation metadata, not an executed system prompt. See the
+[architecture](../architecture.md) for the hosted boundary.
 
 ### Exercise 6.3: Run the Existing Tests
 
@@ -76,13 +88,13 @@ Expected result: the printed note starts with `[lab-06-stub]`, confirming the mo
 
 * [ ] `pytest src/quote-preparation-agent/tests/test_toolbox.py -v` passes
 * [ ] You can name the three sequential stages and explain the invalid-case-reference short-circuit
-* [ ] You located the toolbox docstring explaining the in-process MCP call design choice
+* [ ] You located both the in-process and hosted streamable-HTTP toolbox paths
 * [ ] Your Exercise 6.4 stub model's text appeared in the graph's output
 
 ## Knowledge Check
 
 * Why does `toolbox.py` never import `approve`, `reject`, `revise`, or `open_training_preview` from the approval repository?
-* What would have to change in `toolbox.py` for this agent to call a deployed MCP server instead of an in-process function?
+* What packaging condition selects the existing remote MCP path, and which two environment variables does it require?
 
 ## Next Steps
 

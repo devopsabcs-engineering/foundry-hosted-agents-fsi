@@ -6,6 +6,8 @@ description: Recorded native generation recovery, running demo versions and auth
 
 [Français](fr/showcase-evidence.md) | [Native runbook](native-showcase.md) | [Labs](labs/index.md)
 
+[Deployed architecture and evidence lineage](architecture.md)
+
 ## Current approved release
 
 [Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)

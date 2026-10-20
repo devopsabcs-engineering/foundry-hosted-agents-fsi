@@ -99,7 +99,9 @@ az bicep build --file infra/network.bicep --outfile infra/network.json
 az bicep build --file infra/main.bicep --outfile infra/main.json
 ```
 
-Expected result: both commands exit 0. The JSON files are committed artifacts, so if a compile changes one, commit the regenerated file alongside your Bicep edit.
+Expected result: both builds exit 0. The JSON files are committed artifacts;
+include regeneration with any Bicep change on a feature branch and reviewed
+PR, never directly on `main`. This exercise does not authorize deployment.
 
 ```powershell
 git status --short infra/main.json infra/network.json
@@ -119,7 +121,13 @@ Expected result: both parameters default to `''`, and `deployReviewerApp` is com
 
 The reviewer app parses its client ID with `uuid.UUID()` at startup. Passing an empty string would not produce a degraded mode, it would produce a crash loop, so the template skips the module entirely until Lab 12 supplies a real registration.
 
-`agentPrincipalId` is subtler. A hosted agent receives its own dedicated per-agent Entra identity, and Foundry creates that identity at deploy time, after this template has already run. It is explicitly not the Foundry account or project system-assigned identity, so it cannot be resolved here. Until it is supplied, the agent cannot write cases to Cosmos.
+`agentPrincipalId` optionally grants Cosmos RBAC during Bicep provisioning.
+The hosted agent uses its own runtime Entra principal, not the account/project
+system identity. Current CI deploys and invokes the synthetic agent to
+materialize that principal, then `eval/ensure_agent_cosmos_access.py` applies
+missing Cosmos access and rechecks it. An empty initial parameter does not mean
+the final release must remain unauthorized. CI does not trust a cached
+`AGENT_PRINCIPAL_ID`. See the [architecture](../architecture.md).
 
 ### Exercise 10.6: Understand Why Cosmos Is Unreachable From the Internet
 

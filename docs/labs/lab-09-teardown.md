@@ -58,7 +58,11 @@ Adjust the path if you used a different file name during Labs 03 or 07.
 
 Labs 00 through 08 never provision Azure infrastructure. Every component runs locally: the calculator and approval repository are pure Python and SQLite, the MCP servers run as local processes, and the agent runs in-process with no hosted Foundry call. There is no resource group, subscription resource, or `azd` environment created by those labs to delete.
 
-That changes from Lab 10 onward, where the pilot surfaces introduce an Azure foundation, an Entra app registration, and a dedicated teardown workflow. Each of those labs cleans up after itself.
+Lab 10 onward introduces Azure resources, Entra registrations and gated
+teardown workflows. Cleanup is not automatic. Keep the retained shared demo
+deployed for Labs 15–18; destructive cleanup applies only to an explicitly
+approved disposable sandbox. Reactivate the Lab 00 environment before later
+Python exercises.
 
 ## Validation Checklist
 

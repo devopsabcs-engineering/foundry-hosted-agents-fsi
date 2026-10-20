@@ -19,7 +19,7 @@ Les données et résultats sont synthétiques et non contraignants, sans représ
 des produits, tarifs ou polices Desjardins réels. La génération consomme de la
 capacité et peut entraîner des frais. Ne déployez rien, ne modifiez pas
 `quote-tools`, ne remplacez pas les agents restaurés et ne lancez aucun
-démantèlement. Staging v2 et production v3 restent disponibles.
+démantèlement. Staging v5 et production v6 approuvés restent disponibles.
 
 Créez un nouveau répertoire de preuves dans `.local`, ignoré par Git. Utilisez
 un répertoire neuf à chaque tentative; n'écrasez aucune preuve.
@@ -81,8 +81,10 @@ respectivement, chacun pour un maximum demandé de 15. Ne présentez pas
 ces résultats historiques comme votre exécution.
 Examinez identifiants de sortie et SHA-256 téléchargés dans les
 [preuves de récupération](../showcase-evidence.md).
-Ces preuves API/téléchargement ne sont ni les captures Foundry encore en attente,
-ni une preuve de déploiement des dernières sources; les approbations de livraison
+Ces résultats API/téléchargement sont distincts des captures Foundry réalisées
+indépendamment et de la livraison approuvée. Consultez la
+[livraison actuelle](../showcase-evidence.md#livraison-approuvée-actuelle);
+un résultat de génération ne prouve pas la version de l'agent. Les approbations
 restent distinctes.
 Le scénario SDK `supervised_finetuning` permet les sorties téléchargeables;
 il ne crée ni entraînement, ni déploiement, ni autorisation d'entraîner.

@@ -17,7 +17,7 @@ an end-user API.
 All inputs and outputs are synthetic and non-binding, not actual Desjardins
 products, rates or policies. Generation consumes service capacity and may incur
 charges. Do not deploy, change `quote-tools`, replace restored agents or run
-teardown. Staging v2 and production v3 remain available.
+teardown. Approved staging v5 and production v6 remain available.
 
 Create a new evidence directory under the git-ignored `.local` folder. Use a
 fresh directory for every attempt; never overwrite earlier evidence.
@@ -78,8 +78,10 @@ respectively, each under a requested maximum of 15. Do not report historical
 results as your own execution.
 Inspect their downloaded output IDs and SHA-256 values in the
 [recorded recovery evidence](../showcase-evidence.md#two-failed-generation-jobs-recovered).
-These are API/download proofs, not pending Foundry portal screenshots or proof
-that the latest source was deployed; release approvals remain separate.
+These retained results are API/download proofs, distinct from the independently
+captured Foundry portal evidence and the approved runtime release. Consult the
+[current release](../showcase-evidence.md#current-approved-release) rather than
+using a generation result as proof of which agent version is deployed.
 The SDK scenario `supervised_finetuning` enables native downloadable outputs;
 it does not create a training job, deploy a model or authorize training.
 

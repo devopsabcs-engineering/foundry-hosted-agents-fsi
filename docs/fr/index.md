@@ -27,11 +27,21 @@ aperçu destiné au demandeur.
 ## Ce que vous allez construire
 
 Vous provisionnerez les services MCP en lecture seule pour l'application
-et le référentiel de règles, déploierez un agent LangGraph hébergé qui
-recueille une demande de soumission et la transmet à un calculateur
-déterministe, puis appliquerez une étape d'approbation distincte et
-persistée afin qu'un employé, et non le modèle, décide si une ébauche peut
-être présentée au demandeur.
+et le référentiel de règles, puis déploierez un agent LangGraph qui valide
+un identifiant de dossier synthétique et lit sa donnée d'exemple. Un calculateur
+déterministe produit le calcul et une ébauche est persistée pour révision.
+Le canal demandeur retourne des messages bilingues bornés, sans montants
+ni champs réservés au réviseur. L'application bilingue de révision lit les
+instantanés de calcul et consigne les décisions autorisées des employés.
+
+## Architecture et frontières
+
+Consultez l'[architecture](architecture.md) pour les trois étapes du graphe,
+les transports MCP locaux/hébergés, Cosmos privé et les autorisations distinctes
+du clavardage et de la révision. Calcul et persistance ont lieu dans
+`COMPOSITION`, pas dans des étapes supplémentaires. Les exercices natifs
+File Search, compétences et mémoire utilisent des moteurs opérateur isolés;
+ils ne sont pas automatiquement rattachés à l'agent de soumissions.
 
 ## Parcours de l'apprenant
 
@@ -46,4 +56,8 @@ présentée comme faisant partie du parcours de l'apprenant.
 Pour la démo Azure conservée et les suivis de la séance 2, consultez les
 [fonctions natives Foundry](native-showcase.md).
 
-Le programme complet des ateliers se trouve dans [Ateliers](labs/).
+Les [preuves de livraison](showcase-evidence.md#livraison-approuvée-actuelle)
+consignent la livraison approuvée staging v5/production v6 sans remplacer les
+échecs historiques. Le programme complet se trouve dans [Ateliers](labs/) :
+fondations locales 00–09, surfaces pilotes contrôlées 10–14 et exercices
+natifs isolés 15–18. Conservez les environnements déployés.

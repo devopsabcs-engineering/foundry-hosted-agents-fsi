@@ -48,7 +48,9 @@ Résultat attendu : tous les tests réussissent, couvrant l'ensemble de la machi
 
 ### Exercice 3.3 (pratique) : Déclencher un refus d'auto-approbation
 
-Dans un shell Python, créez une ébauche avec une personne préparatrice, soumettez-la pour révision, puis tentez de l'approuver avec cette même personne comme réviseure.
+Exécutez cette commande autonome depuis PowerShell. Elle crée une ébauche,
+refuse l'auto-approbation, puis utilise un réviseur distinct. Le processus
+se termine ensuite; son dépôt en mémoire ne survit pas à la commande.
 
 ```powershell
 python -c "
@@ -75,9 +77,17 @@ Résultat attendu : le premier appel à `approve` lève `SelfApprovalError`. Le 
 
 ### Exercice 3.4 (pratique) : Réviser un dossier approuvé
 
-En poursuivant dans la même session de shell, appelez `repo.revise('CASE-LAB-001', actor_id='EMP-001')` et inspectez l'enregistrement retourné.
+Insérez ces lignes Python dans la commande de l'exercice 3.3, juste avant
+son guillemet double final, puis réexécutez la commande complète :
 
-Résultat attendu : `state` est revenu à `DRAFT`, `revision` a été incrémenté, et `reviewer_id`/`approved_at` sont effacés. L'approbation précédente ne s'applique plus à la nouvelle révision.
+```python
+record = repo.revise('CASE-LAB-001', actor_id='EMP-001')
+print(record.state, record.revision, record.reviewer_id, record.approved_at)
+repo.close()
+```
+
+Résultat attendu : `DRAFT 2 None None`. L'approbation ne s'applique plus à
+la nouvelle révision; la piste de vérification conserve la décision antérieure.
 
 ## Liste de vérification
 

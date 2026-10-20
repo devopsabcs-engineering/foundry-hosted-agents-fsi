@@ -2,7 +2,7 @@
 permalink: /fr/labs/lab-11-web-chat
 lang: fr
 title: "Atelier 11 - L'interface de clavardage du demandeur"
-description: "Exécuter localement le clavardage destiné au demandeur, lire sa barrière d'accès et prouver que cette surface ne peut jamais afficher une prime."
+description: "Exécuter localement le clavardage destiné au demandeur, lire sa barrière d'accès et retracer le contrat borné sans prime."
 ---
 
 > 🇬🇧 **[English version](../../labs/lab-11-web-chat)**
@@ -16,7 +16,7 @@ description: "Exécuter localement le clavardage destiné au demandeur, lire sa 
 | --- | --- |
 | **Durée** | 40 minutes |
 | **Niveau** | Intermédiaire |
-| **Prérequis** | [Atelier 10](lab-10-azure-foundation.md), Node.js 20 ou plus récent |
+| **Prérequis** | [Atelier 10](lab-10-azure-foundation.md), Node.js 22, environnement Python de l'atelier 00 réactivé |
 
 À l'atelier 07, vous avez lu le message destiné au demandeur sous forme de JSON brut dans un terminal. `apps/web-chat` est la surface pour laquelle ce message est écrit. Il s'agit d'un service FastAPI qui sert une application React monopage compilée, et c'est le seul endroit où une personne demandeuse interagit avec le système.
 
@@ -30,7 +30,7 @@ La contrainte que vous avez prouvée aux ateliers 02 et 07 dispose maintenant d'
 * Décrire les quatre variables d'environnement sans lesquelles l'application refuse de démarrer
 * Expliquer comment l'appartenance à un groupe, et non un rôle d'application, contrôle l'accès au clavardage
 * Retracer comment une charge utile bilingue de l'agent est réduite à une seule langue pour l'affichage
-* Expliquer pourquoi une exécution locale s'arrête à la barrière d'accès alors que l'origine déployée ne s'y arrête pas
+* Distinguer le parcours avec espaces réservés d'un client local entièrement configuré
 
 ## Exercices
 
@@ -52,7 +52,11 @@ Résultat attendu : le protocole doit être `https` et l'hôte doit se terminer 
 
 ### Exercice 11.2 (pratique) : Compiler l'interface
 
+Depuis la racine et dans l'environnement virtuel actif, installez les
+dépendances de ce service avant de compiler l'interface :
+
 ```powershell
+python -m pip install -r apps/web-chat/requirements.txt
 cd apps/web-chat/frontend
 npm ci
 npm test
@@ -64,7 +68,9 @@ Résultat attendu : `npm test` exécute les suites `node --test` de `apps/web-ch
 
 ### Exercice 11.3 (pratique) : Exécuter l'application localement
 
-Les valeurs d'identité ci-dessous sont des espaces réservés. Elles suffisent à démarrer le processus et à afficher la barrière d'accès, ce qui est tout ce dont cet exercice a besoin.
+Identités et URL ci-dessous sont des espaces réservés non fonctionnels.
+Ils passent les contrôles de format et affichent seulement la barrière d'accès;
+`/stream` n'est pas la route Responses réelle de l'agent.
 
 ```powershell
 cd apps/web-chat
@@ -93,22 +99,31 @@ Ouvrez `http://localhost:8200` dans un navigateur.
 
 Résultat attendu : la zone de rédaction est désactivée, la barre latérale indique `Non connecté` (ou `Not signed in` en anglais) et le pied de page porte l'avis de données d'entraînement synthétiques. Cet avis fait partie de la mise en page plutôt que d'un message, il ne peut donc pas être masqué par défilement ni déplacé par la sortie de l'agent.
 
-Les cinq requêtes de démonstration synthétiques (`CASE-SYN-001` à `CASE-SYN-005`) ne sont pas encore affichées. L'interface ne les présente qu'une fois la connexion réussie et l'appartenance au groupe pilote confirmée par le serveur. Les identifiants fictifs de l'exercice 11.3 ne permettent pas une vraie connexion ; vous ne les verrez donc que sur le clavardage déployé décrit à l'exercice 11.7.
+Les cinq requêtes synthétiques (`CASE-SYN-001` à `CASE-SYN-005`) apparaissent
+après connexion et confirmation d'appartenance côté serveur. Les espaces
+réservés ne permettent pas cette connexion. Utilisez le clavardage déployé ou
+un client local entièrement configuré avec l'origine `localhost:8000` enregistrée.
 
 Si vous sélectionnez tout de même **Se connecter avec Microsoft**, Entra ID rejette la demande avec `AADSTS900021: Requested tenant identifier '00000000-...' is not valid`. C'est attendu : le navigateur transmet le locataire fictif reçu de `/api/config` directement à la page de connexion Entra ID.
 
 > [!TIP]
 > Pour vous connecter localement, redémarrez uvicorn avec les vraies valeurs `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` et `PILOT_GROUP_ID` du clavardage déployé (`az containerapp show -n <web-chat-app> -g <resource-group> --query "properties.template.containers[0].env"`), utilisez `--port 8000` et ouvrez `http://localhost:8000`. C'est la seule URI de redirection locale enregistrée par `scripts/setup-web-chat-identity.ps1`, et `127.0.0.1` ne lui correspond pas. Votre compte doit aussi être membre du groupe pilote, sinon `/api/me` retourne 403 et les requêtes de démonstration restent masquées.
+>
+> Remplacez aussi `AGENT_ENDPOINT` par la vraie URL `/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1` sous le projet cible. L'identité Azure locale du service doit avoir l'accès Foundry autorisé.
 
 ### Exercice 11.5 (pratique) : Retracer les contrôles d'autorisation
 
+Pour les exercices 11.5–11.7, utilisez un second terminal à la racine avec
+le même environnement virtuel actif; laissez uvicorn dans son terminal.
 Ouvrez `apps/web-chat/auth.py` et lisez `PilotAuth.verify`.
 
 ```powershell
 Select-String -Path apps/web-chat/auth.py -Pattern "raise HTTPException" | Select-Object -ExpandProperty Line
 ```
 
-Résultat attendu : sept chemins de rejet, couvrant un en-tête manquant, un point de terminaison de clés inaccessible, une signature invalide et quatre contrôles de revendications. La signature du jeton est validée contre les clés publiées du locataire, puis les revendications sont vérifiées en séquence :
+Résultat attendu : sept chemins de rejet. La validation JWT contrôle signature,
+émetteur, audience et revendications temporelles/d'identité obligatoires.
+Les contrôles applicatifs exigent aussi :
 
 | Revendication | Exigence |
 | --- | --- |
@@ -116,8 +131,11 @@ Résultat attendu : sept chemins de rejet, couvrant un en-tête manquant, un poi
 | `azp` | Correspond à l'identifiant client configuré |
 | `scp` | Contient `Chat.Access` |
 | `groups` | Contient l'identifiant du groupe pilote configuré |
+| `oid` | Chaîne non vide identifiant le compte authentifié |
 
-Ce dernier contrôle distingue cette application de celle de révision de l'atelier 12. L'accès au clavardage est accordé par appartenance à un groupe de sécurité. L'accès à la révision est accordé par attribution d'un rôle d'application. Les deux sont appliqués côté serveur à chaque requête.
+Le contrôle de groupe distingue cette application de la révision de l'atelier
+12, autorisée par rôle d'application. Ces contrôles sont appliqués côté serveur
+à chaque requête.
 
 Exécutez les tests du service pour voir ces chemins exercés :
 
@@ -128,7 +146,7 @@ python -m pytest apps/web-chat/tests -v
 
 Résultat attendu : les suites d'autorisation et d'application réussissent. L'affectation de `PYTHONPATH` est obligatoire, car ces tests importent `app` et `auth` comme modules de premier niveau, et le pipeline définit la même variable pour la même raison.
 
-### Exercice 11.6 (pratique) : Prouver que la surface ne peut pas afficher de prime
+### Exercice 11.6 (pratique) : Retracer le contrat sans prime
 
 L'agent émet du contenu bilingue, et le service le réduit à une seule langue avant qu'il n'atteigne le navigateur.
 
@@ -144,15 +162,26 @@ print(repr(content_text(payload, 'fr-CA')))
 "
 ```
 
-Résultat attendu : chaque appel retourne la phrase de la langue demandée. `content_text` ne lit que le champ `text` d'un bloc de contenu, aucun autre champ d'une charge utile de l'agent ne peut donc atteindre la transcription.
+Résultat attendu : chaque appel retourne la langue demandée. `content_text`
+ne lit que `text`, mais c'est un sélecteur de langue, pas un filtre de prix.
+Un montant présent dans une chaîne arbitraire ne serait pas supprimé.
 
-Confirmez maintenant où réside réellement le montant. À l'atelier 07, l'agent s'est arrêté à `PENDING_REVIEW` sans jamais placer de chiffre dans `applicant_message`, et à l'atelier 13 vous verrez ce même chiffre apparaître dans l'interface de révision. La prime n'est pas dissimulée au demandeur par un filtre qui pourrait être mal configuré. Elle n'est jamais écrite dans le canal du demandeur au départ.
+À l'atelier 07, le graphe s'arrête à `PENDING_REVIEW` sans montant dans
+`applicant_message`; l'atelier 13 montre le calcul dans la révision.
+La frontière repose sur les gabarits demandeur bornés du graphe et le
+convertisseur de réponses hébergées, pas sur ce sélecteur. Conservez leurs
+tests de régression et ceux du flux de clavardage; cette démonstration seule
+ne prouve pas l'innocuité d'une sortie arbitraire.
 
 ### Exercice 11.7 : Comprendre ce qu'une exécution locale ne peut pas faire
 
-Envoyer un message exige deux choses dont votre exécution locale ne dispose pas : un `AGENT_ENDPOINT` actif soutenu par un agent hébergé déployé, et un enregistrement d'application dont l'URI de redirection pointe vers votre origine locale.
+Le parcours fictif manque d'un `AGENT_ENDPOINT` réel, d'un enregistrement
+avec la bonne origine et d'une identité Azure autorisée côté service.
+Un client local possédant ces trois éléments peut envoyer des messages.
 
-Le clavardage déployé dispose des deux. `scripts/setup-web-chat-identity.ps1` enregistre les origines déployées aux côtés de `http://localhost:8000`, la connexion fonctionne donc sur l'adresse déployée alors que les valeurs d'identité fictives de l'exercice 11.2 ne le permettent pas.
+`scripts/setup-web-chat-identity.ps1` enregistre les origines approuvées et
+`http://localhost:8000`. Les espaces réservés de l'exercice 11.3 ne permettent
+une authentification à aucune de ces origines.
 
 `infra/web-chat.bicep` est appliqué hors bande, pas via `deploy-and-evaluate.yml`. Le clavardage existe en staging et en production. Conservez la configuration d'environnement et d'identité de chaque application; limitez la mise à jour à l'image sans changement d'infrastructure prévu. Consultez les [versions et digests vérifiés](../showcase-evidence.md#livraison-approuvée-actuelle).
 
@@ -162,7 +191,9 @@ azd env get-values | ForEach-Object { if ($_ -match '^([^=]+)="?(.*?)"?$') { Set
 az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 
-Résultat attendu : un nom d'hôte se terminant par `azurecontainerapps.io`. Ouvrez-le dans un navigateur et connectez-vous avec un compte membre du groupe pilote. L'URL courante est aussi toujours tenue à jour dans le [tableau des liens de déploiement du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home).
+Résultat attendu : nom d'hôte en `azurecontainerapps.io`. Connectez-vous avec
+un membre du groupe pilote. Le [tableau du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home)
+publie aussi les URL; vérifiez sa livraison source et sa fraîcheur.
 
 > [!NOTE]
 > Le nom d'hôte change chaque fois que l'environnement d'applications conteneurisées est recréé, ce que couvre l'atelier 14. Si la connexion échoue avec une discordance d'URI de redirection, l'enregistrement est périmé plutôt que mal configuré ; réexécutez `scripts/setup-web-chat-identity.ps1` avec le nom de domaine courant.
@@ -182,7 +213,7 @@ Ctrl+C
 * [ ] Le service démarre avec `--factory` et affiche `Application startup complete`
 * [ ] `/api/config` retourne une portée `api://<clientId>/Chat.Access` et omet l'identifiant du groupe pilote
 * [ ] Le navigateur affiche une zone de rédaction désactivée et une barre latérale `Not signed in` avant l'authentification
-* [ ] Vous avez localisé les quatre contrôles de revendications dans `PilotAuth.verify`
+* [ ] Vous avez localisé les contrôles de locataire, client, portée, groupe et identifiant d'objet
 * [ ] `python -m pytest apps/web-chat/tests` réussit avec `PYTHONPATH` défini à `apps/web-chat`
 
 ## Vérification des connaissances

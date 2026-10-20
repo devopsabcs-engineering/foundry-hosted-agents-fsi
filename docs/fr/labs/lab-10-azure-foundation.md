@@ -102,7 +102,9 @@ az bicep build --file infra/network.bicep --outfile infra/network.json
 az bicep build --file infra/main.bicep --outfile infra/main.json
 ```
 
-Résultat attendu : les deux commandes se terminent avec le code 0. Les fichiers JSON sont des artéfacts versionnés, donc si une compilation en modifie un, versionnez le fichier régénéré avec votre modification Bicep.
+Résultat attendu : les deux compilations réussissent. Les JSON sont versionnés;
+incluez toute régénération avec le changement Bicep sur branche de fonctionnalité
+et PR révisée, jamais directement sur `main`. Cet exercice n'autorise pas de déploiement.
 
 ```powershell
 git status --short infra/main.json infra/network.json
@@ -122,7 +124,13 @@ Résultat attendu : les deux paramètres valent `''` par défaut, et `deployRevi
 
 L'application de révision analyse son identifiant client avec `uuid.UUID()` au démarrage. Transmettre une chaîne vide ne produirait pas un mode dégradé, mais une boucle de plantage. Le modèle ignore donc entièrement le module jusqu'à ce que l'atelier 12 fournisse un enregistrement réel.
 
-`agentPrincipalId` est plus subtil. Un agent hébergé reçoit sa propre identité Entra dédiée par agent, et Foundry crée cette identité au moment du déploiement, après l'exécution de ce modèle. Il ne s'agit explicitement pas de l'identité gérée par le système du compte ou du projet Foundry, elle ne peut donc pas être résolue ici. Tant qu'elle n'est pas fournie, l'agent ne peut pas écrire de dossiers dans Cosmos.
+`agentPrincipalId` accorde facultativement RBAC Cosmos pendant le provisionnement.
+L'agent possède son principal Entra d'exécution, distinct de l'identité système
+du compte/projet. CI déploie et invoque l'agent synthétique pour matérialiser
+ce principal; `eval/ensure_agent_cosmos_access.py` applique l'accès manquant
+et le revérifie. Un paramètre initial vide n'implique donc pas une livraison
+finale non autorisée. CI ne fait pas confiance à un `AGENT_PRINCIPAL_ID` en cache.
+Consultez l'[architecture](../architecture.md).
 
 ### Exercice 10.6 : Comprendre pourquoi Cosmos est injoignable depuis Internet
 

@@ -31,7 +31,7 @@ description: "Créer un environnement virtuel Python, installer les dépendances
 
 ### Exercice 0.1 : Confirmer Python et cloner le dépôt
 
-Cet atelier cible Python 3.11 ou plus récent.
+Utilisez Python 3.13 pour correspondre aux flux de validation et à l'image hébergée.
 
 ```powershell
 python --version
@@ -54,24 +54,33 @@ python -m pip install -r mcp/rulebook-server/requirements.txt
 python -m pip install -r src/quote-preparation-agent/requirements.txt
 ```
 
-Le `requirements.txt` racine couvre `pytest` et `jsonschema`, utilisés par les tests du calculateur et du dépôt d'approbation dans `apps/workshop/`.
+Le `requirements.txt` racine inclut `pytest`, `jsonschema` et le SDK épinglé
+`azure-ai-projects`. Les dépendances des services de clavardage et de révision
+s'installent séparément aux ateliers 11 et 13. Les interfaces React nécessitent
+aussi Node.js 22 pour correspondre à CI.
 
 ### Exercice 0.3 : Exécuter les suites de tests existantes
 
-Avant de modifier quoi que ce soit, confirmez que les tests du dépôt réussissent dans votre environnement.
+Avant toute modification, confirmez que les tests réussissent. Pour les exercices
+locaux du graphe, videz les paramètres hérités du magasin hébergé dans ce
+terminal afin de conserver SQLite éphémère plutôt que Cosmos :
 
 ```powershell
+$env:COSMOS_ENDPOINT = ''
+Remove-Item Env:CASE_STORE_DB_PATH -ErrorAction SilentlyContinue
 python -m pytest apps/workshop mcp src/quote-preparation-agent -q
 ```
 
-Résultat attendu : tous les tests réussissent, sans aucun échec. Le nombre exact de tests augmente au fil des laboratoires et des phases suivantes ; ne le comparez pas à un chiffre fixe.
+Résultat attendu : aucun échec. Lisez les raisons des omissions conditionnelles;
+un contrôle SDK facultatif omis ne constitue pas une couverture exécutée.
+Les nombres varient selon les dépendances et la révision.
 
 > [!TIP]
 > Aucun de ces tests n'appelle Azure, un modèle de langage ou le réseau. Ils s'exécutent entièrement à partir des données de `data/synthetic/` et d'une machine à états LangGraph compilée, ce qui en fait un moyen rapide de confirmer que votre environnement Python est correct avant l'atelier 01.
 
 ### Exercice 0.4 : Repérer la mention de non-responsabilité
 
-Ouvrez [README.md](../../README.md) et [docs/index.md](../index.md). Repérez le paragraphe qui indique que chaque donnée, règle et résultat de calcul est synthétique et non contraignant, sans révision ni approbation réglementaire. Vous reverrez la même affirmation, ou une variante proche, en haut de chaque laboratoire restant.
+Ouvrez [README.fr.md](../../../README.fr.md) et l'[accueil français](../index.md). Repérez le paragraphe qui indique que chaque donnée, règle et résultat de calcul est synthétique et non contraignant, sans révision ni approbation réglementaire. Vous reverrez la même affirmation, ou une variante proche, en haut de chaque laboratoire restant.
 
 ## Liste de vérification
 

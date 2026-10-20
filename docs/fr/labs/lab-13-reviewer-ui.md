@@ -23,7 +23,7 @@ description: "Alimenter une file de dossiers locale, se connecter comme réviseu
 Tout s'exécute ici sur votre poste de travail. Le magasin de dossiers bascule vers SQLite lorsqu'aucun point de terminaison Cosmos n'est configuré, la boucle de révision complète fonctionne donc sans aucun plan de données Azure.
 
 > [!NOTE]
-> L'interface de révision est en anglais seulement. Contrairement au clavardage destiné au demandeur, bilingue parce que les demandeurs le sont, cette surface sert des réviseurs internes pendant le pilote et a été délimitée à une seule langue.
+> L'interface dispose d'un sélecteur EN/FR dans l'en-tête, comme le clavardage. Les libellés, messages et avis fixe suivent la langue choisie, conservée dans le navigateur entre les visites.
 
 ## Objectifs d'apprentissage
 
@@ -45,7 +45,9 @@ Select-String -Path src/quote-preparation-agent/case_store.py -Pattern "def buil
 
 Résultat attendu : la fabrique retourne un magasin adossé à Cosmos lorsque `COSMOS_ENDPOINT` est défini, et un magasin SQLite sinon, avec `:memory:` par défaut à moins que `CASE_STORE_DB_PATH` ne nomme un fichier.
 
-Ce repli est ce qui rend cet atelier possible hors ligne. L'application de révision ignore quel magasin elle a reçu.
+Ce repli permet la persistance locale sans plan de données Azure.
+La vraie connexion Entra exige toujours le réseau. L'application utilise
+le même protocole de magasin.
 
 ### Exercice 13.2 (pratique) : Alimenter la file
 
@@ -71,15 +73,21 @@ Le script peut être réexécuté sans risque : un dossier déjà existant est i
 
 ### Exercice 13.3 (pratique) : Compiler et exécuter l'application de révision
 
+À la racine, réactivez l'environnement de l'atelier 00. Ces commandes installent
+les dépendances du service et se terminent dans `apps/reviewer-app` :
+
 ```powershell
+python -m pip install -r apps/reviewer-app/requirements.txt
 cd apps/reviewer-app/frontend
 npm ci
 npm test
 npm run build
-cd ../..
+cd ..
 ```
 
-Résultat attendu : les tests de l'interface réussissent et un paquet est écrit dans `dist`. Le JSX est invisible à une vérification de syntaxe, `npm run build` est donc la seule barrière qui détecte un composant mal formé.
+Résultat attendu : tests réussis et paquet dans `frontend/dist`. La compilation
+analyse le JSX et résout les imports; un simple contrôle de syntaxe JavaScript
+ne la remplace pas.
 
 Démarrez le service avec votre identifiant client réel de l'atelier 12 :
 
@@ -95,6 +103,7 @@ python -m uvicorn app:create_app --factory --host 127.0.0.1 --port 8100
 Résultat attendu : `Application startup complete`. Définir `COSMOS_ENDPOINT` à une chaîne vide force la branche SQLite même si un point de terminaison Cosmos se trouve exporté dans votre interpréteur.
 
 ```powershell
+# Dans un deuxième terminal
 Invoke-WebRequest -Uri 'http://127.0.0.1:8100/api/config' -UseBasicParsing | Select-Object -ExpandProperty Content
 ```
 
@@ -114,6 +123,10 @@ Résultat attendu : une barrière d'accès sans aucune donnée de dossier derri�
 Si Entra rejette la connexion, le message vous indique quelle étape de l'atelier 12 revisiter. Une discordance d'URI de redirection est un problème d'enregistrement. Un message indiquant que l'application n'est pas attribuée à l'utilisateur est l'indicateur `appRoleAssignmentRequired` qui fait son travail.
 
 ### Exercice 13.5 : Lire la file
+
+Les captures conservent la vue anglaise. Utilisez le sélecteur EN/FR pour
+vérifier aussi les libellés français actuels. N'utilisez pas **Vider la file**
+dans les environnements partagés conservés; la suppression n'est pas cet exercice.
 
 ![La file de révision listant cinq dossiers en attente avec les colonnes dossier, état, révision, préparateur, heure de soumission et prime ; deux lignes indiquent Not priced]({{ "/assets/images/reviewer-queue.png" | relative_url }})
 
@@ -149,7 +162,9 @@ Revenez à CASE-SYN-001 et choisissez Approve.
 
 ![L'étape de confirmation pour l'approbation de CASE-SYN-001, indiquant que l'approbation enregistre la décision de prime et ne peut être annulée, avec les boutons Confirm approve et Cancel]({{ "/assets/images/reviewer-approve-confirm.png" | relative_url }})
 
-Résultat attendu : une étape de confirmation plutôt qu'une écriture immédiate. L'approbation enregistre une décision de prime et ne peut être annulée, l'interface demande donc une confirmation.
+Résultat attendu : confirmation avant l'écriture. La décision reste dans la
+piste de vérification. Une révision ultérieure rétablit `DRAFT` et invalide
+l'approbation pour la nouvelle révision, sans effacer l'entrée originale.
 
 Reject et Send back for revision confirment également, mais offrent en plus un code de raison facultatif. Approve n'en offre pas, car une approbation n'est pas un constat à expliquer.
 
@@ -183,6 +198,8 @@ Ctrl+C
 ```
 
 ```powershell
+# Retour à la racine après l'arrêt d'uvicorn
+cd ../..
 Remove-Item .local/reviewer-cases.db -Force
 ```
 

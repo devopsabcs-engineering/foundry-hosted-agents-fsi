@@ -19,7 +19,9 @@ Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les 
 Les ateliers 15 à 18 ajoutent des exercices natifs isolés avec des contrôles
 de preuve explicites. Certains exigent des prérequis approuvés ou des artefacts
 natifs conservés; consignez les prérequis manquants comme bloqués sans inventer
-de résultats. Gardez staging v2 et production v3 déployés pour poursuivre.
+de résultats. Conservez la livraison approuvée staging v5 et production v6.
+Consultez les [preuves](../showcase-evidence.md#livraison-approuvée-actuelle)
+et l'[architecture](../architecture.md) avant d'utiliser les surfaces réelles.
 
 ### Fondations locales
 
@@ -41,7 +43,7 @@ de résultats. Gardez staging v2 et production v3 déployés pour poursuivre.
 | Atelier | Titre | Ce que vous ferez |
 | --- | --- | --- |
 | [10](lab-10-azure-foundation.md) | Provisionner la fondation Azure | Lire et compiler les modèles Bicep, et comprendre pourquoi le réseau est déployé séparément |
-| [11](lab-11-web-chat.md) | L'interface de clavardage du demandeur | Exécuter le clavardage et prouver que cette surface ne peut jamais afficher une prime |
+| [11](lab-11-web-chat.md) | L'interface de clavardage du demandeur | Exécuter le clavardage et retracer le contrat borné sans prime |
 | [12](lab-12-reviewer-identity.md) | Identité et accès du réviseur | Enregistrer l'application de révision, accorder le rôle Reviewer et calculer les URI de redirection |
 | [13](lab-13-reviewer-ui.md) | L'interface de révision | Alimenter une file, se connecter, approuver un dossier et lire la piste de vérification |
 | [14](lab-14-pilot-operations.md) | Exploitation du pilote | Exécuter le pipeline de validation, lire la porte d'évaluation et parcourir les protections du démantèlement |
@@ -52,7 +54,7 @@ de résultats. Gardez staging v2 et production v3 déployés pour poursuivre.
 | --- | --- | --- |
 | [15](lab-15-native-files-generation.md) | Fichiers et génération native | Téléverser la référence synthétique, télécharger les QnA natifs et diagnostiquer les anciens échecs |
 | [16](lab-16-native-search-invoice.md) | File Search et factures | Vérifier citations et refus bilingues, puis examiner champs et ancrage de facture native |
-| [17](lab-17-native-skills-memory.md) | Compétences et frontières mémoire | Prouver la consommation isolée et distinguer namespaces mémoire conditionnels et autorisation |
+| [17](lab-17-native-skills-memory.md) | Compétences et frontières mémoire | Prouver la consommation isolée et distinguer namespaces vérifiés et autorisation de l'appelant |
 | [18](lab-18-native-evaluation-traces.md) | Évaluation et rejeu des traces | Comparer les juges réels, conserver les contrôles échoués et exiger l'ingestion avant rejeu |
 
 Le [guide natif](../native-showcase.md) conserve preuves historiques et limites.

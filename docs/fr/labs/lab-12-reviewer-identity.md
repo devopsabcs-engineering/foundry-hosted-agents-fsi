@@ -90,7 +90,11 @@ az ad sp show --id <id-client-revision> --query "{assignmentRequired:appRoleAssi
 
 Résultat attendu : `appRoleAssignmentRequired` vaut `true`.
 
-Cet indicateur constitue la différence de fond. Lorsque l'attribution est obligatoire, Entra refuse d'émettre un jeton pour cette application à quiconque ne s'est pas vu attribuer le rôle. Une personne non autorisée est donc arrêtée au fournisseur d'identité plutôt qu'à l'application. Une revendication d'appartenance à un groupe, en revanche, est informative : l'application doit penser à la vérifier.
+Cet indicateur ajoute une barrière au fournisseur d'identité, sans remplacer
+l'autorisation applicative. `ReviewerAuth.verify` valide toujours signature,
+émetteur, audience, locataire, client, portée déléguée `Review.Access`, rôle
+`Reviewer` et `oid` non vide. Le paramètre seul ne prouve ni la présence du rôle
+dans le jeton ni l'autorisation d'une requête API.
 
 Pour une surface qui révèle une décision tarifée, échouer de façon fermée au fournisseur d'identité constitue la valeur par défaut la plus solide.
 
@@ -144,11 +148,20 @@ az ad group member add --group $groupId --member-id $me
 az role assignment list --assignee $me --query "[].roleDefinitionName" -o tsv
 ```
 
-Résultat attendu : votre compte est membre. Notez que le rôle Reviewer est un rôle d'application et non un rôle de ressource Azure, il n'apparaît donc pas dans `az role assignment list`. Confirmez-le plutôt sur le principal de service :
+Résultat attendu : votre compte est membre. `Reviewer` est un rôle d'application,
+pas un rôle Azure; `az role assignment list` ne vérifie donc pas son attribution.
+La commande suivante liste seulement sa définition, pas l'attribution au groupe :
 
 ```powershell
 az ad sp show --id <id-client-revision> --query "appRoles[?value=='Reviewer']"
 ```
+
+Vérifiez l'attribution réelle groupe-vers-Reviewer dans Entra **Applications
+d'entreprise → Foundry Quote Preparation Reviewer → Utilisateurs et groupes**.
+Vérifiez ensuite appartenance et réponse du service authentifié à l'atelier 13.
+Pour les environnements conservés, réutilisez les identités approuvées.
+Création ou suppression d'enregistrement/groupe est réservée à votre propre
+bac à sable approuvé par l'administrateur, jamais aux identités partagées.
 
 ### Exercice 12.7 : Publier l'identifiant client et nettoyer
 
