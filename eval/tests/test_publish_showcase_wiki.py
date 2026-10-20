@@ -1,7 +1,9 @@
 """Wiki rendering keeps bilingual navigation without bypassing provenance controls."""
 
 import sys
+import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -17,7 +19,8 @@ def test_actual_docs_render_with_wiki_peer_and_absolute_repository_links(source)
     assert "\nlayout: default" not in result
     assert "https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/blob/main/" in result
     assert "](Native-Foundry-Showcase" in result
-    assert "https://learn.microsoft.com/" in result
+    links = [urlsplit(target) for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", result)]
+    assert any(link.scheme == "https" and link.hostname == "learn.microsoft.com" for link in links)
     assert "](../" not in result and "](fr/" not in result
 
 
