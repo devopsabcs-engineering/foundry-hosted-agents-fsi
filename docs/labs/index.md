@@ -18,7 +18,9 @@ Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot
 Labs 15 through 18 add isolated native showcase exercises with explicit evidence
 checks. Some exercises require approved service prerequisites or retained native
 artifacts; record missing prerequisites as blocked rather than inventing results.
-Keep staging v2 and production v3 deployed when continuing to these labs.
+Keep the approved staging v5 and production v6 deployment available when
+continuing. Check the [release evidence](../showcase-evidence.md#current-approved-release)
+and [architecture](../architecture.md) before using live surfaces.
 
 ### Local Foundations
 
@@ -40,7 +42,7 @@ Keep staging v2 and production v3 deployed when continuing to these labs.
 | Lab | Title | What you will do |
 | --- | --- | --- |
 | [10](lab-10-azure-foundation.md) | Provision the Azure Foundation | Read and compile the Bicep templates, and understand why the network is deployed separately |
-| [11](lab-11-web-chat.md) | The Applicant Web Chat UI | Run the applicant chat and prove the surface can never show a premium |
+| [11](lab-11-web-chat.md) | The Applicant Web Chat UI | Run the applicant chat and trace the bounded no-premium message contract |
 | [12](lab-12-reviewer-identity.md) | Reviewer Identity and Access | Register the reviewer app, grant the Reviewer role, and compute redirect URIs |
 | [13](lab-13-reviewer-ui.md) | The Reviewer UI | Seed a queue, sign in, approve a case, and read the audit trail |
 | [14](lab-14-pilot-operations.md) | Pilot Operations | Run the validation pipeline, read the evaluation gate, and walk the teardown safeguards |
@@ -51,7 +53,7 @@ Keep staging v2 and production v3 deployed when continuing to these labs.
 | --- | --- | --- |
 | [15](lab-15-native-files-generation.md) | Native Files and Generation | Upload the synthetic reference, download native QnA and diagnose historical failed jobs |
 | [16](lab-16-native-search-invoice.md) | File Search and Invoice Extraction | Check bilingual citations and refusals, then inspect native invoice fields and grounding |
-| [17](lab-17-native-skills-memory.md) | Runtime Skills and Memory Boundaries | Prove isolated skill consumption and distinguish conditional memory namespaces from authorization |
+| [17](lab-17-native-skills-memory.md) | Runtime Skills and Memory Boundaries | Prove isolated skill consumption and distinguish verified memory namespaces from caller authorization |
 | [18](lab-18-native-evaluation-traces.md) | Native Evaluation and Trace Replay | Compare real evaluator runs, preserve failed grounding controls and require ingestion before replay |
 
 The [native showcase runbook](../native-showcase.md) records historical evidence

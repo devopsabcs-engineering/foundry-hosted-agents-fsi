@@ -83,7 +83,11 @@ aux entrées de conversation et d'embedding exigées :
 Staging dispose maintenant de `gpt-4o-mini` et de `showcase-memory-embedding`
 (`text-embedding-3-small`, version `1`). Le magasin isolé utilise une durée
 de vie par défaut de 3600 secondes, sans extraction de profil utilisateur
-ni résumé de conversation.
+ni résumé de conversation; l'extraction procédurale reste activée par défaut
+côté service. Ce sont les paramètres du magasin existant
+`showcase-synthetic-memory`, pas des garanties de la commande générique
+`memory-create`, qui définit modèles et TTL. L'alimentation synthétique directe
+est distincte de l'extraction automatique.
 Alimentation, liste et recherche natives ont réussi, contrairement à l'ancien
 blocage de prérequis. Une liste de modèles ne prouve pas le fonctionnement.
 Ne substituez pas un modèle de conversation à l'embedding et ne redéployez
@@ -129,8 +133,9 @@ Ne modifiez pas RBAC et n'exposez aucun jeton pour le reproduire. Consultez
 les [preuves](../showcase-evidence.md#mémoire-isolée-vérifiée).
 
 La durée de vie mémoire n'est pas la rétention Cosmos DB. La mémoire ne fait
-autorité ni pour la soumission ni pour l'audit. Le rattachement à l'agent
-hébergé exige une vérification de compatibilité d'exécution distincte.
+autorité ni pour la soumission ni pour l'audit. Elle n'est pas rattachée à
+l'agent de soumissions. Tout rattachement futur exige une vérification de
+compatibilité d'exécution et une approbation distinctes.
 
 ## Preuves de réalisation
 

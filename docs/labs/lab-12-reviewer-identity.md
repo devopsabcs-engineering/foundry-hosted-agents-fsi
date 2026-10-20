@@ -89,7 +89,11 @@ az ad sp show --id <reviewer-client-id> --query "{assignmentRequired:appRoleAssi
 
 Expected result: `appRoleAssignmentRequired` is `true`.
 
-That flag is the substantive difference. With assignment required, Entra refuses to issue a token for this application to anyone who has not been assigned the role, so an unauthorized person is stopped at the identity provider rather than at the application. A group membership claim, by contrast, is informational: the application must remember to check it.
+This adds an assignment gate at the identity provider, not a replacement for
+application authorization. `ReviewerAuth.verify` still validates JWT
+signature/issuer/audience, tenant, client, delegated `Review.Access` scope,
+`Reviewer` role and nonempty `oid`. An assignment setting alone does not prove
+that a token contains the required role or that an API request is authorized.
 
 For a surface that reveals a priced decision, failing closed at the identity provider is the stronger default.
 
@@ -143,11 +147,20 @@ az ad group member add --group $groupId --member-id $me
 az role assignment list --assignee $me --query "[].roleDefinitionName" -o tsv
 ```
 
-Expected result: your account is a member. Note that the Reviewer role is an application role, not an Azure resource role, so it does not appear in `az role assignment list`. Confirm it on the service principal instead:
+Expected result: your account is a member. `Reviewer` is an application role,
+not an Azure resource role, so `az role assignment list` cannot verify it.
+This next command lists the role definition only, not the group's assignment:
 
 ```powershell
 az ad sp show --id <reviewer-client-id> --query "appRoles[?value=='Reviewer']"
 ```
+
+Verify the actual group-to-Reviewer assignment in Entra **Enterprise
+applications → Foundry Quote Preparation Reviewer → Users and groups**.
+Then verify membership and the authenticated backend response in Lab 13.
+Use an existing approved registration/group for retained environments.
+Registration/group creation or removal in this lab is for your own
+administrator-approved sandbox, never shared identities.
 
 ### Exercise 12.7: Publish the Client ID and Clean Up
 

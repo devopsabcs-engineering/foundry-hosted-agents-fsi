@@ -1,7 +1,7 @@
 ---
 permalink: /labs/lab-11-web-chat
 title: "Lab 11 - The Applicant Web Chat UI"
-description: "Run the applicant-facing chat locally, read its access gate, and prove the surface can never show a premium."
+description: "Run the applicant-facing chat locally, read its access gate, and trace the bounded no-premium message contract."
 ---
 
 > 🇫🇷 **[Version française](../fr/labs/lab-11-web-chat)**
@@ -15,7 +15,7 @@ description: "Run the applicant-facing chat locally, read its access gate, and p
 | --- | --- |
 | **Duration** | 40 minutes |
 | **Level** | Intermediate |
-| **Prerequisites** | [Lab 10](lab-10-azure-foundation.md), Node.js 20 or later |
+| **Prerequisites** | [Lab 10](lab-10-azure-foundation.md), Node.js 22, the Lab 00 Python environment reactivated |
 
 In Lab 07 you read the agent's applicant message as raw JSON on a terminal. `apps/web-chat` is the surface that message is written for. It is a FastAPI backend serving a compiled React single-page application, and it is the only place an applicant interacts with the system.
 
@@ -29,7 +29,7 @@ By the end of this lab, you will be able to:
 * Describe the four environment variables the app refuses to start without
 * Explain how group membership, not an app role, gates access to the chat
 * Trace how a bilingual agent payload is narrowed to a single locale for display
-* Explain why a local run stops at the access gate while the deployed origin does not
+* Distinguish a placeholder-only access-gate run from a fully configured local client
 
 ## Exercises
 
@@ -51,7 +51,11 @@ Expected result: the scheme must be `https` and the host must end in `.services.
 
 ### Exercise 11.2 (Hands-on): Build the Frontend
 
+From the repository root, install this backend's dependencies in the active
+virtual environment, then build the frontend:
+
 ```powershell
+python -m pip install -r apps/web-chat/requirements.txt
 cd apps/web-chat/frontend
 npm ci
 npm test
@@ -63,7 +67,9 @@ Expected result: `npm test` runs the `node --test` suites in `apps/web-chat/fron
 
 ### Exercise 11.3 (Hands-on): Run the App Locally
 
-The identity values below are placeholders. They are enough to start the process and render the access gate, which is all this exercise needs.
+The identity values and endpoint below are nonworking placeholders. They pass
+startup format checks and render the access gate only; `/stream` is not the
+hosted agent's actual Responses route.
 
 ```powershell
 cd apps/web-chat
@@ -92,22 +98,30 @@ Open `http://localhost:8200` in a browser.
 
 Expected result: the composer is disabled, the sidebar reads `Not signed in`, and the footer carries the synthetic training data disclaimer. The disclaimer is part of the layout rather than part of a message, so it cannot be scrolled away or displaced by agent output.
 
-The five synthetic demo queries (`CASE-SYN-001` to `CASE-SYN-005`) are not shown yet. The frontend renders them only after sign-in succeeds and the backend confirms pilot group membership. The placeholder identity values from Exercise 11.3 cannot complete a real sign-in, so you see them only against the deployed chat described in Exercise 11.7.
+The five synthetic demo queries (`CASE-SYN-001` to `CASE-SYN-005`) appear only
+after sign-in and backend confirmation of pilot membership. The placeholders
+cannot authenticate. Use the deployed chat, or a fully configured local client
+with the registered `localhost:8000` origin, to exercise them.
 
 If you select **Sign in with Microsoft** anyway, Entra ID rejects the request with `AADSTS900021: Requested tenant identifier '00000000-...' is not valid`. That is expected: the browser sends the placeholder tenant from `/api/config` straight to the Entra ID sign-in page.
 
 > [!TIP]
 > To sign in locally, restart uvicorn with the real `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, and `PILOT_GROUP_ID` of the deployed chat (`az containerapp show -n <web-chat-app> -g <resource-group> --query "properties.template.containers[0].env"`), use `--port 8000`, and browse to `http://localhost:8000`. That is the only local redirect URI `scripts/setup-web-chat-identity.ps1` registers, and `127.0.0.1` does not match it. Your account must also be a member of the pilot group, otherwise `/api/me` returns 403 and the demo queries stay hidden.
+> Replace `AGENT_ENDPOINT` with the real `/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1` URL under the target project. The backend's local Azure credential also needs authorized Foundry access.
 
 ### Exercise 11.5 (Hands-on): Trace the Authorization Checks
 
+Use a second terminal at the repository root with the same virtual environment
+activated for Exercises 11.5–11.7; leave uvicorn in its own terminal.
 Open `apps/web-chat/auth.py` and read `PilotAuth.verify`.
 
 ```powershell
 Select-String -Path apps/web-chat/auth.py -Pattern "raise HTTPException" | Select-Object -ExpandProperty Line
 ```
 
-Expected result: seven rejection paths, covering a missing header, an unreachable key endpoint, an invalid signature, and four claim checks. The token signature is validated against the tenant's published keys, then the claims are checked in sequence:
+Expected result: seven rejection paths. JWT verification checks the signature,
+issuer, audience and required time/identity claims against the tenant's keys.
+Application checks additionally require:
 
 | Claim | Requirement |
 | --- | --- |
@@ -115,8 +129,10 @@ Expected result: seven rejection paths, covering a missing header, an unreachabl
 | `azp` | Matches the configured client ID |
 | `scp` | Contains `Chat.Access` |
 | `groups` | Contains the configured pilot group ID |
+| `oid` | A nonempty string identifying the authenticated account |
 
-The last check is what distinguishes this app from the reviewer app in Lab 12. Chat access is granted by security group membership. Reviewer access is granted by an app role assignment. Both are enforced server side on every request.
+The group check distinguishes this app from the role-authorized reviewer
+application in Lab 12. Both authorization checks run server-side on every request.
 
 Run the backend tests to see those paths exercised:
 
@@ -127,7 +143,7 @@ python -m pytest apps/web-chat/tests -v
 
 Expected result: the authorization and application suites pass. The `PYTHONPATH` assignment is required because these tests import `app` and `auth` as top-level modules, and the pipeline sets the same variable for the same reason.
 
-### Exercise 11.6 (Hands-on): Prove the Surface Cannot Show a Premium
+### Exercise 11.6 (Hands-on): Trace the No-Premium Message Contract
 
 The agent emits bilingual content, and the backend narrows it to one locale before it reaches the browser.
 
@@ -143,15 +159,24 @@ print(repr(content_text(payload, 'fr-CA')))
 "
 ```
 
-Expected result: each call returns the sentence for the requested locale. `content_text` reads only the `text` field of a content block, so no other field of an agent payload can reach the transcript.
+Expected result: each call returns the requested locale. `content_text` reads
+only the content block's `text`; it is a locale selector, not a price scrubber.
+An amount embedded in arbitrary text would not be removed by this helper.
 
-Now confirm where the amount actually lives. In Lab 07 the agent stopped at `PENDING_REVIEW` without ever placing a figure into `applicant_message`, and in Lab 13 you will watch that same figure appear in the reviewer UI. The premium is not hidden from the applicant by a filter that could be misconfigured. It is never written into the applicant channel in the first place.
+Now confirm where the amount actually lives. In Lab 07 the agent stopped at `PENDING_REVIEW` without ever placing a figure into `applicant_message`, and in Lab 13 you will watch that same figure appear in the reviewer UI. The no-premium boundary is enforced by the graph's bounded applicant-message
+templates and the hosted response converter, not this locale selector.
+Keep their regression tests as well as the chat stream-contract tests;
+the helper demonstration alone is not proof against arbitrary agent output.
 
 ### Exercise 11.7: Understand What a Local Run Cannot Do
 
-Sending a message requires two things your local run does not have: a live `AGENT_ENDPOINT` backed by a deployed hosted agent, and an app registration whose redirect URI points at your local origin.
+The placeholder run lacks a live `AGENT_ENDPOINT`, a real registration with
+the matching redirect origin, and an authorized backend Azure credential.
+A local client with all three can send messages to the deployed hosted agent.
 
-The deployed chat has both. `scripts/setup-web-chat-identity.ps1` registers the deployed origins alongside `http://localhost:8000`, so signing in against the deployed URL works while the placeholder identity values from Exercise 11.2 cannot.
+`scripts/setup-web-chat-identity.ps1` registers approved deployed origins
+alongside `http://localhost:8000`. The placeholders in Exercise 11.3 cannot
+authenticate at either origin.
 
 `infra/web-chat.bicep` is applied out of band, not through `deploy-and-evaluate.yml`. Both staging and production chat deployments exist. Keep each application's current environment and identity configuration; use an image-only update when infrastructure changes are not intended. See the [verified release and image digests](../showcase-evidence.md#current-approved-release).
 
@@ -161,7 +186,9 @@ azd env get-values | ForEach-Object { if ($_ -match '^([^=]+)="?(.*?)"?$') { Set
 az containerapp show --name foundry-quote-chat --resource-group $env:AZURE_RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" --output tsv
 ```
 
-Expected result: a hostname ending in `azurecontainerapps.io`. Open it in a browser and sign in with an account in the pilot group. The current URL is also always kept up to date in the [wiki's Deployment Links table](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home).
+Expected result: a hostname ending in `azurecontainerapps.io`. Sign in with an
+account in the pilot group. The [wiki's Deployment Links table](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Home)
+also publishes URLs; check its source run and release evidence for freshness.
 
 > [!NOTE]
 > The hostname changes whenever the Container Apps environment is recreated, which Lab 14 covers. If sign-in fails with a redirect URI mismatch, the registration is stale rather than misconfigured; rerun `scripts/setup-web-chat-identity.ps1` with the current FQDN.
@@ -181,7 +208,7 @@ Ctrl+C
 * [ ] The backend starts with `--factory` and reports `Application startup complete`
 * [ ] `/api/config` returns a scope of `api://<clientId>/Chat.Access` and omits the pilot group ID
 * [ ] The browser shows a disabled composer and a `Not signed in` sidebar before authentication
-* [ ] You located all four claim checks in `PilotAuth.verify`
+* [ ] You located tenant, client, scope, group and object-ID checks in `PilotAuth.verify`
 * [ ] `python -m pytest apps/web-chat/tests` passes with `PYTHONPATH` set to `apps/web-chat`
 
 ## Knowledge Check

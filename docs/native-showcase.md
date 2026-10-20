@@ -7,6 +7,8 @@ nav_order: 20
 
 [Français](fr/native-showcase.md) | [Workshop home](index.md) | [Root README](../README.md)
 
+[Deployed architecture and native isolation diagrams](architecture.md)
+
 [Current release and generation-recovery evidence, with authentic screenshots](showcase-evidence.md).
 
 The deployment workflow explicitly selects native azd authentication before each

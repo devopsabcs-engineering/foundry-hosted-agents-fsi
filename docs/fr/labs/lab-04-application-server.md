@@ -85,6 +85,10 @@ get_application('CASE-SYN-999') -> fixture not found
 
 Arrêtez le serveur avec `Ctrl+C` une fois terminé.
 
+Cet exercice client HTTP suit le transport de l'agent hébergé. Le graphe local
+de l'atelier 06 charge plutôt les mêmes fonctions en processus; il n'exige pas
+le démarrage de ce serveur.
+
 ## Liste de vérification
 
 * [ ] `pytest mcp/application-server/tests -v` réussit

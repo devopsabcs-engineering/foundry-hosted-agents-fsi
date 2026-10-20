@@ -11,7 +11,7 @@ description: "Run the validation pipeline locally, read the evaluation gate, and
 
 > [!WARNING]
 > If you are continuing to Labs 15 through 18, do not execute teardown against
-> the shared restored demo. Keep staging v2 and production v3 deployed; study
+> the shared restored demo. Keep approved staging v5 and production v6 deployed; study
 > teardown safeguards here without deleting those environments.
 
 ## Overview
@@ -33,7 +33,7 @@ By the end of this lab, you will be able to:
 * Explain why the pipeline authenticates with OIDC and carries almost no secrets
 * Describe the safety design of the teardown workflow
 * Explain why some resources have to be deleted rather than reconfigured
-* Tear down every Azure resource the pilot created, locally with `azd` or through a gated workflow
+* Identify teardown commands for an explicitly approved disposable sandbox only
 
 ## Exercises
 
@@ -43,30 +43,38 @@ By the end of this lab, you will be able to:
 Get-ChildItem .github/workflows -Filter *.yml | Select-Object -ExpandProperty Name
 ```
 
-Expected result: nine workflows.
+Expected result: ten workflows.
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
 | `continuous-validation.yml` | push, pull request, dispatch | Offline regression tests and Bicep compile |
-| `reviewer-app-build.yml` | path-filtered push and pull request | Reviewer backend and frontend tests, image build |
-| `web-chat-build.yml` | path-filtered push and pull request | Chat backend and frontend tests, image build |
-| `publish-test-trends.yml` | after validation completes | Publishes test evidence to the wiki |
+| `reviewer-app-build.yml` | path-filtered push/PR, dispatch | Tests; ACR image publication on `main` push |
+| `web-chat-build.yml` | path-filtered push/PR, dispatch | Tests; ACR image publication on `main` push |
+| `publish-test-trends.yml` | after validation, dispatch | Publishes retained test evidence to the wiki |
+| `require-linked-issue.yml` | pull request lifecycle | Requires a closing issue reference in the PR |
 | `deploy-and-evaluate.yml` | call and dispatch only | Provision and deploy, staging then production |
 | `hosted-agent-cd.yml` | call and dispatch only | Hosted agent deployment |
 | `reviewer-app-teardown.yml` | dispatch only | Removes reviewer-scoped resources |
 | `network-rebuild-teardown.yml` | dispatch only | Removes resources whose network configuration is immutable |
 | `full-teardown.yml` | dispatch only | Deletes whole resource groups at the end of the workshop |
 
-Only the first three run automatically. Nothing that touches Azure runs on a push.
+Validation, linked-issue checks and wiki publication run automatically on their
+configured events. Both app build workflows authenticate to Azure with OIDC and
+publish ACR images on eligible `main` pushes. Image publication is not deployment:
+agent rollout and destructive teardown remain explicit call/dispatch operations,
+with production protected by environment approval.
 
 ### Exercise 14.2 (Hands-on): Run the Offline Suite Locally
 
-These are the same commands `continuous-validation.yml` runs.
+From the repository root, reactivate the Lab 00 environment and install the
+agent/backend requirements from their earlier labs. These run the same Python
+suites as `continuous-validation.yml`; optional SDK checks may be skipped when
+their dependencies are absent, so inspect the reasons.
 
 ```powershell
-pytest src/quote-preparation-agent/tests -v
-pytest eval -v
-pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests -v
+python -m pytest src/quote-preparation-agent/tests -v
+python -m pytest eval -v
+python -m pytest apps/workshop/tests mcp/application-server/tests mcp/rulebook-server/tests -v
 ```
 
 Expected result: all three suites pass. The application and reviewer surfaces are tested by their own workflows:
@@ -94,7 +102,11 @@ Gate: PASS
 
 The gate is deterministic. It calls no model and makes no network request, so a failure always means a behaviour change rather than a flaky provider.
 
-Bilingual parity is the check worth pausing on. A change that improved the English message while leaving the French one stale would pass every unit test in this repository and still be a defect, because both locales are the product. The gate treats a parity break as a failure.
+Bilingual parity is covered by unit tests as well as the golden-record gate.
+An English-only improvement can still violate the bilingual contract. The gate
+checks both locales across the dataset. Native judges are separate: scores
+remain advisory, but complete, error-free EN/FR judge evidence is required for
+promotion. Preserve historical 0/10 results under their original contract.
 
 ### Exercise 14.4: Understand the Credential Posture
 
@@ -102,7 +114,9 @@ Bilingual parity is the check worth pausing on. A change that improved the Engli
 Select-String -Path .github/workflows/*.yml -Pattern "secrets\." | Select-Object -ExpandProperty Line
 ```
 
-Expected result: the only secret referenced across the pipeline is the wiki push token. Everything else comes from repository variables.
+Expected result: `WIKI_PUSH_TOKEN` is the only custom `secrets.*` reference.
+Workflows also use the built-in `github.token` for GitHub operations and OIDC
+for Azure; repository variables provide deployment identifiers, not credentials.
 
 Azure access uses workload identity federation:
 
@@ -120,17 +134,12 @@ This is also why Lab 12 had to be run by an administrator. The federated identit
 actionlint
 ```
 
-Expected result: exit code 1 with exactly five findings, all reporting `unexpected key "queue"`:
-
-| File | Line |
-| --- | --- |
-| `deploy-and-evaluate.yml` | 53 |
-| `full-teardown.yml` | 77 |
-| `network-rebuild-teardown.yml` | 78 |
-| `publish-test-trends.yml` | 49 |
-| `reviewer-app-teardown.yml` | 80 |
-
-These are expected. `concurrency.queue` is valid to this repository's deployment model and unrecognized by the linter's schema. Treat any sixth finding as a real one, and leave these five alone.
+Results depend on the installed actionlint/schema version. Older versions
+report `unexpected key "queue"` at the five `concurrency.queue` declarations
+in deployment, wiki and teardown workflows. Compare each diagnostic with the
+actual declaration and supported Actions syntax; line numbers are not an
+allowlist. Investigate all other findings. Never ignore arbitrary errors merely
+because a run reports five findings.
 
 ### Exercise 14.6: Read the Teardown Safety Design
 
@@ -178,14 +187,18 @@ That loop exists because of a timing detail that is easy to get wrong. `az cogni
 
 ### Exercise 14.8 (Hands-on): Tear Everything Down
 
-When you have finished the workshop, delete the Azure resources so they stop incurring cost. List your azd environments and the resource group each one points at:
+This is a read-only study for the retained demo. Execute deletion only in your
+own disposable sandbox after explicit owner approval and target inventory.
+Do not run either option against the shared staging/production group. First
+list environments and the resource group each points at:
 
 ```powershell
 azd env list
 azd env get-value AZURE_RESOURCE_GROUP -e <environment>
 ```
 
-In the reference deployment there are two groups:
+The historical reference inventory contained these two groups; it is not a
+current existence check or a deletion authorization:
 
 | Resource group | Contents |
 | --- | --- |
@@ -216,7 +229,10 @@ gh workflow run full-teardown.yml -f target=poc -f confirm=poc
 gh workflow run full-teardown.yml -f target=poc -f confirm=poc -f execute=true
 ```
 
-Expected result: each run waits for approval on the `production` environment. The dry run summary lists every resource type in the group; the second run deletes it. Use `target=shared` or `target=both` to include the staging and production group.
+Expected result: protected `production` approval before execution. The first
+command inventories; the second deletes the approved `poc` target. The workflow
+also supports `shared`/`both`, but those targets must not be used on this retained
+demo. Approval of a dry run does not authorize a later destructive run.
 
 The workflow keeps the same four safeguards as the other teardown workflows and adds a fifth: resource group names must match an allowlist pattern, so a mistyped repository variable cannot point it at an unrelated group. It also purges each Foundry account before deleting the group, because the identity's roles are scoped to the group and would be gone by the time a purge ran afterwards.
 
@@ -225,18 +241,18 @@ The workflow keeps the same four safeguards as the other teardown workflows and 
 
 ## Validation Checklist
 
-* [ ] You listed all nine workflows and identified which run automatically
+* [ ] You listed all ten workflows, including automatic ACR publication and issue linkage
 * [ ] Every local test suite passes
 * [ ] `python eval/evaluation_gate.py` reports `Gate: PASS`
-* [ ] The only secret in the pipeline is the wiki push token
-* [ ] `actionlint` reports exactly five known `queue` findings
+* [ ] You distinguished the custom wiki secret, built-in GitHub token and Azure OIDC
+* [ ] You reviewed actionlint diagnostics against the installed schema and actual declarations
 * [ ] You can name the four safeguards in front of the teardown workflows
 * [ ] You can explain why the network rebuild teardown preserves the Cosmos accounts
-* [ ] You deleted the resource groups you no longer need, with `azd down` or `full-teardown.yml`
+* [ ] You retained the shared environments and identified the approval required for sandbox deletion
 
 ## Knowledge Check
 
-* Why would a bilingual parity failure be invisible to the unit test suites?
+* How do parity unit tests and the dataset-wide gate complement each other?
 * Why is a repository variable an acceptable home for `AZURE_CLIENT_ID` when a client secret would not be?
 * The teardown workflow deletes an AcrPull role assignment but never the container registry. Why?
 * If `execute` defaults to false, what does a first run of the teardown workflow actually produce?

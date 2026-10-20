@@ -12,11 +12,10 @@ name: Publish Test Trends
 # `git -c http.extraheader` basic-auth pattern the sibling repository
 # uses. If WIKI_PUSH_TOKEN is not configured, the wiki-push step fails
 # loudly (::error:: annotation, $GITHUB_STEP_SUMMARY message, exit 1)
-# rather than silently skipping. There is also no equivalent of the
-# sibling's web-chat-build.yml in the trigger list below: `apps/web-chat`
-# exists in this repository, but it is authored/code-only and gated behind
-# G2/G3/G6 sign-off (see infra/README.md), so its build workflow does not
-# trigger a wiki publish here.
+# rather than silently skipping. The chat build publishes an image, not
+# deployment/evaluation evidence, so it does not trigger this publisher.
+# Maintained wiki guides are rendered from repository docs; actual live
+# application rollouts remain separate from documentation publication.
 #
 # This job has no `azd`/Azure login context of its own, so it cannot
 # re-derive real deployment links -- it downloads every `deployment-links-*`

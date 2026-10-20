@@ -80,7 +80,11 @@ the memory command's required chat and embedding inputs:
 Staging now has `gpt-4o-mini` and the approved `showcase-memory-embedding`
 (`text-embedding-3-small`, version `1`). The isolated store was created with
 a 3600-second default TTL, with user-profile and chat-summary extraction
-disabled. Native seed,
+disabled; procedural extraction remains enabled by the service default.
+These are settings of the existing `showcase-synthetic-memory` store, not
+guarantees made by the generic `memory-create` command, which sets model
+deployments and TTL. Direct synthetic seeding is distinct from automated
+extraction. Native seed,
 list and search passed, unlike the earlier prerequisite-blocked state.
 Listing models alone does not prove operation. Do not substitute a chat model
 for embeddings or redeploy the baseline infrastructure.
@@ -124,8 +128,8 @@ Do not change RBAC or expose workload tokens to repeat it. Inspect the
 [recorded evidence](../showcase-evidence.md#verified-isolated-memory) instead.
 
 Memory TTL is not Cosmos DB retention. Memory is not the authoritative quote
-state or audit trail. Hosted-agent memory attachment needs a separate runtime
-compatibility check.
+state or audit trail. It is not attached to the quote agent. Any future
+hosted-agent attachment needs a separate runtime compatibility check and approval.
 
 ## Completion evidence
 

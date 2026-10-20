@@ -6,6 +6,8 @@ description: Reprise des générations natives, versions réellement exécutées
 
 [English](../showcase-evidence.md) | [Guide natif](native-showcase.md) | [Laboratoires](labs/index.md)
 
+[Architecture déployée et provenance des preuves](architecture.md)
+
 ## Livraison approuvée actuelle
 
 La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)

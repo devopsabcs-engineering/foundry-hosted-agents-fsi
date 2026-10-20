@@ -8,6 +8,8 @@ nav_order: 20
 
 [English](../native-showcase.md) | [Accueil](index.md) | [README français](../../README.fr.md)
 
+[Architecture déployée et schémas d'isolation native](architecture.md)
+
 [Preuves actuelles de livraison et de reprise des générations, avec captures authentiques](showcase-evidence.md).
 
 Le pipeline sélectionne explicitement l'authentification native azd avant chaque

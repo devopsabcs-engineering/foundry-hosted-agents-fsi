@@ -30,7 +30,7 @@ By the end of this lab, you will be able to:
 
 ### Exercise 0.1: Confirm Python and Clone the Repository
 
-This workshop targets Python 3.11 or newer.
+Use Python 3.13 to match the current validation workflows and hosted image.
 
 ```powershell
 python --version
@@ -53,17 +53,24 @@ python -m pip install -r mcp/rulebook-server/requirements.txt
 python -m pip install -r src/quote-preparation-agent/requirements.txt
 ```
 
-The root `requirements.txt` covers `pytest` and `jsonschema`, used by the calculator and approval-repository tests in `apps/workshop/`.
+The root `requirements.txt` includes `pytest`, `jsonschema` and the pinned
+`azure-ai-projects` SDK. Web chat and reviewer backend dependencies are installed
+separately in Labs 11 and 13. React builds also need Node.js 22 to match CI.
 
 ### Exercise 0.3: Run the Existing Test Suites
 
-Before making any change, confirm the repository's own tests pass in your environment.
+Before making any change, confirm the repository's own tests pass in your
+environment. For local graph exercises, clear inherited hosted-store settings
+in this terminal so the default store remains ephemeral SQLite, not Cosmos:
 
 ```powershell
+$env:COSMOS_ENDPOINT = ''
+Remove-Item Env:CASE_STORE_DB_PATH -ErrorAction SilentlyContinue
 python -m pytest apps/workshop mcp src/quote-preparation-agent -q
 ```
 
-Expected result: every test passes, with no failures. The exact count grows as later labs and phases add tests; do not compare it against a fixed number.
+Expected result: no failures. Read any conditional-skip reasons; skipped optional
+SDK checks are not executed coverage. Counts vary with dependencies and revision.
 
 > [!TIP]
 > None of these tests call Azure, a language model, or the network. They run entirely against the fixtures in `data/synthetic/` and a compiled LangGraph state machine, so they are a fast way to confirm your Python environment is correct before Lab 01.

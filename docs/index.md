@@ -25,10 +25,20 @@ employee-approval gate before any applicant-facing preview.
 ## What you will build
 
 You will provision read-only application and rulebook MCP services, deploy
-a hosted LangGraph agent that gathers a quote request and hands it to a
-deterministic calculator, and enforce a separately persisted approval step
-so an employee, not the model, decides whether a draft can reach the
-applicant.
+a hosted LangGraph agent that validates a synthetic case ID and reads its
+fixture, then run a deterministic calculator and persist a draft for employee
+review. The applicant channel returns bounded bilingual messages without
+amounts or reviewer-only fields. The separate bilingual reviewer application
+reads calculation snapshots and records authorized employee decisions.
+
+## Architecture and boundaries
+
+Read the [architecture](architecture.md) for the three graph stages, local
+versus hosted MCP transport, private Cosmos persistence, and separate chat and
+reviewer authorization. Calculation and draft persistence occur inside
+`COMPOSITION`, not as extra graph stages. Native File Search, skill and memory
+exercises use isolated operator runtimes; they are not automatically attached
+to the quote agent.
 
 ## Learner path
 
@@ -42,4 +52,8 @@ file rather than implied as part of the learner experience.
 For the retained Azure demo and session-2 follow-ups, see the
 [native Foundry showcase](native-showcase.md).
 
-The full lab curriculum lives in [Labs](labs/).
+The [release evidence](showcase-evidence.md#current-approved-release) records
+the approved staging v5/production v6 release and keeps historical failures
+separate from current checks. The full curriculum lives in [Labs](labs/):
+local foundations 00–09, controlled pilot surfaces 10–14, and isolated native
+exercises 15–18. Keep the retained environments deployed.

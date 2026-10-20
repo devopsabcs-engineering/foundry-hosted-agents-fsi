@@ -17,22 +17,29 @@ def test_actual_docs_render_with_wiki_peer_and_absolute_repository_links(source)
     result = wiki.render(source, text, "devopsabcs-engineering/foundry-hosted-agents-fsi")
     assert result.startswith("# ")
     assert "\nlayout: default" not in result
-    assert "https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/blob/main/" in result
-    assert "](Native-Foundry-Showcase" in result
+    if not source.endswith("sidebar.md"):
+        assert "https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/blob/main/" in result
     links = [urlsplit(target) for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", result)]
-    assert any(link.scheme == "https" and link.hostname == "learn.microsoft.com" for link in links)
+    if not source.endswith("sidebar.md"):
+        assert any(link.scheme == "https" and link.hostname == "learn.microsoft.com" for link in links)
     assert "](../" not in result and "](fr/" not in result
 
 
 def test_publish_twice_is_idempotent_and_preserves_existing_wiki_home(tmp_path):
-    (tmp_path / "Home.md").write_text("# Existing home\n\nDeployment links stay here.\n", encoding="utf-8")
+    section = "<!-- deployment-links:start -->\nDeployment links stay here.\n<!-- deployment-links:end -->"
+    (tmp_path / "Home.md").write_text(f"# Obsolete home\n\n{section}\n", encoding="utf-8")
+    (tmp_path / "Continuous-Test-Trends.md").write_text("generated trends", encoding="utf-8")
     argv = ["--wiki", str(tmp_path), "--repository", "owner/repo"]
     assert wiki.main(argv) == 0
     first = (tmp_path / "Home.md").read_text(encoding="utf-8")
     assert wiki.main(argv) == 0
     assert (tmp_path / "Home.md").read_text(encoding="utf-8") == first
     assert "Deployment links stay here." in first
-    assert first.count("<!-- native-showcase:start -->") == 1
+    assert wiki.deployment_section(first) == section
+    assert "Obsolete home" not in first
+    assert (tmp_path / "Continuous-Test-Trends.md").read_text() == "generated trends"
+    for page, _ in wiki.PAGES.values():
+        assert (tmp_path / f"{page}.md").is_file()
     assert (tmp_path / "Native-Foundry-Showcase.md").is_file()
     assert (tmp_path / "Native-Foundry-Showcase-FR.md").is_file()
     assert (tmp_path / "Native-Foundry-Evidence.md").is_file()
@@ -81,3 +88,64 @@ def test_workflow_keeps_main_provenance_check_before_wiki_renderer():
     workflow = path.read_text(encoding="utf-8")
     assert workflow.index('.head_branch == "main"') < workflow.index("python scripts/publish_showcase_wiki.py")
     assert "branches: [main]" in workflow
+
+
+def test_all_maintained_wiki_pages_are_source_backed():
+    assert {page for page, _ in wiki.PAGES.values()} == {
+        "Home", "_Sidebar", "Architecture", "Architecture-FR", "Operations",
+        "Workflows", "Release-Evidence", "Native-Foundry-Showcase",
+        "Native-Foundry-Showcase-FR", "Native-Foundry-Evidence",
+        "Native-Foundry-Evidence-FR",
+    }
+
+
+@pytest.mark.parametrize("text", [
+    "# Home\n",
+    "<!-- deployment-links:start -->",
+    "<!-- deployment-links:end -->\n<!-- deployment-links:start -->",
+    "<!-- deployment-links:start --><!-- deployment-links:start --><!-- deployment-links:end -->",
+])
+def test_malformed_home_fails_before_any_page_is_overwritten(tmp_path, text):
+    (tmp_path / "Home.md").write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="deployment-links"):
+        wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"])
+    assert (tmp_path / "Home.md").read_text(encoding="utf-8") == text
+    assert not (tmp_path / "Architecture.md").exists()
+
+
+def test_first_publication_and_fragment_peer_links(tmp_path):
+    assert wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"]) == 0
+    assert "verified release artifacts" in (tmp_path / "Home.md").read_text()
+    rendered = wiki.render(
+        "docs/wiki/home.md",
+        "---\ntitle: Test\n---\n[Architecture](../architecture.md#application-architecture)",
+        "owner/repo",
+    )
+    assert "](Architecture#application-architecture)" in rendered
+
+
+@pytest.mark.parametrize("source", wiki.PAGES)
+def test_maintained_sources_resolve_local_links(source):
+    text = (wiki.ROOT / source).read_text(encoding="utf-8")
+    for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", text):
+        if target.startswith(("#", "https://", "http://", "mailto:")):
+            continue
+        assert (wiki.ROOT / source).parent.joinpath(target.split("#")[0]).exists(), (source, target)
+
+
+@pytest.mark.parametrize("source", ["docs/architecture.md", "docs/fr/architecture.md", "docs/wiki/workflows.md"])
+def test_diagram_structure_and_architecture_coverage(source):
+    text = (wiki.ROOT / source).read_text(encoding="utf-8")
+    diagrams = re.findall(r"```mermaid\n(.*?)```", text, re.DOTALL)
+    assert len(diagrams) >= (7 if "architecture" in source else 1)
+    assert text.count("<!-- mermaid-checked:") == len(diagrams)
+    identifiers = []
+    for diagram in diagrams:
+        assert diagram.startswith(("flowchart TD\n", "flowchart LR\n"))
+        assert "\\n" not in diagram
+        assert not any(character in diagram for character in ("—", "–", "{", "}"))
+        assert diagram.count("subgraph ") == len(re.findall(r"^\s*end$", diagram, re.MULTILINE))
+        nodes = re.findall(r'^\s*(\w+)\[', diagram, re.MULTILINE)
+        assert len(nodes) < 40
+        identifiers.extend(nodes)
+    assert len(identifiers) == len(set(identifiers))

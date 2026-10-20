@@ -24,7 +24,7 @@ description: "Retracer le superviseur et ses trois spécialistes séquentiels : 
 
 * Nommer les trois étapes séquentielles de l'agent : accueil, recherche de référence, composition
 * Expliquer la règle de routage du superviseur dans `decide_next_step`, y compris le court-circuit pour une référence de dossier invalide
-* Expliquer pourquoi `toolbox.py` appelle les fonctions d'outils MCP des ateliers 04/05 directement en processus plutôt que d'ouvrir une session client réseau
+* Distinguer les fonctions MCP locales en processus du parcours client HTTP hébergé
 * Confirmer que le code de l'agent lui-même n'appelle jamais `approve`, `reject` ou `revise` sur le dépôt d'approbation
 
 ## Exercices
@@ -33,9 +33,21 @@ description: "Retracer le superviseur et ses trois spécialistes séquentiels : 
 
 Ouvrez `src/quote-preparation-agent/graph.py` et lisez `decide_next_step`. Le superviseur visite toujours `intake` en premier. Si l'accueil a jugé la référence de dossier valide, il route ensuite vers `reference_lookup` ; si l'accueil l'a jugée invalide, il saute directement à `composition` afin que celle-ci puisse tout de même produire un message de refus borné. Une fois la composition terminée, le graphe se termine.
 
-### Exercice 6.2 : Comprendre pourquoi les appels de la boîte à outils sont en processus
+### Exercice 6.2 : Comparer les appels locaux et hébergés
 
-Ouvrez `src/quote-preparation-agent/toolbox.py` et lisez le docstring du module. Il explique que cette phase appelle `get_application` et `get_rulebook` en chargeant directement le `main.py` de chaque serveur MCP, plutôt que d'ouvrir une `ClientSession` du SDK Python `mcp` contre un serveur en cours d'exécution. Cela garde les tests rapides et sans port ouvert, tout en exerçant exactement les fonctions que chaque serveur expose via MCP. Notez également que `approve`, `reject`, `revise` et `open_training_preview` ne sont volontairement jamais importés ici : seule une personne réviseure humaine peut les appeler.
+Lisez `src/quote-preparation-agent/toolbox.py`, y compris l'implémentation
+après le docstring de la phase locale initiale. Dans ce dépôt, il charge le
+`main.py` de chaque serveur MCP et appelle les fonctions en processus, sans
+réseau. L'image hébergée ne contient pas ces répertoires du monorepo :
+les enveloppes appellent alors `_call_remote_mcp_tool` avec une `ClientSession`
+HTTP streamable et `APPLICATION_MCP_URL`/`RULEBOOK_MCP_URL` de `azure.yaml`.
+Les serveurs des ateliers 04/05 ne sont pas requis pour le graphe local.
+
+La boîte à outils n'expose ni `approve`, ni `reject`, ni `revise`, ni
+`open_training_preview`. Les décisions utilisent la surface de révision
+distincte. Calcul et soumission au magasin ont lieu dans `COMPOSITION`;
+`AGENT_TASK_INSTRUCTIONS` est une métadonnée d'évaluation, pas un prompt
+système exécuté. Consultez l'[architecture](../architecture.md).
 
 ### Exercice 6.3 : Exécuter les tests existants
 
@@ -77,13 +89,13 @@ Résultat attendu : la note affichée commence par `[lab-06-stub]`, confirmant q
 
 * [ ] `pytest src/quote-preparation-agent/tests/test_toolbox.py -v` réussit
 * [ ] Vous pouvez nommer les trois étapes séquentielles et expliquer le court-circuit pour une référence de dossier invalide
-* [ ] Vous avez repéré le docstring de la boîte à outils expliquant le choix des appels MCP en processus
+* [ ] Vous avez repéré les parcours MCP en processus et HTTP streamable hébergé
 * [ ] Le texte de votre modèle de substitut de l'exercice 6.4 est apparu dans la sortie du graphe
 
 ## Vérification des connaissances
 
 * Pourquoi `toolbox.py` n'importe-t-il jamais `approve`, `reject`, `revise` ou `open_training_preview` depuis le dépôt d'approbation ?
-* Qu'est-ce qui devrait changer dans `toolbox.py` pour que cet agent appelle un serveur MCP déployé plutôt qu'une fonction en processus ?
+* Quelle condition de paquetage sélectionne le parcours MCP distant existant, et quelles variables d'environnement exige-t-il ?
 
 ## Étapes suivantes
 

@@ -47,7 +47,9 @@ Expected result: every test passes, covering the full state machine and revision
 
 ### Exercise 3.3 (Hands-on): Trigger a Self-Approval Rejection
 
-In a Python shell, create a draft with a preparer, submit it for review, then attempt to approve it with that same preparer as the reviewer.
+Run this self-contained command from PowerShell. It creates a draft, rejects
+self-approval, and then approves with a distinct reviewer. The process exits
+after the command; its in-memory repository does not survive.
 
 ```powershell
 python -c "
@@ -74,9 +76,17 @@ Expected result: the first `approve` call raises `SelfApprovalError`. The second
 
 ### Exercise 3.4 (Hands-on): Revise an Approved Case
 
-Continuing in the same shell session, call `repo.revise('CASE-LAB-001', actor_id='EMP-001')` and inspect the returned record.
+Insert these Python lines inside the Exercise 3.3 command, immediately before
+its closing double quote, then rerun the complete command:
 
-Expected result: `state` is back to `DRAFT`, `revision` has incremented, and `reviewer_id`/`approved_at` are cleared. The prior approval no longer applies to the new revision.
+```python
+record = repo.revise('CASE-LAB-001', actor_id='EMP-001')
+print(record.state, record.revision, record.reviewer_id, record.approved_at)
+repo.close()
+```
+
+Expected result: `DRAFT 2 None None`. The prior approval no longer applies to
+the new revision; the append-only audit retains the earlier decision.
 
 ## Validation Checklist
 
