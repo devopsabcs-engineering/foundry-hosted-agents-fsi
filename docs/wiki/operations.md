@@ -39,6 +39,8 @@ Before a customer demo:
 | --- | --- | --- |
 | Protected route returns 401 | Entra session, audience, scope, role or pilot group | Health endpoint success proves authorization |
 | Chat healthy but no agent answer | Foundry deployment readiness, server identity, Responses request | Frontend build rolls out the agent |
+| Reviewer candidate exits during identity initialization | Backend image includes the bounded `aiohttp` dependency required by `azure.identity.aio`; inspect the candidate revision console log | Offline tests with a mocked upstream prove real managed-identity startup |
+| Provisioning cannot write a custom role definition | Workflow identity needs resource-group-scoped `Microsoft.Authorization/roleDefinitions/read` and `/write` in addition to existing role-assignment rights | RBAC Administrator includes custom role-definition creation |
 | Agent persistence fails | Actual hosted identity and Cosmos data role; readiness evidence | Provisioning identity equals runtime identity |
 | Missing custom stages | SDK dependency operation IDs and ingestion delay | Platform root ID must contain SDK spans |
 | Native judge incomplete | All expected cases, three criteria, service errors | Advisory scores allow missing evidence |
