@@ -5,15 +5,15 @@
       "source": "docs/architecture.md",
       "index": 1,
       "asset": "architecture-en-1.png",
-      "diagram_sha256": "9b89860462ddf37cd12d20e49a3d31736b5ed3d76efadad9c0c41903dfa1b37d",
-      "image_sha256": "b6d1e6aaed83062ed21098a69ac70787f9eb41385f32e098b5b4effc7230d5e1"
+      "diagram_sha256": "87737ade7f2cec75812c81278af5ef97084d199e3d0959eea334e499a363c852",
+      "image_sha256": "cb1539457bc112c319fa4e0f2c2e70f1a13e21974425c553641fec27c8f7decc"
     },
     {
       "source": "docs/architecture.md",
       "index": 2,
       "asset": "architecture-en-2.png",
-      "diagram_sha256": "6986c413bddab0cde6d41ccf0e6361905c53623080ff3de795ad7a343f0ff2f6",
-      "image_sha256": "579d8639a5bb19dab26705ca0f496d98aa51a0e11dc20d1776fcb6df38d222b2"
+      "diagram_sha256": "d1dfbfc3fb374f924a5ab8c48a44e0ac4dd44e53c083717bee38d00a74ec1835",
+      "image_sha256": "515a54123aa42ca90258fedfe9b7b997792c603467daf968795b51f25e036938"
     },
     {
       "source": "docs/architecture.md",
@@ -26,8 +26,8 @@
       "source": "docs/architecture.md",
       "index": 4,
       "asset": "architecture-en-4.png",
-      "diagram_sha256": "b0e8d2824686d863f630b00bb2ecd8c43421223bb2939a15ed678f57e9c9f850",
-      "image_sha256": "a68ff0cec5b0402f56c88221019998fd2cc96dbbf0e1d66de2e204e33bee4dee"
+      "diagram_sha256": "36cfa7c17ecf513643134c25d5e783af0055c488dc217a8d4cdc48b7fcf963c2",
+      "image_sha256": "ef541e900552623e8d01b1b8e1f79cb6188f4c6f7124ba2525b888c0e315c961"
     },
     {
       "source": "docs/architecture.md",
@@ -54,15 +54,15 @@
       "source": "docs/fr/architecture.md",
       "index": 1,
       "asset": "architecture-fr-1.png",
-      "diagram_sha256": "cb49dad5bd77100191fc83dbfd68af3c7727f7f984e74a263721bf0e1649a79e",
-      "image_sha256": "2b805c5aa89739da8dddaa75d432e2ebba31d0a1e8604e156cb7f10c0f7ae8a4"
+      "diagram_sha256": "a2af64cccb349b1d5cd760886d1eafc43d6401e614cc0bfd466f48703f21fb5c",
+      "image_sha256": "fc8bc155087123affeb60758eaf1d6c2057f085bb5bd1abeb35708003d5d8988"
     },
     {
       "source": "docs/fr/architecture.md",
       "index": 2,
       "asset": "architecture-fr-2.png",
-      "diagram_sha256": "1b773545b8ae443661c8664318573de226d215174f438cd0c4442d4079a1ca73",
-      "image_sha256": "3bc2cc7637109f9e5691841f6d76a0cfeeb91a4e629c9827ede9dd38468547f4"
+      "diagram_sha256": "09810385f7fc8a05ca12f7d79134b84c2d350928d980e71dada8930770d1473d",
+      "image_sha256": "0bd0cfd116406b445494d9723fde024033c4da83de9d1203eceb20b69798e297"
     },
     {
       "source": "docs/fr/architecture.md",
@@ -75,8 +75,8 @@
       "source": "docs/fr/architecture.md",
       "index": 4,
       "asset": "architecture-fr-4.png",
-      "diagram_sha256": "8ff97dc63662eed33efbd3b05a00e41c8c40bd39ef4d1a37558aa25424c32b36",
-      "image_sha256": "08c75bb7697cd19bd9929c235aaba328af9dd004d45909c450048632b6ab8ea0"
+      "diagram_sha256": "4935759bac246e240801ed13ba2a4f83092b0b8d82541665dd8ffe268d82d00c",
+      "image_sha256": "6a108986203d6081940078a0153199298df9382ad0258ae392dcc948ade8ecc8"
     },
     {
       "source": "docs/fr/architecture.md",

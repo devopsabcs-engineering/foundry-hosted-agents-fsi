@@ -13,10 +13,16 @@ agent staging **v5**, production **v6**, source approuvée `01af1fb`,
 [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
 Le suffixe `-poc` du compte/projet désigne la production. Les deux chats, les
 deux applications de révision et les quatre services MCP sont déployés.
-Les arbres `src`, `apps` et `infra` correspondent au main fusionné `a4b6008`.
+Les arbres `src`, `apps` et `infra` correspondaient au main fusionné `a4b6008`
+à ce point de contrôle.
 Ces versions constituent une observation datée, pas des paramètres de routage.
 Les anciens avertissements « author-only » ne décrivent plus cet inventaire.
 Toute nouvelle modification d'infrastructure reste soumise à approbation.
+
+La resoumission après correction décrite ci-dessous est suivie dans
+[l'issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
+Une livraison approuvée ultérieure doit confirmer son déploiement ; la
+livraison précédente ne prouve pas que ces nouveaux contrôles sont actifs.
 
 Les données, tarifs et résultats sont synthétiques. Aucune offre réelle,
 livraison au client ou approbation automatique n'est représentée.
@@ -49,9 +55,10 @@ flowchart TD
     FApplicant -->|"Jeton pilote"| FChat
     FEmployee -->|"Jeton employe"| FReview
     FChat -->|"Identite managee"| FEndpoint
+    FReview -->|"Identite invocation seule et demande privee"| FEndpoint
     FEndpoint --> FAgent
     FAgent -->|"MCP HTTPS direct"| FMCP
-    FAgent -->|"Creer et soumettre"| FStore
+    FAgent -->|"Creer ou terminer une revision autorisee"| FStore
     FReview -->|"Decisions humaines"| FStore
     FAgent -->|"Etapes sans donnees sensibles"| FMonitor
 ```
@@ -92,6 +99,8 @@ flowchart LR
     GTools -->|"Heberge"| GRemote["Sessions MCP HTTP directes"]
     GTools -->|"Depot local complet"| GLocal["Fonctions MCP en processus"]
     GReviewer["API employe"] -->|"Sans toolbox"| GStore
+    GReviewer -->|"Revision Responses native"| GBridge
+    GGraph -->|"Finalisation de revision protegee"| GStore
     GStore -->|"COSMOS_ENDPOINT"| GCosmos["Cosmos avec ETag"]
     GStore -->|"Local sans Cosmos"| GSQLite["SQLite"]
 ```
@@ -173,7 +182,12 @@ flowchart LR
     JRejected -->|"Reviser"| JRevised
     JPending -->|"Reviser"| JRevised
     JDraft -->|"Reviser"| JRevised
-    JRevised -->|"Resoumettre"| JPending
+    JRevised --> JCorrect["Corrections synthetiques validees"]
+    JCorrect --> JRequest["REQUESTED et audit atomiques"]
+    JRequest --> JHost["Agent heberge et reglement epingle"]
+    JHost -->|"Revision et capacite privee concordantes"| JPending
+    JHost -->|"Echec ou expiration"| JFailed["DRAFT visible et audit FAILED"]
+    JFailed -->|"Nouvelle tentative explicite"| JCorrect
 ```
 
 L'API vérifie le rôle `Reviewer`, le scope délégué `Review.Access`, l'identité
@@ -184,6 +198,41 @@ de stockage réglementaire immuable. Réviser invalide l'approbation précédent
 L'aperçu du magasin reste pédagogique et audité, sans livraison ; l'API web
 employé n'expose pas de route de livraison/aperçu au demandeur.
 La suppression de la file synthétique exige une confirmation explicite.
+
+### Correction du brouillon et resoumission à l'agent
+
+Le navigateur appelle `GET /api/cases?state=active` pour conserver les
+`DRAFT` et les `PENDING_REVIEW`. Le défaut de l'API reste limité aux cas en
+attente pour les clients existants. Des filtres donnent accès aux dossiers
+approuvés ou refusés. Détail et audit proviennent du même instantané.
+
+`POST /api/cases/{caseId}/prepare` exige la révision exacte et des
+`corrections` non vides. Seuls `jurisdiction: ON`,
+`vehicleClass: COMPACT|SEDAN` et `plan: TRAINING_BASIC|TRAINING_EXTENDED`
+sont acceptés. Aucun prix, acteur, règlement ou JSON arbitraire n'est
+modifiable. Les corrections se cumulent sans modifier la fixture.
+
+L'API persiste atomiquement corrections, identité employé vérifiée et
+capacité privée générée par le serveur avant d'invoquer Responses. Le graphe
+vérifie cette capacité et la révision, lit les corrections persistées et
+recalcule avec le règlement épinglé. Le résultat `READY`, son instantané et
+l'événement `PREPARATION_COMPLETED` sont enregistrés ensemble. L'employé
+correcteur reste préparateur : un autre employé doit approuver.
+La réponse au demandeur demeure bilingue et bornée.
+
+Un échec laisse un brouillon visible avec corrections et
+`PREPARATION_FAILED`. Une réponse réseau perdue est rapprochée de l'état
+persisté. Après 240 secondes, une demande `REQUESTED` abandonnée peut être
+remplacée. Les clés d'idempotence évitent les écritures répétées ; une
+ancienne révision/capacité ne peut écraser la demande courante.
+Le calcul d'un brouillon est identifié comme celui de la soumission précédente.
+L'audit indique corrections, corrélation hachée, identifiant Responses et
+provenance du calcul, jamais la capacité privée.
+
+Un rôle personnalisé d'invocation au niveau du projet remplace tout octroi
+large `Foundry User` pour cette identité. Il n'autorise ni mémoire ni gestion
+d'agent. La validation déployée doit confirmer l'invocation et le maintien
+du refus d'accès à la mémoire. Aucun service de file supplémentaire n'est requis.
 
 Le chat vérifie l'appartenance pilote avant l'appel serveur par identité
 managée. Les accès protégés anonymes retournent 401. Un endpoint de santé

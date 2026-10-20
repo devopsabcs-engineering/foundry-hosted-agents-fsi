@@ -64,6 +64,12 @@ def trace_stage(stage: str, policy: str):
             case_id = state.get("case_id")
             if isinstance(case_id, str) and re.fullmatch(r"CASE-SYN-[0-9]{3}", case_id):
                 attributes["app.synthetic_case_id"] = case_id
+            revision = state.get("preparation_revision")
+            preparation_id = state.get("preparation_id")
+            if isinstance(revision, int) and not isinstance(revision, bool) and 0 < revision <= 1_000_000:
+                attributes["app.case_revision"] = revision
+            if isinstance(preparation_id, str) and re.fullmatch(r"[0-9a-f-]{36}", preparation_id):
+                attributes["app.preparation_id"] = hashlib.sha256(preparation_id.encode("ascii")).hexdigest()[:16]
             with TRACER.start_as_current_span(
                 f"quote.{stage}",
                 attributes=attributes,

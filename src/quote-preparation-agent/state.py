@@ -5,10 +5,8 @@ Mirrors the sibling threat-assessment-agent's TypedDict state contract
 adapted from its evidence/risk/report specialist trio to this domain's
 intake/reference-lookup/composition trio.
 
-Unlike the sibling, this project has no Foundry Responses protocol and no
-hosted session to persist across in this local/unhosted phase, so the
-compiled graph in graph.py always runs without a checkpointer -- there is
-no equivalent to the sibling's optional Cosmos DB checkpointer here.
+The native Responses host starts a fresh graph per request. Durable revisions
+and audit events live in the shared case store, not a graph checkpointer.
 """
 
 from __future__ import annotations
@@ -29,6 +27,9 @@ class QuotePreparationState(TypedDict):
     case_id: str
     preparer_id: str
     rulebook_id: str
+    preparation_id: NotRequired[str]
+    preparation_revision: NotRequired[int]
+    preparation_response_id: NotRequired[str]
 
     # Intake specialist output: validates/normalizes the case reference.
     stage: NotRequired[str]

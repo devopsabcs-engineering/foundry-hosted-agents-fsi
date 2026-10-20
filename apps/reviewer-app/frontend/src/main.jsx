@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowLeft, Check, ClipboardCheck, LogIn, LogOut, Refresh
 import '@fontsource-variable/dm-sans';
 import './style.css';
 import { ApiError, decisionFailure, formatList, formatTimestamp, premiumView } from './format';
-import { decisionRequest } from './request';
+import { CASE_STATES, caseDetail, casesPath, decisionRequest, unavailableDetail } from './request';
+import { prepareCase } from './preparation';
+import { AuditDetails, Revision } from './Revision';
 import { DEFAULT_LANGUAGE, translate } from './i18n';
 import { useLanguage } from './useLanguage';
 
@@ -29,11 +31,12 @@ function Premium({ record, detailed = false, language, t }) {
   const view = premiumView(record, language);
   if (view.kind !== 'amount') {
     return <span className="unpriced">
+      {record.state === 'DRAFT' && <span className="previous-label">{t('revision.previousCalculation')}</span>}
       <span className="unpriced-label">{view.label}</span>
       <span className="unpriced-reason">{view.reason}</span>
     </span>;
   }
-  return <span className="premium">{view.amount}{detailed && view.period ? <span className="period"> {t('detail.perPeriod')} {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
+  return <span className="premium">{record.state === 'DRAFT' && <span className="previous-label">{t('revision.previousCalculation')}</span>}{view.amount}{detailed && view.period ? <span className="period"> {t('detail.perPeriod')} {view.period.replace(/_/g, ' ').toLowerCase()}</span> : null}</span>;
 }
 
 function ClearQueueConfirm({ value, onChange, onConfirm, onCancel, busy, t }) {
@@ -51,7 +54,7 @@ function ClearQueueConfirm({ value, onChange, onConfirm, onCancel, busy, t }) {
   </form>;
 }
 
-function Queue({ cases, onOpen, onRefresh, onClear, busy, headingRef, failed, language, t }) {
+function Queue({ cases, stateFilter, onFilter, onOpen, onRefresh, onClear, busy, headingRef, failed, language, t }) {
   const [clearing, setClearing] = useState(false);
   const [clearValue, setClearValue] = useState('');
   return <section className="panel">
@@ -65,6 +68,12 @@ function Queue({ cases, onOpen, onRefresh, onClear, busy, headingRef, failed, la
       </div>
     </div>
     <Notice language={language} />
+    <div className="queue-filter">
+      <label htmlFor="case-state">{t('revision.filter')}</label>
+      <select id="case-state" value={stateFilter} disabled={busy} onChange={event => onFilter(event.target.value)}>
+        {CASE_STATES.map(state => <option key={state} value={state}>{t(`revision.states.${state}`)}</option>)}
+      </select>
+    </div>
     {clearing && <ClearQueueConfirm value={clearValue} busy={busy} t={t}
       onChange={setClearValue} onCancel={() => setClearing(false)}
       onConfirm={() => { setClearing(false); onClear(); }} />}
@@ -127,20 +136,24 @@ function ApproveConfirm({ onConfirm, onCancel, busy, t }) {
   </div>;
 }
 
-function Detail({ detail, onBack, onDecide, busy, headingRef, language, t }) {
+function Detail({ detail, onBack, onDecide, onPrepare, onRefresh, busy, headingRef, language, t }) {
   const [pending, setPending] = useState(null);
   const [reason, setReason] = useState('');
   const record = detail.case;
-  const decidable = record.state === 'PENDING_REVIEW';
+  const decidable = !detail.unavailable && record.state === 'PENDING_REVIEW';
 
   function start(command) { setPending(command); setReason(''); }
 
   return <section className="panel">
     <div className="panel-head">
       <div><span className="overline">{t('topbar.overline')}</span><h1 ref={headingRef} tabIndex={-1}>{record.caseId}</h1></div>
-      <button className="secondary" type="button" onClick={onBack} disabled={busy}><ArrowLeft size={16} aria-hidden="true" />{t('detail.queueButton')}</button>
+      <div className="panel-actions">
+        <button className="secondary" type="button" onClick={onRefresh} disabled={busy}><RefreshCw size={16} aria-hidden="true" />{t('revision.refresh')}</button>
+        <button className="secondary" type="button" onClick={onBack} disabled={busy}><ArrowLeft size={16} aria-hidden="true" />{t('detail.queueButton')}</button>
+      </div>
     </div>
     <Notice language={language} />
+    {detail.unavailable && <p className="notice" role="alert">{t('revision.unavailable')}</p>}
 
     <dl className="facts">
       <div><dt>{t('detail.facts.state')}</dt><dd><span className="state">{record.state}</span></dd></div>
@@ -151,7 +164,10 @@ function Detail({ detail, onBack, onDecide, busy, headingRef, language, t }) {
       <div><dt>{t('detail.facts.submitted')}</dt><dd>{formatTimestamp(record.updatedAt, language)}</dd></div>
     </dl>
 
-    <h2>{t('detail.calculationHeading')}</h2>
+    {(record.state === 'DRAFT' || record.preparation) && <Revision key={`${record.caseId}:${record.revision}`}
+      record={record} busy={busy} unavailable={detail.unavailable} onPrepare={onPrepare}
+      onRefresh={onRefresh} language={language} t={t} />}
+    <h2>{t(record.state === 'DRAFT' ? 'revision.previousCalculation' : 'detail.calculationHeading')}</h2>
     <dl className="facts">
       <div><dt>{t('detail.facts.premium')}</dt><dd><Premium record={record} detailed language={language} t={t} /></dd></div>
       <div><dt>{t('detail.facts.currency')}</dt><dd>{record.currency ?? t('detail.notRecorded')}</dd></div>
@@ -164,7 +180,7 @@ function Detail({ detail, onBack, onDecide, busy, headingRef, language, t }) {
 
     <h2>{t('detail.decisionHeading')}</h2>
     {!decidable
-      ? <p className="settled">{t('detail.settled', { state: record.state.toLowerCase() })}</p>
+      ? <p className="settled">{t(detail.unavailable ? 'revision.unavailable' : record.state === 'DRAFT' ? 'revision.draftDecision' : 'detail.settled', { state: record.state.toLowerCase() })}</p>
       : pending === 'approve'
         ? <ApproveConfirm busy={busy} t={t} onCancel={() => setPending(null)}
           onConfirm={() => { setPending(null); onDecide('approve'); }} />
@@ -179,13 +195,14 @@ function Detail({ detail, onBack, onDecide, busy, headingRef, language, t }) {
           </div>}
 
     <h2>{t('detail.auditHeading')}</h2>
-    <ol className="audit">
-      {detail.auditTrail.map(event => <li key={event.sequence}>
+    {detail.auditTrail === null ? <p className="settled">{t('revision.auditUnavailable')}</p> : <ol className="audit">
+      {[...detail.auditTrail].sort((a, b) => b.sequence - a.sequence).map(event => <li key={event.sequence}>
         <span className="audit-command">{event.command}</span>
         <span className="audit-transition">{t('audit.transition', { from: event.fromState ?? t('audit.newState'), to: event.toState })}</span>
         <span className="audit-meta">{t('audit.meta', { revision: event.revision, actor: event.actorId, at: formatTimestamp(event.at, language) })}</span>
+        <AuditDetails event={event} t={t} language={language} />
       </li>)}
-    </ol>
+    </ol>}
   </section>;
 }
 
@@ -198,6 +215,7 @@ function Workspace({ auth, config, initialAccount }) {
   const [needsReauth, setNeedsReauth] = useState(false);
   const [status, setStatus] = useState('');
   const [cases, setCases] = useState([]);
+  const [stateFilter, setStateFilter] = useState('active');
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
   const [activity, setActivity] = useState('');
@@ -231,14 +249,15 @@ function Workspace({ auth, config, initialAccount }) {
     return response.json();
   }, [auth, account, config.scope, language, t]);
 
-  const loadQueue = useCallback(async () => {
-    const body = await api('/api/cases');
+  const loadQueue = useCallback(async (state = 'active', keepDetail = false) => {
+    const body = await api(casesPath(state));
     setCases(body.cases);
-    setDetail(null);
+    setStateFilter(state);
+    if (!keepDetail) setDetail(null);
   }, [api]);
 
   const loadCase = useCallback(async caseId => {
-    setDetail(await api(`/api/cases/${encodeURIComponent(caseId)}`));
+    setDetail(caseDetail(await api(`/api/cases/${encodeURIComponent(caseId)}`)));
   }, [api]);
 
   useEffect(() => {
@@ -267,7 +286,7 @@ function Workspace({ auth, config, initialAccount }) {
       const result = await api('/api/cases/clear', {
         method: 'POST', body: JSON.stringify({ confirm: CLEAR_QUEUE_PHRASE }),
       });
-      await loadQueue();
+      await loadQueue(stateFilter);
       setStatus(t('queue.clearStatus', { count: result.deleted }));
     } catch (failure) {
       setError(failure.message);
@@ -275,7 +294,7 @@ function Workspace({ auth, config, initialAccount }) {
   }
 
   async function decide(command, reasonCode) {
-    if (!detail) return;
+    if (!detail || detail.unavailable) return;
     const caseId = detail.case.caseId;
     const body = decisionRequest(detail.case.revision, command, reasonCode);
     setBusy(true); setError(''); setStatus(''); setActivity(t('activity.recordingDecision'));
@@ -291,21 +310,51 @@ function Workspace({ auth, config, initialAccount }) {
       const outcome = decisionFailure(status_, failure.message, code, language);
       setError(outcome.message);
       // A conflict means someone acted first; reload rather than retrying.
-      if (outcome.refresh === 'case') await loadCase(caseId).catch(() => loadQueue().catch(() => {}));
-      if (outcome.refresh === 'queue') await loadQueue().catch(() => {});
+      try {
+        if (outcome.refresh === 'case') await loadCase(caseId);
+        if (outcome.refresh === 'queue') { setDetail(null); await loadQueue(stateFilter); }
+      } catch {
+        setDetail(unavailableDetail(detail));
+        setError(`${outcome.message} ${t('revision.unavailable')}`);
+      }
       setActivity(''); setBusy(false);
       return;
     }
     // The decision is durable from here on. The follow-up reads sit outside the
     // try above so a failed refresh is never reported as a failed decision --
     // that would prompt a resubmit and earn a 409.
-    setDetail(previous => ({ ...previous, case: recorded }));
+    setDetail(unavailableDetail({ case: recorded }));
     setStatus(t('status.recorded', { caseId, state: recorded.state }));
     try {
-      await loadQueue();
-      await loadCase(caseId).catch(() => {});
+      await loadCase(caseId);
+      await loadQueue(stateFilter, true);
     } catch {
       setError(t('errors.refreshFailedAfterDecision', { caseId, state: recorded.state }));
+    } finally { setActivity(''); setBusy(false); }
+  }
+
+  async function refreshDetail() {
+    if (!detail) return;
+    await run(async () => {
+      try { await loadCase(detail.case.caseId); }
+      catch (failure) {
+        setDetail(unavailableDetail(detail));
+        throw failure;
+      }
+    });
+  }
+
+  async function prepare(values) {
+    if (!detail || detail.unavailable || detail.case.state !== 'DRAFT') return;
+    setBusy(true); setError(''); setStatus(''); setActivity(t('revision.preparing'));
+    try {
+      const result = await prepareCase(api, detail, values);
+      setDetail(result.detail);
+      if (result.confirmed) setStatus(t('revision.prepared'));
+      else {
+        const message = result.error instanceof ApiError ? result.error.message : t('revision.prepareOutcomeUnknown');
+        setError(`${t('revision.prepareFailed')} ${message}${result.detail.unavailable ? ` ${t('revision.unavailable')}` : ''}`);
+      }
     } finally { setActivity(''); setBusy(false); }
   }
 
@@ -357,9 +406,9 @@ function Workspace({ auth, config, initialAccount }) {
           {(!account || needsReauth) && <button className="primary" type="button" onClick={signIn}><LogIn size={18} aria-hidden="true" />{t('gate.signIn')}</button>}
         </section>
         : detail
-          ? <Detail detail={detail} busy={busy} onDecide={decide} headingRef={headingRef} language={language} t={t}
-            onBack={() => run(loadQueue)} />
-          : <Queue cases={cases} busy={busy} onRefresh={() => run(loadQueue)} onClear={clearQueue} headingRef={headingRef} language={language} t={t}
+          ? <Detail key={`${detail.case.caseId}:${detail.case.revision}`} detail={detail} busy={busy} onDecide={decide} onPrepare={prepare} onRefresh={refreshDetail} headingRef={headingRef} language={language} t={t}
+            onBack={() => { setDetail(null); run(() => loadQueue(stateFilter)); }} />
+          : <Queue cases={cases} stateFilter={stateFilter} onFilter={state => run(() => loadQueue(state))} busy={busy} onRefresh={() => run(() => loadQueue(stateFilter))} onClear={clearQueue} headingRef={headingRef} language={language} t={t}
             failed={Boolean(error)}
             onOpen={caseId => run(() => loadCase(caseId))} />}
     </main>

@@ -44,6 +44,8 @@ Before a customer demo:
 | Native judge incomplete | All expected cases, three criteria, service errors | Advisory scores allow missing evidence |
 | Memory marker absent | Existing store, correct namespace and one-hour TTL | Memory is attached to the quote agent |
 | Reviewer conflict | Refresh case revision and respect ETag concurrency | Retry stale approval without reviewing changes |
+| Returned draft absent | Select the active/DRAFT queue filter on an issue #28 build | A pending-only queue means the case was deleted |
+| Preparation failed or still requested | Refresh draft/audit, check reviewer invocation role and native endpoint; retry abandoned requests after 240 seconds | Revision alone invokes the agent or local SQLite is shared with a hosted agent |
 | Wiki live links unchanged | New release artifacts may be absent | Documentation publication redeployed Azure |
 
 ## Safe changes

@@ -55,6 +55,9 @@ param environment string = 'staging'
 @description('Cosmos DB documentEndpoint backing the shared case store (from modules/cosmos-db.bicep)')
 param cosmosEndpoint string
 
+@description('Native quote-preparation hosted-agent Responses endpoint; invoked with the reviewer managed identity')
+param agentEndpoint string
+
 @description('Application Insights connection string (from modules/monitoring.bicep); empty skips telemetry wiring')
 param applicationInsightsConnectionString string = ''
 
@@ -151,6 +154,10 @@ resource reviewer 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'COSMOS_ENDPOINT'
               value: cosmosEndpoint
+            }
+            {
+              name: 'AGENT_ENDPOINT'
+              value: agentEndpoint
             }
             {
               name: 'AZURE_CLIENT_ID'

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from typing import Any, AsyncIterable, AsyncIterator, Union
 
 from azure.ai.agentserver.core.models import Response, ResponseStreamEvent
@@ -77,6 +78,18 @@ class QuotePreparationResponseConverter(ResponseAPIConverter):
             "lookup_complete": False,
             "composition_complete": False,
         }
+        if "preparationId" in payload or "revision" in payload:
+            if set(payload) != {"caseId", "revision", "preparationId"}:
+                raise ValueError("Revision requests accept only the trusted case reference and request capability")
+            revision, preparation_id = payload["revision"], payload["preparationId"]
+            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+                raise ValueError("Invalid preparation revision")
+            if not isinstance(preparation_id, str) or str(uuid.UUID(preparation_id)) != preparation_id:
+                raise ValueError("Invalid preparation request capability")
+            initial_state.update(
+                preparation_id=preparation_id, preparation_revision=revision,
+                preparation_response_id=context.agent_run.response_id,
+            )
         return GraphInputArguments(
             input=initial_state,
             config={},
