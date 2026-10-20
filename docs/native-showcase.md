@@ -9,6 +9,11 @@ nav_order: 20
 
 [Current release and generation-recovery evidence, with authentic screenshots](showcase-evidence.md).
 
+The deployment workflow explicitly selects native azd authentication before each
+GitHub OIDC login. Provisioning may use delegated Azure CLI authentication, but
+newer azd versions reject `azd auth login` while that delegated mode is active.
+Both staging and production switch back before refreshing the native credential.
+
 ## Keep the restored customer demo available
 
 The restored staging agent is version 2; production is version 3.

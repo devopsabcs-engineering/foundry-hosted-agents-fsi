@@ -10,6 +10,11 @@ nav_order: 20
 
 [Preuves actuelles de livraison et de reprise des générations, avec captures authentiques](showcase-evidence.md).
 
+Le pipeline sélectionne explicitement l'authentification native azd avant chaque
+connexion OIDC GitHub. Le provisionnement peut utiliser Azure CLI en mode délégué,
+mais les versions récentes refusent `azd auth login` lorsque ce mode est actif.
+Staging et production rétablissent le mode natif avant de renouveler le jeton.
+
 ## Conserver la démo restaurée
 
 L'agent restauré utilise la version 2 en staging et la version 3 en production.
