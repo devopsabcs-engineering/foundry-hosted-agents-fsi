@@ -16,9 +16,9 @@ Both staging and production switch back before refreshing the native credential.
 
 ## Keep the restored customer demo available
 
-The current verified staging agent is version 3; production is version 4.
-[Release 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
-deployed approved runtime source `25f3e54`, with independently verified,
+The current verified staging agent is version 4; production is version 5.
+[Release 39411002808](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39411002808)
+deployed approved runtime source `b0778c7`, with independently verified,
 matching chat and reviewer digests in both environments. The earlier
 [release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 restored the v2/v3 baseline. Both environments remain deployed. Do not run teardown,
@@ -36,7 +36,7 @@ different claims. Only recorded live evidence establishes the last claim.
 | --- | --- | --- |
 | Hosted agents | Foundry project, version, managed identity and Responses endpoint | Restored staging and production passed live checks |
 | Files | Native project OpenAI Files, `user_data`, synthetic text | Native upload verified; generation accepts text, Markdown or PDF, not JSON filenames |
-| Synthetic data | Native generation job, explicit operation UUID, status and output download | Live job succeeded and 8 native examples downloaded; maximum requested 15, no local fallback |
+| Synthetic data | Native generation job, explicit operation UUID, status and output download | Two recovered jobs succeeded with 6 and 5 downloaded rows; maximum requested 15 per job, no local fallback |
 | Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Requires compatible chat and embedding deployments; the current staging account has only its chat deployment |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
@@ -46,7 +46,7 @@ different claims. Only recorded live evidence establishes the last claim.
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
 | Grounding controls | `builtin.groundedness` v18 and `builtin.groundedness_pro` v8 | Both missed a known erroneous French baseline; negative-control gate fails, not an improvement claim |
 | Red team | Native taxonomy and bounded agent-targeted evaluation | Taxonomy created for staging v2; inspect and approve exact categories before attacks |
-| Traces | Actual deterministic workflow spans, native Log Analytics query and replay fixture | New instrumentation is local until approved deployment; requested W3C IDs are not verified trace IDs |
+| Traces | Deterministic instrumentation, native Log Analytics query and replay fixture | Hosted root ingestion verified; custom stage fields and replay remain unverified; requested W3C IDs are not verified trace IDs |
 | Business state | Cosmos DB and employee-only approval | Independent of native memory; never approve a quote from the agent |
 
 The web applications and read-only MCP servers run in Azure Container Apps.

@@ -21,13 +21,14 @@ one. This module supplies that converter:
   item -- never the raw rulebook or reviewer-only fields, matching
   `main.run_case`'s existing contract.
 
-Streaming is intentionally not implemented: this graph runs to completion
-in one shot (no incremental chat turns to stream), so
-`convert_response_stream` raises rather than fabricating partial output.
+Streaming emits the final bounded bilingual map as JSON text with native
+Responses text events. Intermediate workflow state is never streamed.
+The existing non-streaming map contract is preserved.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, AsyncIterable, AsyncIterator, Union
 
@@ -116,41 +117,36 @@ class QuotePreparationResponseConverter(ResponseAPIConverter):
         output: AsyncIterator[Union[dict[str, Any], Any]],
         context: LanggraphRunContext,
     ) -> AsyncIterable[ResponseStreamEvent]:
-        """Emit a minimal valid event sequence for this graph's one-shot completion.
-
-        This graph has no incremental chat turns to stream (it runs intake ->
-        reference-lookup -> composition to completion in a single shot), so
-        rather than translating LangGraph's per-superstep state values into
-        token-level deltas, this drains the state stream to its final value
-        and emits the minimal `created` -> `output_item.added` ->
-        `output_item.done` -> `completed` event sequence the Responses
-        protocol requires, all carrying the same bounded `applicant_message`
-        `convert_response_non_stream` returns.
-        """
+        """Emit one completed bilingual message, not incremental workflow state."""
         agent_run_context = context.agent_run
         final_state: Any = None
         async for state in output:
             final_state = state
         applicant_message = final_state.get("applicant_message") if isinstance(final_state, dict) else None
+        if (
+            not isinstance(applicant_message, dict)
+            or set(applicant_message) != {"en-CA", "fr-CA"}
+            or not all(isinstance(text, str) and text.strip() for text in applicant_message.values())
+        ):
+            raise ValueError("Streaming requires a nonempty bilingual applicant message")
+        text = json.dumps(applicant_message, ensure_ascii=False)
 
         agent_id = agent_run_context.get_agent_id_object()
         conversation = agent_run_context.get_conversation_object()
-
+        message_id = agent_run_context.id_generator.generate_message_id()
+        created_at = int(time.time())
+        part = project_models.ItemContent(
+            {"text": text, "type": project_models.ItemContentType.OUTPUT_TEXT, "annotations": []}
+        )
         item = project_models.ResponsesAssistantMessageItemResource(
-            content=[
-                project_models.ItemContent(
-                    {
-                        "text": applicant_message or "",
-                        "type": project_models.ItemContentType.OUTPUT_TEXT,
-                        "annotations": [],
-                    }
-                )
-            ],
-            id=agent_run_context.id_generator.generate_message_id(),
+            content=[part],
+            id=message_id,
             status="completed",
         )
 
-        def _response(status: str, response_output: list) -> Any:
+        def _response(
+            status: str, response_output: list[project_models.ResponsesAssistantMessageItemResource]
+        ) -> project_models.Response:
             return project_models.Response(
                 {
                     "object": "response",
@@ -158,16 +154,33 @@ class QuotePreparationResponseConverter(ResponseAPIConverter):
                     "conversation": conversation,
                     "id": agent_run_context.response_id,
                     "status": status,
-                    "created_at": int(time.time()),
+                    "created_at": created_at,
                     "output": response_output,
                 }
             )
 
-        sequence_number = 0
-        yield project_models.ResponseCreatedEvent(response=_response("in_progress", []), sequence_number=sequence_number)
-        sequence_number += 1
-        yield project_models.ResponseOutputItemAddedEvent(output_index=0, sequence_number=sequence_number, item=item)
-        sequence_number += 1
-        yield project_models.ResponseOutputItemDoneEvent(output_index=0, sequence_number=sequence_number, item=item)
-        sequence_number += 1
-        yield project_models.ResponseCompletedEvent(response=_response("completed", [item]), sequence_number=sequence_number)
+        yield project_models.ResponseCreatedEvent(response=_response("in_progress", []), sequence_number=0)
+        yield project_models.ResponseInProgressEvent(response=_response("in_progress", []), sequence_number=1)
+        yield project_models.ResponseOutputItemAddedEvent(
+            output_index=0, sequence_number=2,
+            item=project_models.ResponsesAssistantMessageItemResource(
+                content=[], id=message_id, status="in_progress",
+            ),
+        )
+        yield project_models.ResponseContentPartAddedEvent(
+            item_id=message_id, output_index=0, content_index=0, sequence_number=3,
+            part=project_models.ItemContent(
+                {"text": "", "type": project_models.ItemContentType.OUTPUT_TEXT, "annotations": []}
+            ),
+        )
+        yield project_models.ResponseTextDeltaEvent(
+            item_id=message_id, output_index=0, content_index=0, sequence_number=4, delta=text,
+        )
+        yield project_models.ResponseTextDoneEvent(
+            item_id=message_id, output_index=0, content_index=0, sequence_number=5, text=text,
+        )
+        yield project_models.ResponseContentPartDoneEvent(
+            item_id=message_id, output_index=0, content_index=0, sequence_number=6, part=part,
+        )
+        yield project_models.ResponseOutputItemDoneEvent(output_index=0, sequence_number=7, item=item)
+        yield project_models.ResponseCompletedEvent(response=_response("completed", [item]), sequence_number=8)

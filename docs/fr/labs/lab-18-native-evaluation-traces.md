@@ -113,8 +113,9 @@ sans données de demandeur, montants, appels LLM ou jetons inventés.
 > [!IMPORTANT]
 > Le rejeu exige des spans déjà réellement ingérés par le fournisseur de
 > télémétrie autorisé dans Application Insights/Log Analytics existant.
-> La nouvelle instrumentation reste locale avant un déploiement approuvé
-> séparément. Ne déployez rien et ne modifiez pas les accès dans cet atelier.
+> La livraison conservée a des spans racines vérifiés, mais les champs d'étapes
+> et le rejeu déterministe restent non vérifiés. Ne déployez rien et ne modifiez
+> pas les accès dans cet atelier.
 
 L'export local isolé a reçu HTTP 403 pour l'identité opérateur et conservé
 `trace_verified: false`. Ni `force_flush()` ni un W3C `traceparent` demandé
@@ -149,6 +150,25 @@ seulement, soumettez le jeu conservé à staging v2 :
 
 Notez identifiants d'évaluation réels et erreurs. Sans ingestion réelle,
 ne créez pas une trace manuelle présentée comme preuve d'exécution.
+
+## Exercice 18.4 : Vérifier séparément le playground réel
+
+1. Ouvrez l'agent staging dans Foundry et sélectionnez sa version déployée.
+   Connectez-vous normalement, sans injecter de jeton dans le navigateur.
+2. Dans Playground, Chat, envoyez `CASE-SYN-001`. Attendez la réponse terminée,
+   pas seulement une trace terminée.
+3. Exigez les deux champs non vides `en-CA` et `fr-CA`, la révision employé et
+   l'avis de formation, sans prix ni champs réservés au reviewer.
+4. Dans Traces, distinguez exécution racine réussie, réponse utile et ingestion
+   des étapes personnalisées. Une réponse vide est un échec de l'interface.
+5. Dans Evaluations, examinez les critères individuels et le nombre global de
+   cas réussis. Le juge consultatif n'est pas le contrôle déterministe.
+
+Les [captures réelles](../showcase-evidence.md#agent-staging-foundry-authentifié)
+documentent l'ancien message vide v3 et la réponse corrigée v4.
+La [capture d'évaluation](../showcase-evidence.md#résultats-dévaluation-sans-embellissement)
+conserve les critères échoués sans assimiler succès du workflow et succès du juge.
+Ces observations ne remplacent pas vos propres vérifications réelles.
 
 ## Preuves de réalisation
 

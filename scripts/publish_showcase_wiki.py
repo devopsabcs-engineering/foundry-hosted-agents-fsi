@@ -20,6 +20,16 @@ SCREENSHOTS = (
     "staging-chat-fr.png",
     "production-reviewer-en.png",
     "release-39356610865.png",
+    "foundry-staging-agent-v3.png",
+    "production-reviewer-persistence-en.png",
+    "production-reviewer-persistence-fr.png",
+    "foundry-generation-portal.png",
+    "foundry-index-portal.png",
+    "foundry-skill-portal.png",
+    "foundry-evaluation-portal.png",
+    "foundry-traces-portal.png",
+    "foundry-staging-playground-v4.png",
+    "foundry-production-playground-v5.png",
 )
 
 

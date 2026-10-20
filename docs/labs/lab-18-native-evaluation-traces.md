@@ -108,8 +108,9 @@ fabricated model spans or invented token usage.
 > [!IMPORTANT]
 > Trace replay requires real spans already ingested into the existing
 > Application Insights/Log Analytics backend through the authorized telemetry
-> provider. New instrumentation is local until separately approved deployment.
-> Do not deploy or change access in this lab.
+> provider. The retained release has verified hosted root spans, but custom
+> stage fields and deterministic replay remain unverified. Do not deploy or
+> change access in this lab.
 
 The isolated local export previously received HTTP 403 for the operator identity
 and retained `trace_verified: false`. `force_flush()` and a requested W3C
@@ -143,6 +144,25 @@ Only after that inspection, submit the retained dataset against staging v2:
 
 Record actual evaluation IDs and failures. If real ingestion is unavailable,
 do not create a hand-authored trace and label it live.
+
+## Exercise 18.4: Check the actual playground separately
+
+1. Open the staging project's agent in Foundry and select its currently deployed
+   version. Sign in normally; never paste tokens into the browser.
+2. In Playground, Chat, submit `CASE-SYN-001`. Wait for the completed response,
+   not just a completed trace.
+3. Require both nonempty `en-CA` and `fr-CA` fields, employee-review wording and
+   the training notice, with no applicant-facing price or reviewer-only fields.
+4. Open Traces and distinguish successful root execution from proof of useful
+   output or custom stage ingestion. An empty response is a failed UI check.
+5. In Evaluations, inspect individual criteria and the overall passing-item
+   count. The advisory judge is not the deterministic release gate.
+
+The [actual portal captures](../showcase-evidence.md#authenticated-staging-foundry-agent)
+show the earlier blank v3 response investigation and the corrected v4 response.
+The [evaluation capture](../showcase-evidence.md#honest-evaluation-results) preserves
+failed judge criteria rather than presenting workflow success as a judge pass.
+These are reference observations, not substitutes for your own live checks.
 
 ## Completion evidence
 
