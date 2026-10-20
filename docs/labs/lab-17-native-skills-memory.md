@@ -79,7 +79,8 @@ the memory command's required chat and embedding inputs:
 
 Staging now has `gpt-4o-mini` and the approved `showcase-memory-embedding`
 (`text-embedding-3-small`, version `1`). The isolated store was created with
-a 3600-second default TTL and automatic extraction disabled. Native seed,
+a 3600-second default TTL, with user-profile and chat-summary extraction
+disabled. Native seed,
 list and search passed, unlike the earlier prerequisite-blocked state.
 Listing models alone does not prove operation. Do not substitute a chat model
 for embeddings or redeploy the baseline infrastructure.

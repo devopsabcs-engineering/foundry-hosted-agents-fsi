@@ -30,6 +30,10 @@ SCREENSHOTS = (
     "foundry-traces-portal.png",
     "foundry-staging-playground-v4.png",
     "foundry-production-playground-v5.png",
+    "release-39424857559.png",
+    "foundry-memory-portal.png",
+    "foundry-staging-playground-v5.png",
+    "foundry-production-playground-v6.png",
 )
 
 

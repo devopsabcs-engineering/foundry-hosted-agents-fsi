@@ -82,7 +82,8 @@ aux entrées de conversation et d'embedding exigées :
 
 Staging dispose maintenant de `gpt-4o-mini` et de `showcase-memory-embedding`
 (`text-embedding-3-small`, version `1`). Le magasin isolé utilise une durée
-de vie par défaut de 3600 secondes, sans extraction automatique.
+de vie par défaut de 3600 secondes, sans extraction de profil utilisateur
+ni résumé de conversation.
 Alimentation, liste et recherche natives ont réussi, contrairement à l'ancien
 blocage de prérequis. Une liste de modèles ne prouve pas le fonctionnement.
 Ne substituez pas un modèle de conversation à l'embedding et ne redéployez

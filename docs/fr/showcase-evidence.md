@@ -59,7 +59,8 @@ SKU régional `Standard`, capacité `1`, sans mise à niveau automatique.
 Aucun compte existant, ressource de production ou droit RBAC n'a été réécrit.
 Le magasin `showcase-synthetic-memory` utilise `gpt-4o-mini` existant,
 ce modèle d'embedding et une durée de vie par défaut de 3600 secondes,
-sans extraction automatique. Alimentation, liste et recherche réelles ont
+sans extraction de profil utilisateur ni résumé de conversation.
+Alimentation, liste et recherche réelles ont
 retrouvé les marqueurs Alice/Bob dans leur scope et pas dans l'autre.
 
 L'identité managée existante du reviewer staging a obtenu un vrai jeton mais
@@ -89,14 +90,37 @@ les trois critères, sans erreur. Ce rejeu synthétique conserve provenance
 trace/cas/politique/source, sans récupérer le prompt privé d'origine.
 Suivez l'[Atelier 18](labs/lab-18-native-evaluation-traces.md).
 
-### Provenance des captures et limites restantes
+### Captures authentiques actuelles
 
-Les captures authentiques ci-dessous restent historiques, v4/v5 ou antérieures,
-sans nouvelle étiquette v5/v6. Les tentatives de rafraîchissement ont rencontré
-des erreurs DNS/connexion du navigateur et des snapshots Foundry indisponibles,
-même sur une nouvelle page mémoire. Les preuves actuelles reposent donc sur
-API natives et workflow, pas sur de nouvelles captures du portail.
-Configuration brute d'agent et identifiants ne sont pas publiés.
+Après les erreurs DNS/connexion/affichage, de nouvelles pages authentifiées
+ont fonctionné vers `2026-10-20T17:46Z`. Ce sont des captures réelles du portail,
+avec seulement zoom, retour à la ligne, taille du panneau et recadrage de
+l'en-tête du compte. Aucune valeur n'a été modifiée. Configuration brute et
+identifiants ne sont pas publiés. Les anciennes captures plus bas restent
+historiques, sans nouvelle étiquette.
+
+![Livraison approuvée 39424857559 réussie avec staging version 5](../assets/evidence/release-39424857559.png)
+
+La page mémoire réelle montre `gpt-4o-mini`, `showcase-memory-embedding`
+et la durée de vie de 3600 secondes. La mémoire procédurale est une valeur
+par défaut du service; aucun appel d'extraction ni rattachement à l'agent
+hébergé n'a été effectué.
+
+![Modèles et rétention d'une heure du magasin mémoire natif staging](../assets/evidence/foundry-memory-portal.png)
+
+De nouveaux appels `CASE-SYN-001` dans les deux playgrounds ont affiché
+le message EN/FR complet et borné. Réponse production :
+`resp_srDGyFupOpTLUoADJq5YTeNHKQOMxGRkIgAogh613MGlI9rjOZ`.
+Réponse staging :
+`resp_zgF0s07nmmiFiJPn7O7lFcEU4VDwAQoNAskyzmm3SeEkXzS7KM`.
+Ces contrôles navigateur s'ajoutent aux régressions SDK indépendantes.
+
+![Playground staging v5 authentifié et accusé de réception synthétique](../assets/evidence/foundry-staging-playground-v5.png)
+
+![Playground production v6 authentifié et accusé de réception synthétique](../assets/evidence/foundry-production-playground-v6.png)
+
+### Limites restantes
+
 Foundry IQ facultatif, modèles Content Understanding, exécution red-team
 révisée et contrôles d'ancrage RAG échoués restent des limites explicites.
 

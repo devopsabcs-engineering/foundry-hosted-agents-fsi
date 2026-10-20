@@ -57,7 +57,8 @@ created only `showcase-memory-embedding`: `text-embedding-3-small`, version `1`,
 regional `Standard`, capacity `1`, without automatic upgrades. No baseline
 account, production resource or RBAC was rewritten.
 Store `showcase-synthetic-memory` uses existing `gpt-4o-mini`, this embedding
-deployment and a 3600-second default TTL, with automatic extraction disabled.
+deployment and a 3600-second default TTL, with user-profile and chat-summary
+extraction disabled.
 Actual seed/list/search operations found Alice and Bob markers in their own
 scopes and not in the opposite scope.
 
@@ -88,14 +89,37 @@ criteria with zero errors. This is synthetic-case replay with retained
 trace/case/policy/source lineage, not recovery of an original private prompt.
 Follow [Lab 18](labs/lab-18-native-evaluation-traces.md).
 
-### Screenshot provenance and remaining limits
+### Current authentic portal captures
 
-The authentic captures below remain historical v4/v5 or earlier evidence;
-they are not relabelled as this v5/v6 release. Refresh attempts hit browser
-DNS/connection failures and unavailable Foundry snapshots, including a fresh
-memory page. Current runtime, memory and replay claims therefore rely on
-native API/workflow receipts, not new portal screenshots. Raw agent-version
-configuration and credentials are not published.
+After browser DNS/connection/display failures, fresh authenticated pages
+recovered at approximately `2026-10-20T17:46Z`. These are actual portal
+screenshots, with presentation-only zoom/wrapping/panel sizing and account
+header cropping; no values were altered. Raw agent-version configuration
+and credentials are not published. Earlier captures farther below remain
+historical and are not relabelled as this release.
+
+![Successful approved-source release 39424857559 with staging version 5](assets/evidence/release-39424857559.png)
+
+The real memory details page shows `gpt-4o-mini`,
+`showcase-memory-embedding` and the 3600-second TTL. Its procedural-memory
+feature is a service default; no extraction call or hosted-agent attachment
+was performed.
+
+![Actual staging native memory store models and one-hour retention](assets/evidence/foundry-memory-portal.png)
+
+Fresh `CASE-SYN-001` playground calls displayed the complete bounded EN/FR
+reply in both projects. Production response:
+`resp_srDGyFupOpTLUoADJq5YTeNHKQOMxGRkIgAogh613MGlI9rjOZ`.
+Staging response:
+`resp_zgF0s07nmmiFiJPn7O7lFcEU4VDwAQoNAskyzmm3SeEkXzS7KM`.
+These are new browser checks in addition to the independent SDK regressions.
+
+![Authenticated staging v5 playground with synthetic employee-review acknowledgement](assets/evidence/foundry-staging-playground-v5.png)
+
+![Authenticated production v6 playground with synthetic employee-review acknowledgement](assets/evidence/foundry-production-playground-v6.png)
+
+### Remaining limits
+
 Optional Foundry IQ, Content Understanding model setup, reviewed red-team
 execution and the failed RAG grounding controls remain bounded limitations.
 
