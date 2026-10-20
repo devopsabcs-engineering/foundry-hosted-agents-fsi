@@ -70,6 +70,10 @@ from case_store import (
     AuditRecord,
     CalculationSnapshot,
     CaseRecord,
+    PREPARATION_ACTOR,
+    preparation_change,
+    preparation_dict,
+    preparation_from_dict,
     validate_limit,
     validate_reason_code,
     validate_state,
@@ -207,18 +211,22 @@ class CosmosCaseStore:
         return self._replace(document, etag, conflict="was already advanced by another writer")
 
     def approve(
-        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None
+        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Transition PENDING_REVIEW -> APPROVED. See the module docstring for
         the self-approval and idempotency rules enforced here."""
-        return self._decide(case_id, reviewer_id, approve=True, reason_code=reason_code)
+        return self._decide(case_id, reviewer_id, approve=True, reason_code=reason_code,
+                            expected_revision=expected_revision)
 
     def reject(
-        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None
+        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Transition PENDING_REVIEW -> REJECTED. See the module docstring for
         the self-approval and idempotency rules enforced here."""
-        return self._decide(case_id, reviewer_id, approve=False, reason_code=reason_code)
+        return self._decide(case_id, reviewer_id, approve=False, reason_code=reason_code,
+                            expected_revision=expected_revision)
 
     def _decide(
         self,
@@ -227,12 +235,15 @@ class CosmosCaseStore:
         *,
         approve: bool,
         reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         command = COMMAND_APPROVE if approve else COMMAND_REJECT
         target_state = STATE_APPROVED if approve else STATE_REJECTED
         reason_code = validate_reason_code(reason_code)
 
         document, etag = self._read(case_id)
+        if expected_revision is not None and document["revision"] != expected_revision:
+            raise InvalidTransitionError("The case revision changed")
 
         if reviewer_id == document["preparerId"]:
             raise SelfApprovalError(
@@ -268,12 +279,15 @@ class CosmosCaseStore:
         return self._replace(document, etag, conflict="was already decided by another reviewer")
 
     def revise(
-        self, case_id: str, actor_id: str, *, reason_code: str | None = None
+        self, case_id: str, actor_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Create a new revision from any state. Resets state to DRAFT, reassigns
         `preparerId` to `actor_id`, and clears reviewerId/approvedAt."""
         reason_code = validate_reason_code(reason_code)
         document, etag = self._read(case_id)
+        if expected_revision is not None and document["revision"] != expected_revision:
+            raise InvalidTransitionError("The case revision changed")
         from_state = document["state"]
         new_revision = document["revision"] + 1
         now = self._now()
@@ -318,6 +332,56 @@ class CosmosCaseStore:
     def get_case(self, case_id: str) -> CaseRecord:
         document, _ = self._read(case_id)
         return _record_from_document(document)
+
+    def get_case_with_audit(self, case_id: str) -> tuple[CaseRecord, list[AuditRecord]]:
+        document, _ = self._read(case_id)
+        return _record_from_document(document), _audit_events_from_document(document)
+
+    def request_preparation(
+        self, case_id: str, actor_id: str, *, revision: int, request_id: str,
+        corrections: dict[str, str], idempotency_key: str | None = None,
+    ) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_REQUESTED", revision=revision,
+                                        request_id=request_id, actor_id=actor_id, corrections=corrections,
+                                        idempotency_key=idempotency_key)
+
+    def complete_preparation(
+        self, case_id: str, *, revision: int, request_id: str,
+        calculation: CalculationSnapshot, response_id: str | None = None,
+    ) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_COMPLETED", revision=revision,
+                                        request_id=request_id, calculation=calculation, response_id=response_id)
+
+    def fail_preparation(self, case_id: str, *, revision: int, request_id: str) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_FAILED", revision=revision, request_id=request_id)
+
+    def _change_preparation(
+        self, case_id: str, command: str, *, revision: int, request_id: str,
+        actor_id: str | None = None, corrections: dict[str, str] | None = None,
+        calculation: CalculationSnapshot | None = None, response_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> CaseRecord:
+        document, etag = self._read(case_id)
+        record = _record_from_document(document)
+        now = self._now()
+        change = preparation_change(
+            record, now, command=command, revision=revision, request_id=request_id,
+            actor_id=actor_id, corrections=corrections, calculation=calculation, response_id=response_id,
+            idempotency_key=idempotency_key,
+        )
+        if change is None:
+            return record
+        updated, details = change
+        document.update(
+            state=updated.state, preparerId=updated.preparer_id, updatedAt=now,
+            preparation=preparation_dict(updated.preparation), amountCents=updated.amount_cents,
+            currency=updated.currency, period=updated.period, calculationStatus=updated.calculation_status,
+            ruleIds=list(updated.rule_ids), issues=list(updated.issues), rulebookVersion=updated.rulebook_version,
+        )
+        _append_audit(document, command, record.state, updated.state, revision,
+                      updated.preparer_id if command == "PREPARATION_REQUESTED" else PREPARATION_ACTOR,
+                      now, details=details)
+        return self._replace(document, etag, conflict="changed during preparation")
 
     def get_audit_trail(self, case_id: str) -> list[AuditRecord]:
         """Return the case's audit events, or an empty list for an unknown case."""
@@ -394,6 +458,7 @@ def _audit_entry(
     actor_id: str,
     at: str,
     reason_code: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "sequence": sequence,
@@ -404,6 +469,7 @@ def _audit_entry(
         "actorId": actor_id,
         "at": at,
         "reasonCode": reason_code,
+        "details": details,
     }
 
 
@@ -417,6 +483,7 @@ def _append_audit(
     at: str,
     *,
     reason_code: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> None:
     """Append the next audit entry in place. Safe because the enclosing
     replace_item carries the ETag the array was read under."""
@@ -431,6 +498,7 @@ def _append_audit(
             actor_id,
             at,
             reason_code,
+            details,
         )
     )
 
@@ -446,6 +514,7 @@ def _audit_events_from_document(document: dict[str, Any]) -> list[AuditRecord]:
             actor_id=event["actorId"],
             at=event["at"],
             reason_code=event.get("reasonCode"),
+            details=event.get("details"),
         )
         for event in sorted(document.get("auditEvents", []), key=lambda event: event["sequence"])
     ]
@@ -468,6 +537,7 @@ def _record_from_document(document: dict[str, Any]) -> CaseRecord:
         rule_ids=tuple(document.get("ruleIds") or ()),
         issues=tuple(document.get("issues") or ()),
         rulebook_version=document.get("rulebookVersion"),
+        preparation=preparation_from_dict(document.get("preparation")),
     )
 
 

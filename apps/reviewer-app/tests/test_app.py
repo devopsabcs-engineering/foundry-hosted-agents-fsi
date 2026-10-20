@@ -7,6 +7,7 @@ machine: self-approval ordering, idempotent replay, and the compare-and-swap.
 """
 
 import sys
+import uuid
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -90,6 +91,127 @@ def client():
 def seed(store, case_id, calculation=READY):
     store.create_draft(case_id, PREPARER)
     return store.submit_for_review_with_calculation(case_id, PREPARER, calculation=calculation)
+
+
+class FakePreparer:
+    def __init__(self, store):
+        self.store = store
+        self.calls = 0
+
+    async def prepare(self, case_id, revision, request_id):
+        self.calls += 1
+        self.store.complete_preparation(
+            case_id, revision=revision, request_id=request_id, calculation=CalculationSnapshot(
+                status="READY", amount_cents=80000 if self.store.get_case(case_id).preparation.corrections["plan"] == "TRAINING_BASIC" else 100000,
+                currency="CAD", period="TRAINING_YEAR",
+            ), response_id="resp-api-revision",
+        )
+        return "resp-api-revision"
+
+
+def test_returned_case_stays_visible_and_agent_prepares_exact_revision(client):
+    original, store = client
+    seed(store, "CASE-SYN-005", UNSUPPORTED)
+    agent = FakePreparer(store)
+    with TestClient(create_app(SETTINGS, FakeAuth(), store, agent), headers=original.headers) as api:
+        revised = api.post("/api/cases/CASE-SYN-005/revise",
+                           json={"revision": 1, "reasonCode": "MISSING_PLAN"})
+        assert revised.status_code == 200
+        assert api.get("/api/cases").json()["cases"] == []
+        active = api.get("/api/cases?state=active").json()["cases"]
+        assert [(item["caseId"], item["revision"], item["state"]) for item in active] == [
+            ("CASE-SYN-005", 2, STATE_DRAFT)]
+        key = str(uuid.uuid4())
+        body = {"revision": 2, "corrections": {"plan": "TRAINING_BASIC"}}
+        prepared = api.post("/api/cases/CASE-SYN-005/prepare", json=body,
+                            headers={"Idempotency-Key": key})
+        assert prepared.status_code == 200, prepared.text
+        result = prepared.json()
+        assert (result["case"]["revision"], result["case"]["state"],
+                result["case"]["amountCents"]) == (2, STATE_PENDING_REVIEW, 80000)
+        assert result["case"]["preparation"]["responseId"] == "resp-api-revision"
+        assert result["auditTrail"][-1]["command"] == "PREPARATION_COMPLETED"
+        assert result["auditTrail"][-1]["revision"] == 2
+        assert result["case"]["preparerId"] == REVIEWER
+        private_token = store.get_case("CASE-SYN-005").preparation.request_id
+        for path in ("/api/cases?state=active", "/api/cases/CASE-SYN-005"):
+            text = api.get(path).text
+            assert private_token not in text
+            assert key not in text
+        assert api.post("/api/cases/CASE-SYN-005/approve", json={"revision": 2}).status_code == 403
+        assert api.post("/api/cases/CASE-SYN-005/prepare", json=body,
+                        headers={"Idempotency-Key": key}).json() == result
+        assert agent.calls == 1
+        stale = api.post("/api/cases/CASE-SYN-005/prepare",
+                         json={**body, "revision": 1})
+        assert stale.status_code == 409
+
+
+def test_agent_failure_is_explicit_and_draft_retains_corrections_and_audit(client):
+    import httpx
+
+    original, store = client
+    store.create_draft("CASE-SYN-005", PREPARER)
+
+    class Unreachable:
+        async def prepare(self, *args):
+            raise httpx.ConnectError("private upstream details must not leak")
+
+    with TestClient(create_app(SETTINGS, FakeAuth(), store, Unreachable()), headers=original.headers) as api:
+        failed = api.post("/api/cases/CASE-SYN-005/prepare",
+                          json={"revision": 1, "corrections": {"plan": "TRAINING_BASIC"}})
+        assert failed.status_code == 502
+        assert failed.json()["code"] == "PREPARATION_FAILED"
+        assert "private upstream" not in failed.text
+        current = api.get("/api/cases/CASE-SYN-005").json()
+        assert current["case"]["state"] == STATE_DRAFT
+        assert current["case"]["preparation"]["status"] == "FAILED"
+        assert current["case"]["preparation"]["corrections"] == {"plan": "TRAINING_BASIC"}
+        assert current["auditTrail"][-1]["command"] == "PREPARATION_FAILED"
+
+
+def test_transport_failure_after_agent_commit_is_reconciled_from_durable_state(client):
+    import httpx
+
+    original, store = client
+    store.create_draft("CASE-SYN-005", PREPARER)
+
+    class LostResponse(FakePreparer):
+        async def prepare(self, *args):
+            await super().prepare(*args)
+            raise httpx.ReadTimeout("lost response")
+
+    with TestClient(create_app(SETTINGS, FakeAuth(), store, LostResponse(store)), headers=original.headers) as api:
+        response = api.post("/api/cases/CASE-SYN-005/prepare",
+                            json={"revision": 1, "corrections": {"plan": "TRAINING_EXTENDED"}})
+        assert response.status_code == 200
+        assert response.json()["case"]["amountCents"] == 100000
+        assert response.json()["auditTrail"][-1]["command"] == "PREPARATION_COMPLETED"
+
+
+@pytest.mark.parametrize("body", [
+    {"revision": 1, "corrections": {}},
+    {"revision": 1, "corrections": {"amountCents": "1"}},
+    {"revision": 1, "corrections": {"plan": "NOT_A_PRODUCT"}},
+    {"revision": True, "corrections": {"plan": "TRAINING_BASIC"}},
+    {"revision": 1, "corrections": {"plan": "TRAINING_BASIC"}, "preparerId": "FORGED"},
+])
+def test_invalid_corrections_never_change_a_case(client, body):
+    api, store = client
+    store.create_draft("CASE-SYN-005", PREPARER)
+    before = store.get_case_with_audit("CASE-SYN-005")
+    assert api.post("/api/cases/CASE-SYN-005/prepare", json=body).status_code == 422
+    assert store.get_case_with_audit("CASE-SYN-005") == before
+
+
+def test_unconfigured_agent_does_not_create_fake_preparation_success(client):
+    api, store = client
+    store.create_draft("CASE-SYN-005", PREPARER)
+    before = store.get_case_with_audit("CASE-SYN-005")
+    response = api.post("/api/cases/CASE-SYN-005/prepare",
+                        json={"revision": 1, "corrections": {"plan": "TRAINING_BASIC"}})
+    assert response.status_code == 503
+    assert store.get_case_with_audit("CASE-SYN-005") == before
 
 
 def test_health_and_config_do_not_require_a_token(client):

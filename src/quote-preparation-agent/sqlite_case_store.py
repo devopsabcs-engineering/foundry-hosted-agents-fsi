@@ -28,11 +28,8 @@ any write records nothing.
 revision = ?` guard that the base `submit_for_review` does not carry. That is a
 deliberate strengthening, not a port artifact.
 
-Known limitation: the inherited `revise` clears `reviewer_id` and `approved_at`
-but leaves the persisted calculation in place, so a revised case keeps the last
-submitted amount while it sits in DRAFT. A DRAFT case is never in the reviewer
-queue, and the next submission overwrites the fields, so the stale value is
-never reachable from the reviewer surface.
+Drafts retain the previous submission's calculation for reference. The reviewer
+surface labels it as historical until authorized agent preparation completes.
 """
 
 from __future__ import annotations
@@ -43,6 +40,7 @@ from contextlib import contextmanager
 
 from approval_repository import (
     COMMAND_SUBMIT,
+    COMMAND_REVISE,
     STATE_DRAFT,
     STATE_PENDING_REVIEW,
     ApprovalRepository,
@@ -53,6 +51,10 @@ from case_store import (
     AuditRecord,
     CalculationSnapshot,
     CaseRecord,
+    PREPARATION_ACTOR,
+    preparation_change,
+    preparation_dict,
+    preparation_from_dict,
     validate_limit,
     validate_reason_code,
     validate_state,
@@ -66,14 +68,15 @@ _CALCULATION_COLUMNS: tuple[tuple[str, str], ...] = (
     ("rule_ids", "TEXT"),
     ("issues", "TEXT"),
     ("rulebook_version", "TEXT"),
+    ("preparation", "TEXT"),
 )
 
-_AUDIT_COLUMNS: tuple[tuple[str, str], ...] = (("reason_code", "TEXT"),)
+_AUDIT_COLUMNS: tuple[tuple[str, str], ...] = (("reason_code", "TEXT"), ("details", "TEXT"))
 
 _CASE_SELECT_COLUMNS = (
     "case_id, state, revision, preparer_id, reviewer_id, created_at, updated_at, "
     "approved_at, amount_cents, currency, period, calculation_status, rule_ids, "
-    "issues, rulebook_version"
+    "issues, rulebook_version, preparation"
 )
 
 
@@ -115,34 +118,49 @@ class SqliteCaseStore(ApprovalRepository):
                 self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
 
     @contextmanager
-    def _reason(self, reason_code: str | None):
+    def _reason(self, reason_code: str | None, expected_revision: int | None = None):
         """Make `reason_code` visible to the audit append this call performs."""
         self._pending_reason.code = validate_reason_code(reason_code)
+        self._pending_reason.expected_revision = expected_revision
         try:
             yield
         finally:
             self._pending_reason.code = None
+            self._pending_reason.expected_revision = None
 
     def approve(
-        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None
+        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Transition PENDING_REVIEW -> APPROVED, recording `reason_code` on the event."""
-        with self._reason(reason_code):
+        with self._reason(reason_code, expected_revision):
             return super().approve(case_id, reviewer_id)
 
     def reject(
-        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None
+        self, case_id: str, reviewer_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Transition PENDING_REVIEW -> REJECTED, recording `reason_code` on the event."""
-        with self._reason(reason_code):
+        with self._reason(reason_code, expected_revision):
             return super().reject(case_id, reviewer_id)
 
     def revise(
-        self, case_id: str, actor_id: str, *, reason_code: str | None = None
+        self, case_id: str, actor_id: str, *, reason_code: str | None = None,
+        expected_revision: int | None = None,
     ) -> CaseRecord:
         """Create a new revision, recording `reason_code` on the REVISE event."""
-        with self._reason(reason_code):
-            return super().revise(case_id, actor_id)
+        with self._reason(reason_code, expected_revision), self._lock, self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            record = self._get_locked(case_id)
+            now = self._now()
+            self._conn.execute(
+                "UPDATE cases SET state=?, revision=?, preparer_id=?, reviewer_id=NULL, "
+                "updated_at=?, approved_at=NULL WHERE case_id=? AND revision=?",
+                (STATE_DRAFT, record.revision + 1, actor_id, now, case_id, record.revision),
+            )
+            self._append_audit(case_id, COMMAND_REVISE, record.state, STATE_DRAFT,
+                               record.revision + 1, actor_id, now)
+            return self._get_locked(case_id)
 
     def _append_audit(
         self,
@@ -171,8 +189,8 @@ class SqliteCaseStore(ApprovalRepository):
             """
             INSERT INTO audit_events
                 (case_id, sequence, command, from_state, to_state, revision, actor_id,
-                 at, reason_code)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 at, reason_code, details)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 case_id,
@@ -184,23 +202,85 @@ class SqliteCaseStore(ApprovalRepository):
                 actor_id,
                 at,
                 getattr(self._pending_reason, "code", None),
+                json.dumps(getattr(self._pending_reason, "details", None)),
             ),
         )
 
     def get_audit_trail(self, case_id: str) -> list[AuditRecord]:
         """Return the append-only trail, including each decision's reason code."""
         with self._lock:
-            rows = self._conn.execute(
+            return self._audit_locked(case_id)
+
+    def _audit_locked(self, case_id: str) -> list[AuditRecord]:
+        rows = self._conn.execute(
                 """
                 SELECT sequence, command, from_state, to_state, revision, actor_id, at,
-                       reason_code
+                       reason_code, details
                 FROM audit_events
                 WHERE case_id = ?
                 ORDER BY sequence
                 """,
                 (case_id,),
             ).fetchall()
-        return [AuditRecord(*row) for row in rows]
+        return [AuditRecord(*row[:-1], details=json.loads(row[-1]) if row[-1] else None) for row in rows]
+
+    def get_case_with_audit(self, case_id: str) -> tuple[CaseRecord, list[AuditRecord]]:
+        with self._lock, self._conn:
+            self._conn.execute("BEGIN")
+            return self._get_locked(case_id), self._audit_locked(case_id)
+
+    def request_preparation(
+        self, case_id: str, actor_id: str, *, revision: int, request_id: str,
+        corrections: dict[str, str], idempotency_key: str | None = None,
+    ) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_REQUESTED", revision=revision,
+                                        request_id=request_id, actor_id=actor_id, corrections=corrections,
+                                        idempotency_key=idempotency_key)
+
+    def complete_preparation(
+        self, case_id: str, *, revision: int, request_id: str,
+        calculation: CalculationSnapshot, response_id: str | None = None,
+    ) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_COMPLETED", revision=revision,
+                                        request_id=request_id, calculation=calculation, response_id=response_id)
+
+    def fail_preparation(self, case_id: str, *, revision: int, request_id: str) -> CaseRecord:
+        return self._change_preparation(case_id, "PREPARATION_FAILED", revision=revision, request_id=request_id)
+
+    def _change_preparation(
+        self, case_id: str, command: str, *, revision: int, request_id: str,
+        actor_id: str | None = None, corrections: dict[str, str] | None = None,
+        calculation: CalculationSnapshot | None = None, response_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> CaseRecord:
+        with self._lock, self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            record = self._get_locked(case_id)
+            now = self._now()
+            change = preparation_change(
+                record, now, command=command, revision=revision, request_id=request_id,
+                actor_id=actor_id, corrections=corrections, calculation=calculation, response_id=response_id,
+                idempotency_key=idempotency_key,
+            )
+            if change is None:
+                return record
+            updated, details = change
+            self._conn.execute(
+                "UPDATE cases SET state=?, preparer_id=?, updated_at=?, preparation=?, "
+                "amount_cents=?, currency=?, period=?, calculation_status=?, rule_ids=?, "
+                "issues=?, rulebook_version=? WHERE case_id=?",
+                (updated.state, updated.preparer_id, now, json.dumps(preparation_dict(updated.preparation)),
+                 updated.amount_cents, updated.currency, updated.period, updated.calculation_status,
+                 _encode_sequence(updated.rule_ids), _encode_sequence(updated.issues),
+                 updated.rulebook_version, case_id),
+            )
+            self._pending_reason.details = details
+            try:
+                self._append_audit(case_id, command, record.state, updated.state, revision,
+                                   updated.preparer_id if command == "PREPARATION_REQUESTED" else PREPARATION_ACTOR, now)
+            finally:
+                self._pending_reason.details = None
+            return updated
 
     def submit_for_review_with_calculation(
         self, case_id: str, actor_id: str, *, calculation: CalculationSnapshot
@@ -293,7 +373,12 @@ class SqliteCaseStore(ApprovalRepository):
         ).fetchone()
         if row is None:
             raise CaseNotFoundError(f"Case {case_id!r} not found")
-        return _record_from_row(row)
+        record = _record_from_row(row)
+        expected = getattr(self._pending_reason, "expected_revision", None)
+        self._pending_reason.expected_revision = None
+        if expected is not None and record.revision != expected:
+            raise InvalidTransitionError("The case revision changed")
+        return record
 
 
 def _record_from_row(row: tuple) -> CaseRecord:
@@ -314,6 +399,7 @@ def _record_from_row(row: tuple) -> CaseRecord:
         rule_ids,
         issues,
         rulebook_version,
+        preparation,
     ) = row
     return CaseRecord(
         case_id=case_id,
@@ -331,6 +417,7 @@ def _record_from_row(row: tuple) -> CaseRecord:
         rule_ids=_decode_sequence(rule_ids),
         issues=_decode_sequence(issues),
         rulebook_version=rulebook_version,
+        preparation=preparation_from_dict(json.loads(preparation) if preparation else None),
     )
 
 

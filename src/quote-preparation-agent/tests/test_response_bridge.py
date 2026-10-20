@@ -3,6 +3,7 @@
 import asyncio
 import json
 import sys
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,9 +13,58 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from response_bridge import QuotePreparationResponseConverter  # noqa: E402
 from approval_repository import ApprovalRepository  # noqa: E402
 from graph import build_graph  # noqa: E402
+from sqlite_case_store import SqliteCaseStore  # noqa: E402
 
 
 MESSAGE = {"en-CA": "Submitted for employee review.", "fr-CA": "Transmis pour révision."}
+
+
+@pytest.mark.parametrize("extra", [
+    {"corrections": {"plan": "TRAINING_BASIC"}}, {"preparerId": "FORGED"},
+    {"rulebookId": "untrusted"},
+])
+def test_revision_input_cannot_inject_corrections_or_actor(extra):
+    request_context = context()
+    request_context.agent_run.request["input"] = json.dumps({
+        "caseId": "CASE-SYN-005", "revision": 2, "preparationId": str(uuid.uuid4()), **extra,
+    })
+    with pytest.raises(ValueError):
+        asyncio.run(QuotePreparationResponseConverter().convert_request(request_context))
+
+
+def test_native_revision_request_runs_real_graph_and_serializes_only_bounded_output():
+    store = SqliteCaseStore()
+    try:
+        graph = build_graph(repository=store)
+        graph.invoke({"case_id": "CASE-SYN-005", "preparer_id": "AGENT-INTAKE",
+                      "rulebook_id": "", "intake_complete": False,
+                      "lookup_complete": False, "composition_complete": False})
+        store.revise("CASE-SYN-005", "employee-correcting")
+        key = str(uuid.uuid4())
+        store.request_preparation("CASE-SYN-005", "employee-correcting", revision=2,
+                                  request_id=key, corrections={"plan": "TRAINING_BASIC"})
+        request_context = context()
+        request_context.agent_run.request["input"] = json.dumps({
+            "caseId": "CASE-SYN-005", "revision": 2, "preparationId": key,
+        })
+        converter = QuotePreparationResponseConverter()
+        args = asyncio.run(converter.convert_request(request_context))
+        result = graph.invoke(args["input"])
+        response = asyncio.run(converter.convert_response_non_stream(result, request_context)).as_dict()
+        assert response["object"] == "response"
+        assert response["id"] == "resp-test"
+        record, trail = store.get_case_with_audit("CASE-SYN-005")
+        assert record.revision == 2 and record.state == "PENDING_REVIEW"
+        assert record.amount_cents == 80000
+        assert record.preparation.response_id == response["id"]
+        assert trail[-1].details["responseId"] == response["id"]
+        message = response["output"][0]["content"][0]["text"]
+        assert set(message) == {"en-CA", "fr-CA"}
+        serialized = json.dumps(response)
+        for forbidden in (key, "employee-correcting", "80000", "TRAINING_BASIC", "auditTrail"):
+            assert forbidden not in serialized
+    finally:
+        store.close()
 
 
 def context():

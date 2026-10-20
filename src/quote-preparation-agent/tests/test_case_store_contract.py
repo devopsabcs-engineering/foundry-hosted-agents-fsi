@@ -73,6 +73,175 @@ READY_CALCULATION = CalculationSnapshot(
     rulebook_version="training-1",
 )
 
+
+def test_corrected_revision_is_atomic_durable_and_requires_another_reviewer(store, case_id):
+    _submitted(store, case_id, UNSUPPORTED_CALCULATION)
+    store.revise(case_id, REVIEWER, reason_code="MISSING_PLAN", expected_revision=1)
+    key = str(uuid.uuid4())
+    pending = store.request_preparation(case_id, REVIEWER, revision=2, request_id=key,
+                                        corrections={"plan": "TRAINING_EXTENDED"})
+    assert pending.state == STATE_DRAFT
+    assert pending.preparation.status == "REQUESTED"
+    completed = store.complete_preparation(case_id, revision=2, request_id=key,
+                                           calculation=READY_CALCULATION, response_id="resp-revision-2")
+    record, trail = store.get_case_with_audit(case_id)
+    assert completed == record
+    assert (record.state, record.revision, record.amount_cents) == (STATE_PENDING_REVIEW, 2, 100000)
+    assert record.preparer_id == REVIEWER
+    assert trail[-2].details["corrections"] == {"plan": "TRAINING_EXTENDED"}
+    assert trail[-1].details["responseId"] == "resp-revision-2"
+    assert trail[-1].details["calculation"]["amountCents"] == record.amount_cents
+    assert key not in str(trail)
+    assert trail[-1].revision == record.revision
+    with pytest.raises(SelfApprovalError):
+        store.approve(case_id, REVIEWER, expected_revision=2)
+    store.approve(case_id, OTHER_REVIEWER, expected_revision=2)
+
+
+def test_preparation_replays_do_not_duplicate_audit_and_do_not_overwrite_calculation(store, case_id):
+    store.create_draft(case_id, PREPARER)
+    key = str(uuid.uuid4())
+    args = dict(revision=1, request_id=key, corrections={"plan": "TRAINING_BASIC"}, idempotency_key="public-retry-key")
+    original = store.request_preparation(case_id, REVIEWER, **args)
+    args["request_id"] = str(uuid.uuid4())
+    assert store.request_preparation(case_id, REVIEWER, **args) == original
+    store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+    size = len(store.get_audit_trail(case_id))
+    replay = store.complete_preparation(case_id, revision=1, request_id=key, calculation=UNSUPPORTED_CALCULATION)
+    assert replay.amount_cents == 100000
+    assert len(store.get_audit_trail(case_id)) == size
+    with pytest.raises(InvalidTransitionError):
+        store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                                  corrections={"plan": "TRAINING_EXTENDED"})
+    store.revise(case_id, REVIEWER)
+    with pytest.raises(InvalidTransitionError):
+        store.request_preparation(case_id, REVIEWER, **args)
+
+
+def test_wrong_or_superseded_capability_cannot_submit_a_revision(store, case_id):
+    store.create_draft(case_id, PREPARER)
+    key = str(uuid.uuid4())
+    store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                              corrections={"plan": "TRAINING_BASIC"})
+    with pytest.raises(InvalidTransitionError):
+        store.complete_preparation(case_id, revision=1, request_id=str(uuid.uuid4()),
+                                   calculation=READY_CALCULATION)
+    store.revise(case_id, OTHER_REVIEWER, expected_revision=1)
+    with pytest.raises(InvalidTransitionError):
+        store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+    assert store.get_case(case_id).state == STATE_DRAFT
+
+
+def test_failed_preparation_is_visible_and_new_request_can_retry(store, case_id):
+    store.create_draft(case_id, PREPARER)
+    key = str(uuid.uuid4())
+    store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                              corrections={"plan": "TRAINING_BASIC"})
+    with pytest.raises(InvalidTransitionError):
+        store.request_preparation(case_id, OTHER_REVIEWER, revision=1, request_id=str(uuid.uuid4()),
+                                  corrections={"plan": "TRAINING_EXTENDED"})
+    failed = store.fail_preparation(case_id, revision=1, request_id=key)
+    assert failed.preparation.status == "FAILED"
+    assert failed.state == STATE_DRAFT
+    assert store.list_cases_by_state(STATE_DRAFT)[0] == failed
+    with pytest.raises(InvalidTransitionError):
+        store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+    fresh = store.request_preparation(case_id, OTHER_REVIEWER, revision=1, request_id=str(uuid.uuid4()),
+                                      corrections={"vehicleClass": "SEDAN"})
+    assert fresh.preparation.corrections == {"plan": "TRAINING_BASIC", "vehicleClass": "SEDAN"}
+    assert fresh.preparer_id == OTHER_REVIEWER
+
+
+@pytest.mark.parametrize("command", ["approve", "reject", "revise"])
+def test_expected_revision_is_checked_inside_store_mutation(store, case_id, command):
+    _submitted(store, case_id)
+    store.revise(case_id, REVIEWER)
+    store.submit_for_review_with_calculation(case_id, REVIEWER, calculation=READY_CALCULATION)
+    before = store.get_case_with_audit(case_id)
+    with pytest.raises(InvalidTransitionError):
+        getattr(store, command)(case_id, OTHER_REVIEWER, expected_revision=1)
+    assert store.get_case_with_audit(case_id) == before
+
+
+@pytest.mark.parametrize("corrections", [
+    {}, {"amountCents": "1"}, {"plan": "REAL_PRODUCT"}, {"jurisdiction": "QC"},
+    {"plan": None}, {"plan": "TRAINING_BASIC", "actorId": "forged"},
+])
+def test_corrections_are_allowlisted_before_any_store_write(store, case_id, corrections):
+    store.create_draft(case_id, PREPARER)
+    before = store.get_case_with_audit(case_id)
+    with pytest.raises(ValueError):
+        store.request_preparation(case_id, REVIEWER, revision=1, request_id=str(uuid.uuid4()),
+                                  corrections=corrections)
+    assert store.get_case_with_audit(case_id) == before
+
+
+def test_preparation_survives_sqlite_restart(tmp_path):
+    path = str(tmp_path / "revision.db")
+    key = str(uuid.uuid4())
+    first = SqliteCaseStore(path)
+    first.create_draft("CASE-SYN-005", PREPARER)
+    first.request_preparation("CASE-SYN-005", REVIEWER, revision=1, request_id=key,
+                              corrections={"plan": "TRAINING_BASIC"})
+    expected = first.get_case_with_audit("CASE-SYN-005")
+    first.close()
+    reopened = SqliteCaseStore(path)
+    try:
+        assert reopened.get_case_with_audit("CASE-SYN-005") == expected
+        reopened.complete_preparation("CASE-SYN-005", revision=1, request_id=key,
+                                       calculation=READY_CALCULATION)
+        assert reopened.get_case("CASE-SYN-005").state == STATE_PENDING_REVIEW
+    finally:
+        reopened.close()
+
+
+def test_expired_preparation_can_be_replaced_but_old_completion_cannot_win(store, case_id, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    old = datetime.now(timezone.utc) - timedelta(seconds=241)
+    monkeypatch.setattr(store, "_now", lambda: old.isoformat())
+    store.create_draft(case_id, PREPARER)
+    key = str(uuid.uuid4())
+    store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                              corrections={"plan": "TRAINING_BASIC"})
+    monkeypatch.setattr(store, "_now", lambda: datetime.now(timezone.utc).isoformat())
+    with pytest.raises(InvalidTransitionError):
+        store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+    fresh = str(uuid.uuid4())
+    store.request_preparation(case_id, OTHER_REVIEWER, revision=1, request_id=fresh,
+                              corrections={"plan": "TRAINING_EXTENDED"})
+    with pytest.raises(InvalidTransitionError):
+        store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+    assert store.get_case(case_id).preparation.request_id == fresh
+
+
+@pytest.mark.parametrize("command", ["request", "complete", "fail"])
+def test_cosmos_preparation_is_etag_conditional(command, monkeypatch):
+    container = FakeCosmosContainer()
+    store = CosmosCaseStore(container=container)
+    case_id, key = "CASE-SYN-005", str(uuid.uuid4())
+    store.create_draft(case_id, PREPARER)
+    if command != "request":
+        store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                                  corrections={"plan": "TRAINING_BASIC"})
+    original = container.replace_item
+
+    def raced(*args, **kwargs):
+        container.simulate_concurrent_write(case_id)
+        return original(*args, **kwargs)
+
+    before = store.get_case_with_audit(case_id)
+    monkeypatch.setattr(container, "replace_item", raced)
+    with pytest.raises(InvalidTransitionError):
+        if command == "request":
+            store.request_preparation(case_id, REVIEWER, revision=1, request_id=key,
+                                      corrections={"plan": "TRAINING_BASIC"})
+        elif command == "complete":
+            store.complete_preparation(case_id, revision=1, request_id=key, calculation=READY_CALCULATION)
+        else:
+            store.fail_preparation(case_id, revision=1, request_id=key)
+    assert store.get_case_with_audit(case_id) == before
+
 UNSUPPORTED_CALCULATION = CalculationSnapshot(
     status="UNSUPPORTED",
     amount_cents=None,

@@ -16,13 +16,19 @@ response models `amountCents` as nullable rather than defaulting it to zero.
 """
 
 import asyncio
+import hashlib
 import logging
 import os
+import re
 import sys
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+import httpx
+from azure.core.exceptions import AzureError
 
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi import Path as PathParam
@@ -32,6 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Identity, ReviewerAuth
 from messages import message, pick_language
+from preparation_client import PreparationClient, PreparationError, validate_agent_endpoint
 
 # Module-level so it runs once per process, not once per create_app() call
 # (tests construct the app repeatedly). Guarded on the connection string so
@@ -71,6 +78,7 @@ if _AGENT_DIR is not None and str(_AGENT_DIR) not in sys.path:
 
 from case_store import (  # noqa: E402
     STATE_PENDING_REVIEW,
+    STATE_DRAFT,
     ApprovalRepositoryError,
     AuditRecord,
     CaseAlreadyExistsError,
@@ -80,6 +88,7 @@ from case_store import (  # noqa: E402
     InvalidTransitionError,
     SelfApprovalError,
     build_case_store,
+    validate_corrections,
 )
 
 logger = logging.getLogger("reviewer_app")
@@ -102,6 +111,8 @@ class Settings:
     environment: str = "staging"
     queue_limit: int = 100
     version: str = "0.0.0"
+    agent_endpoint: str = ""
+    managed_identity_client_id: str | None = None
 
     @classmethod
     def from_env(cls):
@@ -118,6 +129,8 @@ class Settings:
             reviewer_scope=scope,
             environment=os.environ.get("ENVIRONMENT", "staging").strip() or "staging",
             version=_read_version(),
+            agent_endpoint=validate_agent_endpoint(os.environ["AGENT_ENDPOINT"]) if os.environ.get("AGENT_ENDPOINT") else "",
+            managed_identity_client_id=os.environ.get("AZURE_CLIENT_ID"),
         )
 
 
@@ -137,6 +150,12 @@ class DecisionRequest(BaseModel):
     reason_code: str | None = Field(
         default=None, alias="reasonCode", min_length=1, max_length=64, pattern=r"^[A-Z0-9_]+$"
     )
+
+
+class PreparationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    revision: int = Field(ge=1, le=1_000_000)
+    corrections: dict[str, str] = Field(min_length=1, max_length=3)
 
 
 # Not translated: this is a typed safety keyword compared byte-for-byte against
@@ -167,6 +186,12 @@ def case_payload(record: CaseRecord) -> dict:
         "ruleIds": list(record.rule_ids),
         "issues": list(record.issues),
         "rulebookVersion": record.rulebook_version,
+        "preparation": None if record.preparation is None else {
+            "status": record.preparation.status, "revision": record.preparation.revision,
+            "requestedAt": record.preparation.requested_at,
+            "corrections": record.preparation.corrections,
+            "responseId": record.preparation.response_id,
+        },
     }
 
 
@@ -180,10 +205,11 @@ def audit_payload(event: AuditRecord) -> dict:
         "actorId": event.actor_id,
         "at": event.at,
         "reasonCode": event.reason_code,
+        "details": event.details,
     }
 
 
-def create_app(settings=None, verifier=None, store=None):
+def create_app(settings=None, verifier=None, store=None, preparer=None):
     # Imported here, not at module level: see the comment above the
     # configure_azure_monitor() call for why this must run after it.
     from fastapi import FastAPI
@@ -196,9 +222,17 @@ def create_app(settings=None, verifier=None, store=None):
     @asynccontextmanager
     async def lifespan(application):
         application.state.store = store or build_case_store()
-        yield
-        if store is None:
-            await asyncio.to_thread(application.state.store.close)
+        application.state.preparer = preparer or (
+            PreparationClient(settings.agent_endpoint, settings.managed_identity_client_id)
+            if settings.agent_endpoint else None
+        )
+        try:
+            yield
+        finally:
+            if store is None:
+                await asyncio.to_thread(application.state.store.close)
+            if preparer is None and application.state.preparer is not None:
+                await application.state.preparer.close()
 
     application = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -307,17 +341,25 @@ def create_app(settings=None, verifier=None, store=None):
         return {"objectId": reviewer.object_id, "role": reviewer.role}
 
     @application.get("/api/cases")
-    async def queue(reviewer: Identity = Depends(identity)):
-        records = await asyncio.to_thread(
-            case_store().list_cases_by_state, STATE_PENDING_REVIEW, settings.queue_limit
-        )
+    async def queue(
+        state: Literal["active", "DRAFT", "PENDING_REVIEW", "APPROVED", "REJECTED"] = STATE_PENDING_REVIEW,
+        reviewer: Identity = Depends(identity),
+    ):
+        states = (STATE_DRAFT, STATE_PENDING_REVIEW) if state == "active" else (state,)
+        batches = await asyncio.gather(*(
+            asyncio.to_thread(case_store().list_cases_by_state, item, settings.queue_limit)
+            for item in states
+        ))
+        records = sorted(
+            (record for batch in batches for record in batch),
+            key=lambda item: (item.updated_at, item.case_id), reverse=True,
+        )[:settings.queue_limit]
         return {"cases": [case_payload(record) for record in records]}
 
     @application.get("/api/cases/{case_id}")
     async def detail(case_id: str = CASE_ID, reviewer: Identity = Depends(identity)):
         store_ = case_store()
-        record = await asyncio.to_thread(store_.get_case, case_id)
-        trail = await asyncio.to_thread(store_.get_audit_trail, case_id)
+        record, trail = await asyncio.to_thread(store_.get_case_with_audit, case_id)
         return {"case": case_payload(record), "auditTrail": [audit_payload(e) for e in trail]}
 
     async def decide(command, case_id, body, reviewer, request_id, language):
@@ -336,7 +378,8 @@ def create_app(settings=None, verifier=None, store=None):
             )
         reason_code = getattr(body, "reason_code", None)
         record = await asyncio.to_thread(
-            getattr(store_, command), case_id, reviewer.object_id, reason_code=reason_code
+            getattr(store_, command), case_id, reviewer.object_id, reason_code=reason_code,
+            expected_revision=body.revision,
         )
         logger.warning(
             "reviewer_decision command=%s case=%s revision=%s reason=%s request=%s",
@@ -383,6 +426,73 @@ def create_app(settings=None, verifier=None, store=None):
         language: str = Depends(resolved_language),
     ):
         return await decide("revise", case_id, body, reviewer, key, language)
+
+    @application.post("/api/cases/{case_id}/prepare")
+    async def prepare(
+        body: PreparationRequest,
+        case_id: str = CASE_ID,
+        reviewer: Identity = Depends(identity),
+        key: str = Depends(request_id),
+        language: str = Depends(resolved_language),
+    ):
+        try:
+            corrections = validate_corrections(body.corrections)
+            uuid.UUID(key)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise HTTPException(422, {"detail": message("INVALID_CORRECTIONS", language),
+                                      "code": "INVALID_CORRECTIONS"}) from exc
+        if not re.fullmatch(r"CASE-SYN-[0-9]{3}", case_id):
+            raise HTTPException(422, {"detail": message("INVALID_CORRECTIONS", language),
+                                      "code": "INVALID_CORRECTIONS"})
+        if application.state.preparer is None:
+            raise HTTPException(503, {"detail": message("PREPARATION_UNAVAILABLE", language),
+                                      "code": "PREPARATION_UNAVAILABLE"})
+        store_ = case_store()
+        # The private capability is generated server-side, never accepted from
+        # applicant chat or exposed in queue, detail, audit, or telemetry.
+        current = await asyncio.to_thread(store_.get_case, case_id)
+        if current.revision != body.revision:
+            raise InvalidTransitionError("The case revision changed")
+        idempotency_hash = hashlib.sha256(f"{reviewer.object_id}:{case_id}:{key}".encode()).hexdigest()
+        current = await asyncio.to_thread(
+            store_.request_preparation, case_id, reviewer.object_id,
+            revision=body.revision, request_id=str(uuid.uuid4()), corrections=corrections,
+            idempotency_key=idempotency_hash,
+        )
+        if current.preparation is None:
+            raise InvalidTransitionError("Preparation request was not persisted")
+        request_key = current.preparation.request_id
+        if current.preparation.status == "FAILED":
+            raise InvalidTransitionError("Use a new idempotency key to retry failed preparation")
+        if current.preparation.status != "COMPLETED":
+            try:
+                async with asyncio.timeout(190):
+                    response_id = await application.state.preparer.prepare(case_id, body.revision, request_key)
+                completed = await asyncio.to_thread(store_.get_case, case_id)
+                if (
+                    completed.revision != body.revision or completed.state != STATE_PENDING_REVIEW
+                    or completed.preparation is None or completed.preparation.request_id != request_key
+                    or completed.preparation.status != "COMPLETED"
+                    or completed.preparation.response_id != response_id
+                ):
+                    raise PreparationError("Agent did not persist the expected revision")
+            except (httpx.HTTPError, AzureError, PreparationError, TimeoutError) as exc:
+                logger.warning("preparation_failure case=%s revision=%s type=%s",
+                               case_id, body.revision, type(exc).__name__)
+                current = await asyncio.to_thread(store_.get_case, case_id)
+                if not (
+                    current.revision == body.revision and current.preparation
+                    and current.preparation.request_id == request_key
+                    and current.preparation.status == "COMPLETED"
+                ):
+                    try:
+                        await asyncio.to_thread(store_.fail_preparation, case_id,
+                                                revision=body.revision, request_id=request_key)
+                    except InvalidTransitionError:
+                        logger.warning("preparation_failure_superseded case=%s revision=%s", case_id, body.revision)
+                    raise HTTPException(502, {"detail": message("PREPARATION_FAILED", language),
+                                              "code": "PREPARATION_FAILED"}) from exc
+        return await detail(case_id, reviewer)
 
     @application.post("/api/cases/clear")
     async def clear_queue(

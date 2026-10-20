@@ -182,12 +182,25 @@ def build_graph(
     repository = repository if repository is not None else build_case_store()
     model = model or default_model
 
+    def authorized_preparation(state):
+        from case_store import InvalidTransitionError, validate_preparation
+
+        revision, request_id = state.get("preparation_revision"), state.get("preparation_id")
+        if isinstance(revision, bool) or not isinstance(revision, int) or not isinstance(request_id, str):
+            raise InvalidTransitionError("Preparation requires a revision and private request capability")
+
+        return validate_preparation(
+            repository.get_case(state["case_id"]), revision, request_id,
+        )
+
     @trace_stage(STAGE_INTAKE, AGENT_TASK_INSTRUCTIONS)
     def intake_node(state: QuotePreparationState) -> dict:
         """Validate/normalize the applicant-supplied case reference against
         the quote-contract's caseId pattern. Calls no MCP tool."""
         case_id = state.get("case_id") or ""
         valid = bool(CASE_ID_PATTERN.match(case_id))
+        if state.get("preparation_id"):
+            authorized_preparation(state)
         note = model(f"Confirm intake for case {case_id!r} (valid={valid}).")
         result: dict[str, Any] = {
             "stage": STAGE_INTAKE,
@@ -216,6 +229,11 @@ def build_graph(
         if "error" in rulebook:
             issue_code = issue_code or ISSUE_RULEBOOK_NOT_FOUND
             rulebook = None
+        if state.get("preparation_id") and application is not None:
+            preparation = authorized_preparation(state)
+            application = {**application, "input": {
+                **(application.get("input") or {}), **preparation.corrections,
+            }}
 
         result: dict[str, Any] = {
             "stage": STAGE_REFERENCE_LOOKUP,
@@ -253,6 +271,40 @@ def build_graph(
 
         draft_case_id = None
         workflow_state = None
+        if state.get("preparation_id"):
+            from case_store import CalculationSnapshot, InvalidTransitionError
+
+            if calculation["status"] != "READY":
+                raise InvalidTransitionError("Corrected preparation requires valid application and rulebook evidence")
+            preparation = authorized_preparation(state)
+            submitted = repository.complete_preparation(
+                case_id, revision=preparation.revision, request_id=preparation.request_id,
+                calculation=CalculationSnapshot.from_calculation(calculation, rulebook_version=rulebook_version),
+                response_id=state.get("preparation_response_id"),
+            )
+            draft_case_id, workflow_state = submitted.case_id, submitted.state
+        else:
+            draft_case_id, workflow_state = submit_initial_case(
+                case_id, preparer_id, calculation, rulebook_version,
+            )
+
+        notice = rulebook.get("notice") if rulebook else None
+        message = _bounded_message(calculation["status"], notice)
+
+        result: dict[str, Any] = {
+            "stage": STAGE_COMPOSITION,
+            "composition_complete": True,
+            "calculation": calculation,
+            "draft_case_id": draft_case_id,
+            "workflow_state": workflow_state,
+            "applicant_message": message,
+        }
+        if calculation["issues"]:
+            result["issue_code"] = calculation["issues"][0]
+        return result
+
+    def submit_initial_case(case_id, preparer_id, calculation, rulebook_version):
+        draft_case_id, workflow_state = None, None
         try:
             draft = toolbox.create_draft(repository, case_id, preparer_id)
             draft_case_id = draft.case_id
@@ -274,20 +326,7 @@ def build_graph(
             except toolbox.ApprovalRepositoryError:
                 pass
 
-        notice = rulebook.get("notice") if rulebook else None
-        message = _bounded_message(calculation["status"], notice)
-
-        result: dict[str, Any] = {
-            "stage": STAGE_COMPOSITION,
-            "composition_complete": True,
-            "calculation": calculation,
-            "draft_case_id": draft_case_id,
-            "workflow_state": workflow_state,
-            "applicant_message": message,
-        }
-        if calculation["issues"]:
-            result["issue_code"] = calculation["issues"][0]
-        return result
+        return draft_case_id, workflow_state
 
     workflow = StateGraph(QuotePreparationState)
     workflow.add_node("supervisor", supervisor_node)

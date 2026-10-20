@@ -12,6 +12,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
+import uuid
+import json
+import pytest
 
 AGENT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -20,6 +23,57 @@ sys.path.insert(0, str(REPO_ROOT / "apps" / "workshop"))
 
 import main  # noqa: E402
 from approval_repository import ApprovalRepository  # noqa: E402
+from case_store import InvalidTransitionError, SelfApprovalError  # noqa: E402
+from sqlite_case_store import SqliteCaseStore  # noqa: E402
+from graph import build_graph  # noqa: E402
+
+
+@pytest.mark.parametrize("plan,expected", [("TRAINING_BASIC", 80000), ("TRAINING_EXTENDED", 100000)])
+def test_returned_missing_plan_case_reenters_agent_and_submits_same_revision(plan, expected):
+    with_store = SqliteCaseStore()
+    try:
+        main.run_case("CASE-SYN-005", repository=with_store, model=_stub_model)
+        assert with_store.get_case("CASE-SYN-005").calculation_status == "INCOMPLETE"
+        with_store.revise("CASE-SYN-005", "employee-correcting", reason_code="MISSING_PLAN")
+        key = str(uuid.uuid4())
+        with_store.request_preparation("CASE-SYN-005", "employee-correcting", revision=2,
+                                       request_id=key, corrections={"plan": plan})
+        result = build_graph(repository=with_store, model=_stub_model).invoke({
+            "case_id": "CASE-SYN-005", "preparer_id": "FORGED", "rulebook_id": "",
+            "preparation_id": key, "preparation_revision": 2, "preparation_response_id": "resp-corrected",
+            "intake_complete": False, "lookup_complete": False, "composition_complete": False,
+        })
+        record, trail = with_store.get_case_with_audit("CASE-SYN-005")
+        assert (record.revision, record.state, record.amount_cents) == (2, "PENDING_REVIEW", expected)
+        assert record.preparer_id == "employee-correcting"
+        assert trail[-1].command == "PREPARATION_COMPLETED"
+        _assert_message_is_bounded(result["applicant_message"])
+        serialized = json.dumps(result["applicant_message"])
+        for private in (key, "resp-corrected", "employee-correcting", plan, "FORGED", str(expected)):
+            assert private not in serialized
+        with pytest.raises(SelfApprovalError):
+            with_store.approve("CASE-SYN-005", "employee-correcting")
+    finally:
+        with_store.close()
+
+
+def test_applicant_replay_without_capability_never_resubmits_returned_draft():
+    store = SqliteCaseStore()
+    try:
+        main.run_case("CASE-SYN-005", repository=store, model=_stub_model)
+        store.revise("CASE-SYN-005", "employee")
+        before = store.get_case_with_audit("CASE-SYN-005")
+        main.run_case("CASE-SYN-005", repository=store, model=_stub_model)
+        assert store.get_case_with_audit("CASE-SYN-005") == before
+        with pytest.raises(InvalidTransitionError):
+            build_graph(repository=store, model=_stub_model).invoke({
+                "case_id": "CASE-SYN-005", "preparation_id": str(uuid.uuid4()),
+                "preparation_revision": 2, "intake_complete": False,
+                "lookup_complete": False, "composition_complete": False,
+            })
+        assert store.get_case_with_audit("CASE-SYN-005") == before
+    finally:
+        store.close()
 
 # Fields that must never appear in an applicant-facing message: raw
 # rulebook rate/plan tables and reviewer-only case/audit fields.

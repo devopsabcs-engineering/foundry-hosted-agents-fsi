@@ -13,6 +13,18 @@ LANGUAGES = ("en-CA", "fr-CA")
 DEFAULT_LANGUAGE = "en-CA"
 
 MESSAGES: dict[str, dict[str, str]] = {
+    "INVALID_CORRECTIONS": {
+        "en-CA": "Supply supported synthetic correction values and a valid request key.",
+        "fr-CA": "Fournissez des corrections synthétiques prises en charge et une clé de demande valide.",
+    },
+    "PREPARATION_UNAVAILABLE": {
+        "en-CA": "Hosted agent preparation is not configured. Contact the pilot administrator.",
+        "fr-CA": "La préparation par agent hébergé n'est pas configurée. Contactez l'administrateur du pilote.",
+    },
+    "PREPARATION_FAILED": {
+        "en-CA": "Agent preparation did not complete. Refresh the current draft and audit trail before retrying.",
+        "fr-CA": "La préparation par agent n'a pas abouti. Actualisez le brouillon et son historique avant de réessayer.",
+    },
     "SIGNIN_UNAVAILABLE": {
         "en-CA": "Sign-in verification is temporarily unavailable.",
         "fr-CA": "La vérification de connexion est temporairement indisponible.",

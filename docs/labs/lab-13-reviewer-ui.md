@@ -19,7 +19,10 @@ description: "Seed a local case queue, sign in as a reviewer, approve a case, an
 
 In Lab 07 you played the reviewer by calling `ApprovalRepository.approve` from a Python one-liner. This lab replaces that with the interface a reviewer actually uses.
 
-Everything here runs on your workstation. The case store falls back to SQLite when no Cosmos endpoint is configured, so the full review loop works with no Azure data plane at all.
+Exercises 13.1 through 13.10 run on your workstation using SQLite when no
+Cosmos endpoint is configured. Hosted-agent resubmission in Exercise 13.11
+requires an approved deployment and the shared Cosmos store; it does not
+silently fall back to a local calculator in the reviewer app.
 
 > [!NOTE]
 > The reviewer interface includes a manual EN/FR toggle in the header, matching the applicant-facing chat. Every label, message, and the fixed disclaimer render in whichever language the toggle selects, and the choice persists in the browser between visits.
@@ -188,7 +191,7 @@ reviewer_decision command=approve case=CASE-SYN-001 revision=1 reason=None
 
 Expected result: a structured decision line accompanying the HTTP request log. The decision is recorded in the case store and in the application log.
 
-### Exercise 13.10: Clean Up
+### Exercise 13.10: Clean Up the Local Database
 
 ```powershell
 # In the terminal running uvicorn
@@ -203,6 +206,47 @@ Remove-Item .local/reviewer-cases.db -Force
 
 The `.local/` directory is in `.gitignore`, so the seeded database is never committed. Re-run Exercise 13.2 whenever you want a fresh queue.
 
+### Exercise 13.11: Correct and Resubmit a Returned Draft
+
+Run this optional exercise only after an approved release containing
+[issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
+Use an authorized synthetic staging case, not a shared customer-demo case
+without coordination. Do not clear the queue or change the fixture.
+
+1. Open `CASE-SYN-005`, which initially has `INCOMPLETE`, `MISSING_PLAN`
+   and no amount. Select **Send back for revision** with reason `MISSING_PLAN`.
+2. Confirm revision 2 is `DRAFT`, and return to the active queue. The draft
+   must still be visible. Reopen it and inspect the current audit trail.
+3. Supply `TRAINING_BASIC` in the correction form, then request preparation.
+   Jurisdiction/vehicle fields may be left unchanged. Values are constrained;
+   there is no price editor or arbitrary JSON input.
+4. Confirm the native hosted agent returns the **same revision 2** to
+   `PENDING_REVIEW`, calculation `READY`, `80000` synthetic cents.
+   `TRAINING_EXTENDED` would produce `100000` cents with the same fixture.
+5. Inspect `PREPARATION_REQUESTED` and `PREPARATION_COMPLETED`: corrections,
+   employee identity, hashed correlation, native response ID and calculation
+   provenance. Refresh and revisit the queue: revision and audit must agree.
+6. Confirm the correcting employee cannot approve this revision. Another
+   authorized employee must decide it. Check the French labels too.
+
+On failure, refresh before retrying. Corrections remain on the visible draft
+with a failed audit event. An abandoned in-progress request can be retried
+after its 240-second lease; new attempts use a fresh request key. Previous
+calculations on a draft are historical, not a new quote.
+
+The deployed reviewer API requires `AGENT_ENDPOINT` pointing to the native
+Responses endpoint and a project-scoped invocation-only managed-identity role,
+in addition to Cosmos access. Infrastructure supplies both declaratively.
+An unconfigured local endpoint returns 503 without submitting anything.
+The reviewer never calls `approve`, `reject` or `revise` through the agent.
+
+Offline regression coverage, without touching deployed cases:
+
+```powershell
+python -m pytest src/quote-preparation-agent/tests/test_case_store_contract.py src/quote-preparation-agent/tests/test_graph.py -q
+python -m pytest apps/reviewer-app/tests -q
+```
+
 ## Validation Checklist
 
 * [ ] Five cases were seeded, two of them without an amount
@@ -212,6 +256,7 @@ The `.local/` directory is in `.gitignore`, so the seeded database is never comm
 * [ ] CASE-SYN-001 shows a premium, rule IDs, and a rulebook version
 * [ ] CASE-SYN-003 shows `Not priced` with its issue named
 * [ ] Approving CASE-SYN-001 wrote a third audit entry carrying your object ID
+* [ ] On an approved hosted build, returned drafts remain visible and a corrected revision retains its current audit
 
 ## Knowledge Check
 

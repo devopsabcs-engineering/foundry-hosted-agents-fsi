@@ -1,7 +1,7 @@
 :root{font-family:'DM Sans Variable',sans-serif;color:#252a28;background:#f5f7f5;font-synthesis:none;--green:#184c40;--muted:#66736c;--border:#dce3df;--accent:#b22938;--warn:#7a5a12}
-*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}
+*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}
 button:disabled{cursor:default;opacity:.45}
-button:focus-visible,a:focus-visible,input:focus-visible,.panel h1:focus-visible,.queue-scroll:focus-visible{outline:2px solid #be3947;outline-offset:3px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.panel h1:focus-visible,.queue-scroll:focus-visible{outline:2px solid #be3947;outline-offset:3px}
 button{transition:background .15s}button:hover:enabled{filter:brightness(.96)}
 
 .shell{display:flex;flex-direction:column;min-height:100dvh}
@@ -73,6 +73,17 @@ button.danger{display:inline-flex;align-items:center;gap:8px;background:var(--ac
 .audit-command{font-weight:650;color:var(--green);min-width:120px}
 .audit-transition{color:#35463a}
 .audit-meta{color:var(--muted);overflow-wrap:anywhere}
+.queue-filter{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px;font-size:13px}
+.queue-filter label,.correction-fields label{font-weight:600;color:var(--green)}
+select{max-width:100%;padding:9px 11px;border:1px solid #b5c5ba;border-radius:5px;background:#fff;color:inherit}
+.revision{border-left:4px solid var(--green);background:#f5f7f5;padding:1px 18px 18px;margin-top:24px;font-size:13px}
+.revision h3{font-size:12px;margin:16px 0 6px;color:var(--green)}
+.correction-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.correction-fields>div{display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0}
+.previous-label{display:block;font-size:11px;color:var(--warn);white-space:normal;margin-bottom:4px}
+.audit-details{flex-basis:100%;padding-left:14px;border-left:2px solid var(--border)}
+.provenance{overflow-wrap:anywhere;font-size:12px}
+.correction-values dd{font-size:12px}
 
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .startup-error{margin:60px auto;max-width:480px;padding:18px;border:1px solid #e3b9bf;border-radius:6px;background:#fdf1f2;color:var(--accent);font-size:14px;text-align:center}
@@ -83,6 +94,7 @@ button.danger{display:inline-flex;align-items:center;gap:8px;background:var(--ac
   main{padding:14px}
   .panel{padding:16px 14px 20px}
   .panel h1{font-size:21px}
+  .panel-head,.panel-actions{flex-wrap:wrap}
   .queue{min-width:620px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

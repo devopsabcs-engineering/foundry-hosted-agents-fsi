@@ -20,7 +20,10 @@ description: "Alimenter une file de dossiers locale, se connecter comme réviseu
 
 À l'atelier 07, vous jouiez le rôle du réviseur en appelant `ApprovalRepository.approve` depuis une ligne de commande Python. Cet atelier remplace cette approche par l'interface qu'une personne réviseure utilise réellement.
 
-Tout s'exécute ici sur votre poste de travail. Le magasin de dossiers bascule vers SQLite lorsqu'aucun point de terminaison Cosmos n'est configuré, la boucle de révision complète fonctionne donc sans aucun plan de données Azure.
+Les exercices 13.1 à 13.10 utilisent votre poste et SQLite sans endpoint
+Cosmos. La resoumission par agent de l'exercice 13.11 nécessite un
+déploiement approuvé et le magasin Cosmos partagé. L'application employé
+ne remplace jamais cet appel par un calcul local silencieux.
 
 > [!NOTE]
 > L'interface dispose d'un sélecteur EN/FR dans l'en-tête, comme le clavardage. Les libellés, messages et avis fixe suivent la langue choisie, conservée dans le navigateur entre les visites.
@@ -190,7 +193,7 @@ reviewer_decision command=approve case=CASE-SYN-001 revision=1 reason=None
 
 Résultat attendu : une ligne de décision structurée accompagnant le journal de requête HTTP. La décision est consignée dans le magasin de dossiers et dans le journal applicatif.
 
-### Exercice 13.10 : Nettoyer
+### Exercice 13.10 : Nettoyer la base locale
 
 ```powershell
 # Dans le terminal qui exécute uvicorn
@@ -205,6 +208,46 @@ Remove-Item .local/reviewer-cases.db -Force
 
 Le répertoire `.local/` figure dans `.gitignore`, la base alimentée n'est donc jamais versionnée. Réexécutez l'exercice 13.2 chaque fois que vous souhaitez une file fraîche.
 
+### Exercice 13.11 : Corriger et resoumettre un brouillon retourné
+
+Cet exercice facultatif exige une livraison approuvée contenant
+[l'issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
+Utilisez un cas synthétique staging autorisé, jamais un dossier partagé de
+démonstration sans coordination. Ne videz pas la file et ne modifiez pas la fixture.
+
+1. Ouvrez `CASE-SYN-005`, initialement `INCOMPLETE`, `MISSING_PLAN` et sans
+   montant. Choisissez **Retourner pour révision**, motif `MISSING_PLAN`.
+2. Vérifiez `DRAFT`, révision 2, puis revenez à la file active : le brouillon
+   reste visible. Rouvrez-le et consultez l'audit courant.
+3. Choisissez `TRAINING_BASIC` dans le formulaire, puis demandez la
+   préparation. Juridiction et catégorie du véhicule peuvent rester inchangées.
+   Aucun prix ni JSON arbitraire n'est modifiable.
+4. L'agent hébergé natif resoumet la **même révision 2** en
+   `PENDING_REVIEW`, calcul `READY`, `80000` cents synthétiques.
+   Avec `TRAINING_EXTENDED`, cette fixture produirait `100000` cents.
+5. Vérifiez `PREPARATION_REQUESTED` et `PREPARATION_COMPLETED` : corrections,
+   identité employé, corrélation hachée, identifiant Responses et provenance
+   du calcul. Après actualisation, révision et audit doivent correspondre.
+6. L'employé correcteur ne peut pas approuver cette révision ; un autre
+   employé autorisé doit décider. Vérifiez aussi les libellés anglais.
+
+En cas d'échec, actualisez avant de réessayer. Corrections et événement
+d'échec restent sur le brouillon visible. Une demande en cours abandonnée
+peut être remplacée après son bail de 240 secondes, avec une nouvelle clé.
+Le calcul précédent d'un brouillon est historique, pas une nouvelle soumission.
+
+L'API déployée exige `AGENT_ENDPOINT` natif, le rôle personnalisé d'invocation
+au niveau du projet et l'accès Cosmos. L'infrastructure fournit ces éléments.
+Sans endpoint local configuré, l'API retourne 503 sans rien soumettre.
+L'agent ne reçoit jamais de commande d'approbation, refus ou révision humaine.
+
+Régressions hors ligne sans toucher les cas déployés :
+
+```powershell
+python -m pytest src/quote-preparation-agent/tests/test_case_store_contract.py src/quote-preparation-agent/tests/test_graph.py -q
+python -m pytest apps/reviewer-app/tests -q
+```
+
 ## Liste de vérification
 
 * [ ] Cinq dossiers ont été alimentés, dont deux sans montant
@@ -214,6 +257,7 @@ Le répertoire `.local/` figure dans `.gitignore`, la base alimentée n'est donc
 * [ ] CASE-SYN-001 affiche une prime, des identifiants de règles et une version de référentiel
 * [ ] CASE-SYN-003 affiche `Not priced` avec son enjeu nommé
 * [ ] L'approbation de CASE-SYN-001 a écrit une troisième entrée de vérification portant votre identifiant d'objet
+* [ ] Sur une version hébergée approuvée, les brouillons retournés restent visibles avec révision et audit courants
 
 ## Vérification des connaissances
 

@@ -13,9 +13,14 @@ staging agent **v5**, production **v6**, approved runtime source `01af1fb`,
 [release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
 The `-poc` Foundry account/project suffix identifies production, not staging.
 Both chat apps, both reviewer apps and four MCP apps are deployed. Publication
-commits after that release change documentation, not the runtime. The source
-trees for `src`, `apps` and `infra` matched merged main `a4b6008`.
+commits preceding issue #28 changed documentation, not the runtime. The source
+trees for `src`, `apps` and `infra` matched merged main `a4b6008` at that checkpoint.
 Version numbers are a dated observation, not invocation-routing parameters.
+
+The revision-resubmission implementation below is tracked in
+[issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
+Its deployment must be confirmed by a subsequent approved release; the earlier
+release is not evidence that these new controls are live.
 
 All data, rates and outputs are synthetic training material. No actual
 insurance quote, delivery, customer policy or automatic approval is represented.
@@ -50,9 +55,10 @@ flowchart TD
     AApplicant -->|"Pilot access token"| AChat
     AEmployee -->|"Reviewer access token"| AReview
     AChat -->|"Managed identity"| AEndpoint
+    AReview -->|"Invoke-only identity and private revision request"| AEndpoint
     AEndpoint --> AAgent
     AAgent -->|"Direct MCP over HTTPS"| AMCP
-    AAgent -->|"Create and submit draft"| AStore
+    AAgent -->|"Create or complete authorized revision"| AStore
     AReview -->|"Read and employee decisions"| AStore
     AAgent -->|"Payload-free stage spans"| AMonitor
 ```
@@ -113,6 +119,8 @@ flowchart LR
     CTools -->|"Hosted package"| CRemote
     CTools -->|"Full local checkout"| CLocal
     CReviewer -->|"Never through agent toolbox"| CContract
+    CReviewer -->|"Native Responses revision request"| CBridge
+    CGraph -->|"Guarded revision completion"| CContract
     CContract -->|"COSMOS_ENDPOINT configured"| CCosmos
     CContract -->|"Local without Cosmos"| CSQLite
 ```
@@ -197,7 +205,12 @@ flowchart LR
     SRejected -->|"Revise"| SRevised
     SPending -->|"Revise"| SRevised
     SDraft -->|"Revise"| SRevised
-    SRevised -->|"Resubmit after preparation"| SPending
+    SRevised --> SCorrect["Employee supplies allowlisted corrections"]
+    SCorrect --> SRequest["Atomic REQUESTED and audit"]
+    SRequest --> SHost["Native hosted agent and pinned rulebook"]
+    SHost -->|"Matching revision and private capability"| SPending
+    SHost -->|"Failure or timeout"| SFailed["Visible DRAFT with FAILED audit"]
+    SFailed -->|"Explicit retry with a new request"| SCorrect
 ```
 
 The reviewer API derives actor identity from verified Entra claims, checks
@@ -209,6 +222,42 @@ append-only audit convention, not a claim of immutable regulatory storage.
 Revision clears prior approval. Preview is a training-only audited action,
 not delivery; the reviewer web API currently exposes decisions and audit,
 not an applicant preview/delivery endpoint.
+
+### Returned-draft correction and agent resubmission
+
+The browser requests `GET /api/cases?state=active`, including both `DRAFT`
+and `PENDING_REVIEW`. The API's default remains pending-only for existing
+clients. Approved/rejected cases remain accessible through explicit state
+filters. Case detail and its audit are read from one database snapshot.
+
+`POST /api/cases/{caseId}/prepare` accepts the exact revision and a nonempty
+`corrections` object. Only synthetic `jurisdiction: ON`,
+`vehicleClass: COMPACT|SEDAN`, and `plan: TRAINING_BASIC|TRAINING_EXTENDED`
+are accepted. Prices, actors, rulebooks and arbitrary application JSON are
+not editable. Corrections accumulate without rewriting the fixture.
+
+The API atomically stores corrections, verified employee identity and a
+server-generated private request capability before calling native Responses.
+The graph validates that capability against the current stored revision,
+reads trusted corrections, and recomputes with the pinned rulebook. A
+`READY` result, calculation snapshot and `PREPARATION_COMPLETED` audit event
+become visible together, retaining the correcting employee as preparer.
+Another employee must approve. Applicant output stays bounded and bilingual.
+
+Failed preparation stays visible as a draft, with its corrections and
+`PREPARATION_FAILED` event. A lost response is reconciled from durable state;
+an abandoned `REQUESTED` lease can be replaced after 240 seconds. Retries use
+idempotency keys, and stale revisions/capabilities cannot overwrite a new
+request. Draft calculations are explicitly labelled as the previous submission.
+Audit includes corrections, a hashed preparation correlation, the native
+response ID and calculation provenance. The private capability is never
+returned to the browser or recorded in audit/telemetry.
+
+The reviewer identity receives a project-scoped custom invocation role,
+not the broad `Foundry User` role. It grants only registered endpoint/application
+invocation and Responses write data actions, not memory or agent management.
+Live deployment verification must prove both successful invocation and
+continued denial of reviewer memory access. No new queue service is required.
 
 The applicant chat checks pilot membership before server-side managed-identity
 invocation. The employee API has a separate registration/role boundary.

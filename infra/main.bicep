@@ -231,6 +231,7 @@ module reviewerApp 'modules/reviewer-app.bicep' = if (deployReviewerApp) {
     reviewerScope: reviewerScope
     environment: reviewerEnvironment
     cosmosEndpoint: cosmos.outputs.documentEndpoint
+    agentEndpoint: '${aiFoundry.outputs.projectEndpoint}/agents/quote-preparation-agent/endpoint/protocols/openai/responses?api-version=v1'
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
   }
 }
@@ -243,6 +244,15 @@ module cosmosReviewerRbac 'modules/cosmos-rbac.bicep' = if (deployReviewerApp) {
   params: {
     accountName: cosmos.outputs.accountName
     principalIds: [reviewerApp!.outputs.principalId]
+  }
+}
+
+module reviewerFoundryRbac 'modules/foundry-invoke-rbac.bicep' = if (deployReviewerApp) {
+  name: 'foundry-invoke-rbac-reviewer'
+  params: {
+    accountName: aiFoundry.outputs.accountName
+    projectName: aiFoundry.outputs.projectName
+    principalId: reviewerApp!.outputs.principalId
   }
 }
 
