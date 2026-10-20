@@ -10,6 +10,11 @@ description: "Exécuter localement le pipeline de validation, lire la porte d'é
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.
 
+> [!WARNING]
+> Pour poursuivre les ateliers 15 à 18, ne démantelez pas la démo restaurée
+> partagée. Gardez staging v2 et production v3 déployés; étudiez les protections
+> sans supprimer ces environnements.
+
 ## Aperçu
 
 | Élément | Valeur |
@@ -242,6 +247,8 @@ Le flux conserve les quatre protections des autres flux de démantèlement et en
 
 ## Étapes suivantes
 
-Vous avez complété l'atelier bilingue de préparation de soumissions, d'une donnée synthétique sur votre poste de travail jusqu'à une décision révisée accompagnée d'une piste de vérification.
+Vous avez terminé la séquence d'exploitation du pilote. Passez à
+l'[Atelier 15 : Fichiers et génération native](lab-15-native-files-generation.md)
+pour les exercices natifs isolés, en conservant les environnements partagés.
 
 Retournez à l'[index des ateliers](index.md) ou à la [page d'accueil de l'atelier](../index.md).

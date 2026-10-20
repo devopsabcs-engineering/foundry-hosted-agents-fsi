@@ -7,6 +7,8 @@ nav_order: 20
 
 [Français](fr/native-showcase.md) | [Workshop home](index.md) | [Root README](../README.md)
 
+[Current release and generation-recovery evidence, with authentic screenshots](showcase-evidence.md).
+
 ## Keep the restored customer demo available
 
 The restored staging agent is version 2; production is version 3.

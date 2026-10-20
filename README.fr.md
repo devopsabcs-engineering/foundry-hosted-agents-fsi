@@ -82,6 +82,10 @@ télémétrie et approbation de livraison. Les juges natifs ont manqué un contr
 négatif connu; cette limite est documentée, sans faux succès de qualité.
 Conservez les deux environnements déployés.
 
+Consultez les [preuves actuelles et captures](docs/fr/showcase-evidence.md)
+pour les remplacements réussis des deux générations échouées et la distinction
+entre les images publiées et les versions réellement déployées.
+
 L'interface dans [apps/web-chat/](apps/web-chat/) est déployée séparément en
 production (consultez les [liens de déploiement](#liens-de-déploiement)
 pour l'URL actuelle). Pour l'exécuter localement en utilisant l'agent

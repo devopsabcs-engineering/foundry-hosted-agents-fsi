@@ -35,6 +35,22 @@ def test_publish_twice_is_idempotent_and_preserves_existing_wiki_home(tmp_path):
     assert first.count("<!-- native-showcase:start -->") == 1
     assert (tmp_path / "Native-Foundry-Showcase.md").is_file()
     assert (tmp_path / "Native-Foundry-Showcase-FR.md").is_file()
+    assert (tmp_path / "Native-Foundry-Evidence.md").is_file()
+    assert (tmp_path / "Native-Foundry-Evidence-FR.md").is_file()
+    for name in wiki.SCREENSHOTS:
+        expected = (wiki.ROOT / "docs" / "assets" / "evidence" / name).read_bytes()
+        assert expected.startswith(b"\x89PNG\r\n\x1a\n")
+        assert (tmp_path / "assets" / "evidence" / name).read_bytes() == expected
+
+
+@pytest.mark.parametrize("source", ["docs/showcase-evidence.md", "docs/fr/showcase-evidence.md"])
+def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
+    rendered = wiki.render(source, (wiki.ROOT / source).read_text(encoding="utf-8"), "owner/repo")
+    language = "en" if source == "docs/showcase-evidence.md" else "fr"
+    assert f"](assets/evidence/staging-chat-{language}.png)" in rendered
+    assert "](assets/evidence/production-reviewer-en.png)" in rendered
+    peer = "Native-Foundry-Evidence-FR" if source == "docs/showcase-evidence.md" else "Native-Foundry-Evidence"
+    assert f"]({peer})" in rendered
 
 
 @pytest.mark.parametrize("repository", ["https://evil.test", "../repo", "owner/repo/other"])

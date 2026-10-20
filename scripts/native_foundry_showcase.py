@@ -158,6 +158,7 @@ def generation_reference_bytes():
     documents = load_corpus()
     text = "\n\n".join([
         FIXTURE["reference"],
+        (ROOT / "data" / "showcase" / "generation-reference.txt").read_text(encoding="utf-8"),
         *[f'{document["id"]}: {document["title"]}\n{document["content"]}'
           for document in documents],
     ]).encode("utf-8")

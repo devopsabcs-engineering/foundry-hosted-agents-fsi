@@ -76,6 +76,10 @@ and from the remaining memory, Foundry IQ, telemetry and release gates.
 Native grounding judges missed a known negative control; the runbook records
 that limitation rather than claiming a quality pass. Keep both environments deployed.
 
+See [current release evidence and screenshots](docs/showcase-evidence.md) for
+the successful replacements of both failed generation jobs and the distinction
+between published images and deployed runtime versions.
+
 The chat UI in `apps/web-chat/` is deployed out of band to production (see
 [Deployment links](#deployment-links) for the current URL). To run it
 locally instead, against the real deployed agent:

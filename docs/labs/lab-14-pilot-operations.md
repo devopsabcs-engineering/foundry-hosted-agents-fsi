@@ -9,6 +9,11 @@ description: "Run the validation pipeline locally, read the evaluation gate, and
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.
 
+> [!WARNING]
+> If you are continuing to Labs 15 through 18, do not execute teardown against
+> the shared restored demo. Keep staging v2 and production v3 deployed; study
+> teardown safeguards here without deleting those environments.
+
 ## Overview
 
 | Item | Value |
@@ -241,6 +246,8 @@ The workflow keeps the same four safeguards as the other teardown workflows and 
 
 ## Next Steps
 
-You have completed the bilingual quote-preparation workshop, from a synthetic fixture on your laptop to a reviewed decision with an audit trail.
+You have completed the pilot operations sequence. Continue to
+[Lab 15: Native Files and Generation](lab-15-native-files-generation.md) for the
+isolated native showcase, keeping the shared environments deployed.
 
 Return to the [labs index](index.md) or the [workshop home page](../index.md).
