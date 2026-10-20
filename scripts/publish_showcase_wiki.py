@@ -22,6 +22,16 @@ PAGES = {
     "docs/wiki/workflows.md": ("Workflows", "Workflows"),
     "docs/wiki/release-evidence.md": ("Release-Evidence", "Release evidence"),
 }
+DIAGRAMS = {
+    "docs/architecture.md": ("architecture-en", 7),
+    "docs/fr/architecture.md": ("architecture-fr", 7),
+    "docs/wiki/workflows.md": ("workflows", 1),
+}
+DIAGRAM_IMAGES = tuple(
+    f"{prefix}-{index}.png"
+    for prefix, count in DIAGRAMS.values()
+    for index in range(1, count + 1)
+)
 SCREENSHOTS = (
     "staging-chat-en.png",
     "staging-chat-fr.png",
@@ -68,6 +78,9 @@ def render(source: str, text: str, repository: str) -> str:
             for filename in SCREENSHOTS:
                 if target == f"https://github.com/{repository}/blob/main/docs/assets/evidence/{filename}":
                     target = f"assets/evidence/{filename}"
+            for filename in DIAGRAM_IMAGES:
+                if target == f"https://github.com/{repository}/blob/main/docs/assets/architecture/{filename}":
+                    target = f"assets/architecture/{filename}"
         return f"[{match.group(1)}]({target})"
 
     body = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", link, body)
@@ -102,10 +115,11 @@ def main(argv=None) -> int:
         rendered[home] = rendered[home].replace(deployment_section(rendered[home]), existing, 1)
     for path, content in rendered.items():
         path.write_text(content, encoding="utf-8")
-    assets = args.wiki / "assets" / "evidence"
-    assets.mkdir(parents=True, exist_ok=True)
-    for filename in SCREENSHOTS:
-        shutil.copyfile(ROOT / "docs" / "assets" / "evidence" / filename, assets / filename)
+    for directory, filenames in (("evidence", SCREENSHOTS), ("architecture", DIAGRAM_IMAGES)):
+        assets = args.wiki / "assets" / directory
+        assets.mkdir(parents=True, exist_ok=True)
+        for filename in filenames:
+            shutil.copyfile(ROOT / "docs" / "assets" / directory / filename, assets / filename)
     return 0
 
 

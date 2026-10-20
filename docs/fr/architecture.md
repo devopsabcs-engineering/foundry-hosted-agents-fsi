@@ -23,6 +23,13 @@ livraison au client ou approbation automatique n'est représentée.
 
 ## Architecture applicative
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Architecture applicative](../assets/architecture/architecture-fr-1.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -67,6 +74,13 @@ de traces tierce, ni modèle de tarification génératif. Le modèle provisionn�
 
 ## Composants et routage réel
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Relations des composants](../assets/architecture/architecture-fr-2.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart LR
@@ -101,6 +115,13 @@ Foundry ne crée pas de persistance conversationnelle LangGraph.
 
 ## Parcours déterministe et cas incomplet
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Parcours de la demande](../assets/architecture/architecture-fr-3.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -133,6 +154,13 @@ ni règlement brut, ni audit employé. Les blocs pédagogiques `workflow` et
 
 ## Approbation humaine et concurrence
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![États de validation humaine](../assets/architecture/architecture-fr-4.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart LR
@@ -163,6 +191,13 @@ ne prouve ni l'autorisation ni la disponibilité de l'agent.
 
 ## Fonctions natives isolées
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Isolation des fonctions natives](../assets/architecture/architecture-fr-5.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart TD
@@ -191,6 +226,13 @@ File Search et la facture vérifiés ne prouvent pas les options IQ/CU.
 
 ## Traces et évaluation native
 
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Provenance des traces et évaluations](../assets/architecture/architecture-fr-6.png)
+
+</details>
+
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
 flowchart LR
@@ -216,6 +258,13 @@ erreur bloque la promotion. Les anciens échecs juge 0/10 et contrôles RAG
 restent visibles ; ce n'est pas une amélioration mesurée sur le même dataset.
 
 ## Livraison et publication documentaire
+
+<details>
+<summary>Image rendue si le composant Mermaid est indisponible</summary>
+
+![Livraison et publication](../assets/architecture/architecture-fr-7.png)
+
+</details>
 
 <!-- mermaid-checked: safe labels, quoted subgraphs and edge labels, closed subgraphs, unique ids -->
 ```mermaid
