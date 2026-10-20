@@ -24,7 +24,7 @@ deployment inventory. Future infrastructure changes still require approval.
 
 ## Application architecture
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Application architecture](assets/architecture/architecture-en-1.png)
@@ -78,7 +78,7 @@ does not mean the graph calls a chat model or the Foundry toolbox gateway.
 
 ## Component relationships and actual tool routing
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Component relationships](assets/architecture/architecture-en-2.png)
@@ -135,7 +135,7 @@ a checkpointer: Foundry conversation IDs do not create durable LangGraph state.
 
 ## Request lifecycle and missing-plan example
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Request lifecycle](assets/architecture/architecture-en-3.png)
@@ -178,7 +178,7 @@ not instructions to auto-approve a live case.
 
 ## Employee approval and persistence boundary
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Employee approval states](assets/architecture/architecture-en-4.png)
@@ -217,7 +217,7 @@ identity authorization nor hosted-agent readiness.
 
 ## Isolated native showcase, not hidden production dependencies
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Native showcase isolation](assets/architecture/architecture-en-5.png)
@@ -255,7 +255,7 @@ IQ and Content Understanding model setup.
 
 ## Telemetry to native evaluation
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Telemetry and evaluation lineage](assets/architecture/architecture-en-6.png)
@@ -290,7 +290,7 @@ failures remain preserved. This is not a same-dataset improvement claim.
 
 ## Release and documentation architecture
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Release and publication architecture](assets/architecture/architecture-en-7.png)

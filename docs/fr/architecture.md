@@ -23,7 +23,7 @@ livraison au client ou approbation automatique n'est représentée.
 
 ## Architecture applicative
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Architecture applicative](../assets/architecture/architecture-fr-1.png)
@@ -74,7 +74,7 @@ de traces tierce, ni modèle de tarification génératif. Le modèle provisionn�
 
 ## Composants et routage réel
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Relations des composants](../assets/architecture/architecture-fr-2.png)
@@ -115,7 +115,7 @@ Foundry ne crée pas de persistance conversationnelle LangGraph.
 
 ## Parcours déterministe et cas incomplet
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Parcours de la demande](../assets/architecture/architecture-fr-3.png)
@@ -154,7 +154,7 @@ ni règlement brut, ni audit employé. Les blocs pédagogiques `workflow` et
 
 ## Approbation humaine et concurrence
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![États de validation humaine](../assets/architecture/architecture-fr-4.png)
@@ -191,7 +191,7 @@ ne prouve ni l'autorisation ni la disponibilité de l'agent.
 
 ## Fonctions natives isolées
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Isolation des fonctions natives](../assets/architecture/architecture-fr-5.png)
@@ -226,7 +226,7 @@ File Search et la facture vérifiés ne prouvent pas les options IQ/CU.
 
 ## Traces et évaluation native
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Provenance des traces et évaluations](../assets/architecture/architecture-fr-6.png)
@@ -259,7 +259,7 @@ restent visibles ; ce n'est pas une amélioration mesurée sur le même dataset.
 
 ## Livraison et publication documentaire
 
-<details>
+<details markdown="1">
 <summary>Image rendue si le composant Mermaid est indisponible</summary>
 
 ![Livraison et publication](../assets/architecture/architecture-fr-7.png)

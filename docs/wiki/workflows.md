@@ -28,7 +28,7 @@ runs; those are not extra checked-in release entry points.
 
 ## Staging to production
 
-<details>
+<details markdown="1">
 <summary>Rendered image if the Mermaid embed is unavailable</summary>
 
 ![Staging to production release](../assets/architecture/workflows-1.png)

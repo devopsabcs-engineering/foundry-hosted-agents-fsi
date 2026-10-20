@@ -167,6 +167,7 @@ def test_rendered_fallbacks_match_all_mermaid_sources_and_image_hashes():
         text = (wiki.ROOT / source).read_text(encoding="utf-8")
         blocks = diagram_blocks(text)
         assert len(blocks) == count
+        assert text.count('<details markdown="1">') == count
         rendered = wiki.render(source, text, "owner/repo")
         for index, block in enumerate(blocks, 1):
             name = f"{prefix}-{index}.png"
