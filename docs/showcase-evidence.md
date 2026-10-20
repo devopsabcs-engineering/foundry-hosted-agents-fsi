@@ -8,24 +8,84 @@ description: Recorded native generation recovery, running demo versions and auth
 
 ## Release status
 
-Evidence collected on 2026-10-20 UTC. The environments remain deployed.
-The latest merged source is `349f6ed3abe783c99f457c8f6d5d5b56b3122726`.
-Its image-publication workflows succeeded, but this is not proof of runtime
-deployment. Direct project SDK queries still return staging agent version 2
-and production agent version 3. The last verified full deployment is
-[39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605).
-The latest source has **not** been verified as deployed.
+Evidence collected on 2026-10-20 UTC. Both environments remain deployed.
+[Release 39356610865](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39356610865)
+successfully deployed approved runtime source
+`25f3e54037a4063fa5bba1781af8e5b4b20ce1c8` through staging and production.
+Direct SDK queries against the two explicit project endpoints confirm
+`quote-preparation-agent:3` in staging and `quote-preparation-agent:4` in
+production. Production passed its existing required-reviewer gate; no
+protection setting was changed. Subsequent evidence-only documentation
+commits do not represent another runtime deployment.
 
 | Runtime | Running image digest | Ready revision |
 | --- | --- | --- |
-| Staging chat | `sha256:ccfab1bc368463602c5b5f85cc6b93cde242e9a03c7b3000a6cf8cee007fce70` | `foundry-quote-chat-staging--p5occpg` |
-| Production chat | Same chat digest | `foundry-quote-chat--zdpiuid` |
-| Staging reviewer | `sha256:5882f2e3ef0ff0884b53387e10a981d7f5591e7c23a8229bc038afad151d1b01` | `foundry-quote-reviewer-staging--0000002` |
-| Production reviewer | Same reviewer digest | `foundry-quote-reviewer--k1qw0tn` |
+| Staging chat | `sha256:f036a1622e77ee1920a7d7530a9c0e67bf35d789c68c2c6d9a027acb0f95fc34` | `foundry-quote-chat-staging--0000002` |
+| Production chat | Same chat digest | `foundry-quote-chat--0000001` |
+| Staging reviewer | `sha256:3fc629e2ddc44604a23fa3f08603cea0dcf1a6aa3177c9e47dd40ec51dc8e132` | `foundry-quote-reviewer-staging--0000004` |
+| Production reviewer | Same reviewer digest | `foundry-quote-reviewer--0000001` |
 
-The remaining rollout needs recorded release approvals and the unchanged
-GitHub production review gate. No role grant, authentication bypass, new Search
-service, embedding deployment or environment teardown was performed.
+The application MCP digest is
+`sha256:019360cb0c87d69328ef0e0b7595130d4f706d00462a0040db3a5e1be19c8fac`;
+the rulebook MCP digest is
+`sha256:5ff4d4f5693944d2ae36b232eccf89664717aea83b8c3045f2dc7ee3bacaa0de`.
+Each production MCP image matches its staging-tested digest. Both MCP services
+report their latest revision ready in each environment.
+
+The workflow passed offline tests, Bicep validation/what-if, staging deployment,
+the deterministic release gate and production deployment, including each
+agent's live Cosmos readiness check. That check restores the actual deployed
+agent's Cosmos data grant only when the live request proves it missing.
+Native azd authentication is explicitly reselected before each OIDC login.
+No new credential secret, authentication bypass, Search service, embedding
+deployment or teardown was needed.
+
+### Independent live regression
+
+Fresh native Responses requests passed in both environments, independently of
+the workflow result. Every answer had exactly the nonempty `en-CA` and `fr-CA`
+template fields, with no applicant-facing numeric or monetary disclosure.
+
+| Synthetic input | Expected and observed outcome in both environments |
+| --- | --- |
+| `CASE-SYN-001` | `READY` employee-review submission |
+| `CASE-SYN-003` | `UNSUPPORTED` employee-review submission |
+| `CASE-SYN-005` | `INCOMPLETE` employee-review submission |
+| `NOT-A-CASE-ID` | `REJECTED_INTAKE` before lookup |
+
+All four applications passed `/healthz` and `/api/config`. Anonymous chat
+conversation creation and reviewer case-list requests returned HTTP 401.
+These checks do not claim a newly authenticated browser conversation or a
+human reviewer decision.
+An independent operator Cosmos read was denied by data-plane RBAC (HTTP 403);
+no extra operator grant was added. Authenticated reviewer persistence readback
+is retained in [follow-up #17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17),
+separately from the successful agent-side Cosmos readiness checks.
+
+The deterministic evaluation artifact passed all 13 records. The separate
+advisory LLM judge completed as
+`evalrun_e2bfaa11b8bb4994a5d89e12c9c9bc7c` with 0/10 passing items and no
+service errors. Its coherence, groundedness and task-adherence results failed
+their criteria. The workflow deliberately treats this judge as advisory;
+release success must not be presented as a passing semantic-quality judge.
+
+### Successful release screenshot
+
+Captured from the actual GitHub Actions release summary at
+`2026-10-20T02:46Z`, not a locally rendered mockup.
+
+![Successful staging-to-production release for approved source 25f3e54](assets/evidence/release-39356610865.png)
+
+Previous native agent versions remain listed in both projects, including
+staging v2 and production v3 from
+[the restored baseline](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605).
+No rollback was executed against the retained demo. Use the existing gated
+deployment workflow and an approved previous artifact if rollback is needed.
+The previous chat digest
+`sha256:ccfab1bc368463602c5b5f85cc6b93cde242e9a03c7b3000a6cf8cee007fce70`
+was independently confirmed retained and readable in ACR. This is artifact
+availability, not a tested traffic rollback or a retained old Container Apps
+revision.
 
 ## Two failed generation jobs recovered
 
@@ -59,20 +119,21 @@ reproduce the process and retain your own job IDs.
 
 ## Authentic application screenshots
 
-These captures show the deployed, signed-out application boundaries, not an
-authenticated conversation, reviewer action or latest-source rollout.
-They contain no applicant data or tokens.
+These refreshed captures show the signed-out application boundaries after the
+verified release, not an authenticated conversation or reviewer action.
+Runtime source provenance is established by the workflow, SDK and image checks
+above, not by a screenshot alone. They contain no applicant data or tokens.
 
 ### Staging applicant chat
 
-Captured at `2026-10-20T01:22Z` from the
+Captured at `2026-10-20T02:55Z` from the
 [live staging chat](https://foundry-quote-chat-staging.victorioussand-be863134.eastus2.azurecontainerapps.io).
 
 ![Deployed staging chat requires Microsoft sign-in and disables message input before authentication](assets/evidence/staging-chat-en.png)
 
 ### Production employee reviewer
 
-Captured at `2026-10-20T01:22Z` from the
+Captured at `2026-10-20T02:50Z` from the
 [live production reviewer](https://foundry-quote-reviewer.gentleplant-e170129b.eastus2.azurecontainerapps.io).
 
 ![Deployed production reviewer requires Microsoft sign-in before employee actions](assets/evidence/production-reviewer-en.png)
@@ -83,6 +144,8 @@ The integrated browser is signed out of Foundry. API evidence above is genuine,
 but it must not be presented as a portal screenshot. Share an authenticated
 project tab to capture generation jobs, indexed files, skill versions,
 evaluation runs and traces without exposing account details.
+The explicit interactive-only follow-up is
+[#17](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/17).
 
 ## Native quality boundaries
 
@@ -94,8 +157,27 @@ an isolated operator runtime in both language orders.
 The retrieval evaluator distinguished relevant and irrelevant controls, 5/1.
 Groundedness v18 and groundedness_pro v8 accepted a known bad scope/authorization
 answer; their negative-control comparison gates therefore failed. These are
-documented judge limitations, not an optimization success. Local trace export
-received HTTP 403; exporter flush was not treated as ingestion evidence.
+documented judge limitations, not an optimization success. Local trace publishing received HTTP 403; exporter flush was not treated as
+ingestion evidence. This differs from the deployed hosted invocation traces
+verified below.
+
+### Native hosted trace ingestion
+
+Exact-operation Log Analytics queries found one successful `invoke_agent` span
+for each independently invoked hosted agent:
+
+| Environment | Actual operation ID | Observed spans |
+| --- | --- | --- |
+| Staging | `715c5c7da66449cba2faf91432945904` | One successful hosted invocation |
+| Production | `c76f5a78438e42aa8546bb9f2405260d` | One successful hosted invocation |
+
+The production span was recorded at `2026-10-20T02:42:26.5330371Z`.
+The custom stage, case ID, policy hash and execution-kind fields were empty.
+This proves hosted invocation ingestion, not deterministic stage-level
+visibility or trace-to-dataset replay. Those deeper acceptance checks remain
+open; no case lineage or replay dataset was fabricated. The native inventory
+also still lists zero memory stores, so no live native-memory demonstration
+is claimed.
 
 See the [native runbook](native-showcase.md) and
 [Microsoft Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/)

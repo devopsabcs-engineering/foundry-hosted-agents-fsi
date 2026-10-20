@@ -15,7 +15,12 @@ PAGES = {
     "docs/showcase-evidence.md": ("Native-Foundry-Evidence", "Native Foundry evidence"),
     "docs/fr/showcase-evidence.md": ("Native-Foundry-Evidence-FR", "Preuves natives Foundry"),
 }
-SCREENSHOTS = ("staging-chat-en.png", "staging-chat-fr.png", "production-reviewer-en.png")
+SCREENSHOTS = (
+    "staging-chat-en.png",
+    "staging-chat-fr.png",
+    "production-reviewer-en.png",
+    "release-39356610865.png",
+)
 
 
 def render(source: str, text: str, repository: str) -> str:
