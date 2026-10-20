@@ -2,7 +2,7 @@
 permalink: /fr/labs/
 lang: fr
 title: "Ateliers"
-description: "Le programme de quinze ateliers pour l'atelier synthétique de préparation de soumissions d'assurance auto en Ontario."
+description: "Le programme de dix-neuf ateliers pour l'atelier synthétique de préparation de soumissions d'assurance auto en Ontario."
 ---
 
 > 🇬🇧 **[English version](../../labs/)**
@@ -15,6 +15,11 @@ description: "Le programme de quinze ateliers pour l'atelier synthétique de pr�
 Progressez dans les ateliers en ordre. Chacun s'appuie sur le code et les données introduits par les ateliers précédents.
 
 Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les ateliers 10 à 14 ajoutent les surfaces du pilote : la fondation Azure, les deux interfaces web, la configuration d'identité qui les soutient et le pipeline qui les maintient honnêtes.
+
+Les ateliers 15 à 18 ajoutent des exercices natifs isolés avec des contrôles
+de preuve explicites. Certains exigent des prérequis approuvés ou des artefacts
+natifs conservés; consignez les prérequis manquants comme bloqués sans inventer
+de résultats. Gardez staging v2 et production v3 déployés pour poursuivre.
 
 ### Fondations locales
 
@@ -40,6 +45,18 @@ Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les 
 | [12](lab-12-reviewer-identity.md) | Identité et accès du réviseur | Enregistrer l'application de révision, accorder le rôle Reviewer et calculer les URI de redirection |
 | [13](lab-13-reviewer-ui.md) | L'interface de révision | Alimenter une file, se connecter, approuver un dossier et lire la piste de vérification |
 | [14](lab-14-pilot-operations.md) | Exploitation du pilote | Exécuter le pipeline de validation, lire la porte d'évaluation et parcourir les protections du démantèlement |
+
+### Fonctions natives
+
+| Atelier | Titre | Ce que vous ferez |
+| --- | --- | --- |
+| [15](lab-15-native-files-generation.md) | Fichiers et génération native | Téléverser la référence synthétique, télécharger les QnA natifs et diagnostiquer les anciens échecs |
+| [16](lab-16-native-search-invoice.md) | File Search et factures | Vérifier citations et refus bilingues, puis examiner champs et ancrage de facture native |
+| [17](lab-17-native-skills-memory.md) | Compétences et frontières mémoire | Prouver la consommation isolée et distinguer namespaces mémoire conditionnels et autorisation |
+| [18](lab-18-native-evaluation-traces.md) | Évaluation et rejeu des traces | Comparer les juges réels, conserver les contrôles échoués et exiger l'ingestion avant rejeu |
+
+Le [guide natif](../native-showcase.md) conserve preuves historiques et limites.
+Ces ateliers n'autorisent ni déploiement, ni changement d'accès, ni démantèlement.
 
 ## Étapes suivantes
 

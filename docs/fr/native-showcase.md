@@ -8,6 +8,8 @@ nav_order: 20
 
 [English](../native-showcase.md) | [Accueil](index.md) | [README français](../../README.fr.md)
 
+[Preuves actuelles de livraison et de reprise des générations, avec captures authentiques](showcase-evidence.md).
+
 ## Conserver la démo restaurée
 
 L'agent restauré utilise la version 2 en staging et la version 3 en production.

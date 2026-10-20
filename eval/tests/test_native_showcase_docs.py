@@ -6,6 +6,29 @@ import re
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+NATIVE_LABS = {
+    "lab-15-native-files-generation.md": (
+        "fixture-export", "file-upload", "generation-submit", "generation-status",
+        "generation-download", "--operation-id", "--samples 15", "--download-file",
+    ),
+    "lab-16-native-search-invoice.md": (
+        "validate-corpus", "file-search-create", "file-search-query", "file-search-index",
+        "cu-preflight", "invoice-analyze", "--store-evidence", "--language",
+    ),
+    "lab-17-native-skills-memory.md": (
+        "skill-register", "skill-attach", "skill-consume", "memory-create",
+        "memory-seed", "memory-list", "memory-search", "--ttl-seconds 3600",
+    ),
+    "lab-18-native-evaluation-traces.md": (
+        "catalog", "retrieval-compare", "compare-runs", "grounding-compare",
+        "--grounding-evaluator groundedness_pro", "trace-export", "trace-dataset",
+        "--source-revision", "--operation-id", "run_judge_evaluation.py",
+    ),
+}
+
+
+def powershell_blocks(text):
+    return re.findall(r"```powershell\n(.*?)```", text, flags=re.DOTALL)
 
 
 def test_root_readmes_have_reciprocal_languages_and_native_showcase_entry():
@@ -48,3 +71,95 @@ def test_both_languages_cover_all_shipped_demo_commands_and_live_boundaries():
         assert "vs_035lJB6UtY795UZ6oOXOuDi9" in text
         assert "evalrun_90768c55e09946809a97eac233d7c4bb" in text
         assert "evalrun_8683ff9a323a40de87cbeed5d752def2" in text
+
+
+def test_all_lab_filenames_are_paired_and_both_indexes_link_nineteen_labs():
+    en = ROOT / "docs/labs"
+    fr = ROOT / "docs/fr/labs"
+    assert {path.name for path in en.glob("*.md")} == {
+        path.name for path in fr.glob("*.md")
+    }
+    for folder in (en, fr):
+        labs = {path.name for path in folder.glob("lab-*.md")}
+        assert len(labs) == 19
+        assert set(NATIVE_LABS) <= labs
+        index = (folder / "index.md").read_text(encoding="utf-8")
+        links = set(re.findall(r"\]\((lab-[^)]+\.md)\)", index))
+        assert links == labs
+    assert "nineteen-lab" in (en / "index.md").read_text(encoding="utf-8")
+    assert "dix-neuf ateliers" in (fr / "index.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("filename,commands", NATIVE_LABS.items())
+def test_native_labs_have_identical_executable_blocks_and_command_coverage(filename, commands):
+    en = (ROOT / "docs/labs" / filename).read_text(encoding="utf-8")
+    fr = (ROOT / "docs/fr/labs" / filename).read_text(encoding="utf-8")
+    en_blocks = powershell_blocks(en)
+    assert len(en_blocks) >= 3
+    assert en_blocks == powershell_blocks(fr), f"Command drift in {filename}"
+    script = "\n".join(en_blocks)
+    for command in commands:
+        assert command in script, f"{filename} omits executable command/flag {command}"
+    assert "Join-Path '.local'" in script
+    assert "$env:TEMP" not in script
+    assert "& .venv\\Scripts\\python.exe" in script
+
+
+@pytest.mark.parametrize("folder", ["docs/labs", "docs/fr/labs"])
+@pytest.mark.parametrize("filename", NATIVE_LABS)
+def test_native_labs_have_metadata_reciprocal_links_and_real_relative_targets(folder, filename):
+    path = ROOT / folder / filename
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    metadata = text.split("---", 2)[1]
+    assert "title:" in metadata
+    assert "description:" in metadata
+    assert "permalink:" in metadata
+    if folder == "docs/fr/labs":
+        assert "lang: fr" in metadata
+        peer = f"../../labs/{filename}"
+    else:
+        peer = f"../fr/labs/{filename}"
+    assert f"]({peer})" in text
+    for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", text):
+        if target.startswith(("https://", "http://", "#")):
+            continue
+        assert (path.parent / target.split("#")[0]).is_file(), (
+            f"Broken link in {folder}/{filename}: {target}"
+        )
+
+
+@pytest.mark.parametrize("folder", ["docs/labs", "docs/fr/labs"])
+def test_native_labs_preserve_failed_controls_and_prerequisite_boundaries(folder):
+    texts = {
+        filename: (ROOT / folder / filename).read_text(encoding="utf-8")
+        for filename in NATIVE_LABS
+    }
+    generation, search, memory, evaluation = texts.values()
+    for token in (
+        "user_data", "supervised_finetuning", "$failureExit", "historical-failure.stderr.txt",
+        "datagen-a866fd3be0104ae4b6ec4808b76cbec2", "datagen-afe38ec64fb744a09e845119139e4064",
+        "datagen-4e74a27bd5f24a87a08ea35ad788c8cb", "datagen-af8399a33bd7477b8279591b5a408c7a",
+        "26", "generation-reference.txt", "showcase-evidence.md",
+    ):
+        assert token in generation
+    for token in (
+        "source_citations_verified", "store_membership_verified", "OUT_OF_CORPUS",
+        "DefaultsNotSet", "prebuilt-invoice", "2024-11-30", "Foundry IQ",
+    ):
+        assert token in search
+    for token in (
+        "consumed: false", "consumed: true", "approved: false", "positive",
+        "negative", "scope_negative_check", "Cosmos DB", "embedding",
+    ):
+        assert token in memory
+    for token in (
+        "builtin.groundedness", "builtin.groundedness_pro", "5/5", "`true`",
+        "$groundingExit", "$groundingProExit", "$selfExit",
+        "HTTP 403", "trace_verified: false", "force_flush()", "traceparent",
+        "AGENT_TASK_INSTRUCTIONS", "trace-file", "source-revision",
+    ):
+        assert token in evaluation
+    assert evaluation.index("trace-export --workspace-id") < evaluation.index(
+        "trace-dataset --trace-file"
+    ) < evaluation.index("run_judge_evaluation.py --endpoint")

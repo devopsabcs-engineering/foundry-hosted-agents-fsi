@@ -1,7 +1,7 @@
 ---
 permalink: /labs/
 title: "Labs"
-description: "The fifteen-lab curriculum for the synthetic Ontario auto-insurance quote-preparation workshop."
+description: "The nineteen-lab curriculum for the synthetic Ontario auto-insurance quote-preparation workshop."
 ---
 
 > 🇫🇷 **[Version française](../fr/labs/)**
@@ -14,6 +14,11 @@ description: "The fifteen-lab curriculum for the synthetic Ontario auto-insuranc
 Work through the labs in order. Each one builds on the code and fixtures introduced by the labs before it.
 
 Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot surfaces: the Azure foundation, the two web interfaces, the identity configuration behind them, and the pipeline that keeps them honest.
+
+Labs 15 through 18 add isolated native showcase exercises with explicit evidence
+checks. Some exercises require approved service prerequisites or retained native
+artifacts; record missing prerequisites as blocked rather than inventing results.
+Keep staging v2 and production v3 deployed when continuing to these labs.
 
 ### Local Foundations
 
@@ -39,6 +44,18 @@ Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot
 | [12](lab-12-reviewer-identity.md) | Reviewer Identity and Access | Register the reviewer app, grant the Reviewer role, and compute redirect URIs |
 | [13](lab-13-reviewer-ui.md) | The Reviewer UI | Seed a queue, sign in, approve a case, and read the audit trail |
 | [14](lab-14-pilot-operations.md) | Pilot Operations | Run the validation pipeline, read the evaluation gate, and walk the teardown safeguards |
+
+### Native Showcase
+
+| Lab | Title | What you will do |
+| --- | --- | --- |
+| [15](lab-15-native-files-generation.md) | Native Files and Generation | Upload the synthetic reference, download native QnA and diagnose historical failed jobs |
+| [16](lab-16-native-search-invoice.md) | File Search and Invoice Extraction | Check bilingual citations and refusals, then inspect native invoice fields and grounding |
+| [17](lab-17-native-skills-memory.md) | Runtime Skills and Memory Boundaries | Prove isolated skill consumption and distinguish conditional memory namespaces from authorization |
+| [18](lab-18-native-evaluation-traces.md) | Native Evaluation and Trace Replay | Compare real evaluator runs, preserve failed grounding controls and require ingestion before replay |
+
+The [native showcase runbook](../native-showcase.md) records historical evidence
+and service limits. The labs do not authorize deployment, access changes or teardown.
 
 ## Next Steps
 

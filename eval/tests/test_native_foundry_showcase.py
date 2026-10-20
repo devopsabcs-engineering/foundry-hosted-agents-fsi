@@ -26,6 +26,13 @@ NAME = "showcase-synthetic-demo"
 OPERATION_ID = "b4efdfdd-1f2b-4774-9d4e-e75742319631"
 
 
+def test_generation_reference_includes_standalone_lessons_with_bounded_size():
+    data = showcase.generation_reference_bytes()
+    assert 19_000 <= len(data) <= 32_768
+    assert b"26. Retention and governance" in data
+    assert b"SYNTHETIC TRAINING ONLY" in data
+
+
 def test_exact_historical_generation_source_remains_downloadable_after_corpus_version_change(monkeypatch):
     historical = b"SYNTHETIC TRAINING ONLY: exact reviewed historical source"
     monkeypatch.setattr(

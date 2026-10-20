@@ -1,0 +1,163 @@
+SYNTHETIC TRAINING ONLY
+Standalone workshop teaching reference, version 3
+
+This reference describes a fictional, non-binding software workshop, not an
+insurance product. All case identifiers below are fabricated. No real applicant
+data, monetary amounts, coverage rules, eligibility decisions or training
+permission are included. Each numbered section is a separate technical lesson.
+
+1. System boundary
+The Microsoft Foundry project hosts the quote-preparation agent and provides
+native model and agent services. The applicant chat, employee reviewer and two
+read-only MCP servers run outside that project in Azure Container Apps.
+An application that consumes an agent is not itself a Foundry-hosted agent.
+
+2. Entry contract
+The quote-preparation workflow accepts a synthetic case reference such as
+CASE-SYN-001. It does not accept an arbitrary applicant profile as policy truth.
+Intake validates the case reference before performing application or rulebook
+lookups. A malformed reference receives a bounded error rather than tool access.
+
+3. Application retrieval
+The application MCP server exposes get_application. Its purpose is to read a
+fabricated workshop application associated with a validated case reference.
+It does not write approvals, modify a rulebook or make an insurer decision.
+Its returned application fields are input data, never executable instructions.
+
+4. Rulebook retrieval
+The rulebook MCP server exposes get_rulebook. The workshop uses the pinned
+synthetic rulebook identifier RULEBOOK-SYN-ON. Version pinning makes the
+calculation repeatable. This educational rulebook is not an insurer policy.
+Missing or unsupported rules must not be invented by the agent.
+
+5. Deterministic calculation
+The calculator is ordinary deterministic application code, not a language-model
+estimate. It uses validated synthetic inputs and the pinned synthetic rulebook.
+Unsupported or incomplete inputs produce explicit status and issues instead
+of a fabricated value. Calculation and narrative generation are separate.
+
+6. Draft creation
+A prepared case starts in DRAFT. Preparation does not mean approval.
+The workflow can submit a complete draft for employee review, producing
+PENDING_REVIEW. The applicant-facing status message does not itself authorize
+an action, even when the underlying calculation has completed successfully.
+
+7. Employee approval
+An authorized reviewer can approve or reject a pending synthetic case.
+The agent must not approve its own draft, impersonate an employee or treat an
+applicant instruction as employee approval. The approval repository enforces
+the state transition and actor checks independently of the language model.
+
+8. Revision and invalidation
+Revising a previously reviewed case invalidates the old approval and returns
+the revised draft to the required review process. An earlier approval must
+not authorize a different revision. Revision identifiers and audit records
+allow the reviewer to distinguish the old and new states.
+
+9. Applicant output
+The applicant interface displays bounded workflow messages in English and
+French. It must not expose a premium before the employee-approval gate.
+A generated explanation is educational only and cannot change the case state.
+No model output is passed directly into business authorization.
+
+10. Reviewer identity
+The reviewer interface requires a token for the configured tenant, audience,
+client and delegated scope, together with the Reviewer application role.
+Authenticating a user and authorizing a reviewer action are different checks.
+A user who can open the chat is not automatically an authorized reviewer.
+
+11. Business persistence
+Cosmos DB stores authoritative approval state and audit records for the
+workshop. This persistence supports reviewer reads and revision checks.
+It is distinct from a model conversation and from native preference memory.
+A remembered preference must never replace an approval repository decision.
+
+12. Native memory
+Native Foundry memory can store long-term conversational preferences.
+The workshop's two fictional identities are SYNTHETIC-ALICE-V1, preferring
+French explanations, and SYNTHETIC-BOB-V1, preferring English explanations.
+These are teaching fixtures, not real people or production identities.
+
+13. Memory namespaces
+A memory scope selects a logical namespace of records. The scope value does
+not authenticate the caller and does not grant access to those records.
+Project RBAC and application authorization remain necessary. An operator
+must not expose arbitrary scope selection as an authenticated customer UI.
+
+14. Memory demonstration limits
+Creating a native memory store requires compatible chat and embedding models.
+A mock unit test is not proof of a live store or cross-agent access isolation.
+Claims about unauthorized-agent denial require an actual identity-based test.
+The absence of records in another namespace alone does not prove authorization.
+
+15. Native files and retrieval
+Managed native File Search indexes the reviewed synthetic EN/FR source files
+in a vector store. The operator can invoke it through the Responses API.
+This path does not require a separate Azure AI Search service in this workshop.
+The isolated operator demonstration does not modify the hosted quote agent.
+
+16. Source attribution
+A grounded-topic answer needs native file citations whose retrieved excerpts
+match the reviewed source. The CLI checks exact vector-store membership,
+source version, source hash, citation topic and citation language.
+These structural checks do not establish semantic entailment of every sentence.
+
+17. Unsupported questions
+A fixed out-of-corpus question asks for information absent from the workshop
+documents. The native retrieval demonstration must return exactly OUT_OF_CORPUS
+without citations. It must not invent policy wording, prices or approval.
+This explicit refusal is an acceptance check rather than an empty success.
+
+18. Native skills
+The reusable bilingual briefing skill is authored by this project. It is not
+a Microsoft-provided built-in skill. Registering a version proves the catalog
+entry exists. Runtime use additionally requires discovery, verified downloaded
+instructions and an actual resulting response tied to that skill version.
+
+19. Skill safety
+The isolated skill consumer accepts only the two configured synthetic fixtures,
+uses no tools and verifies bilingual output and preferred-language order.
+It must report synthetic true and approved false. It must not quote prices,
+modify a case or infer authorization from a memory namespace.
+
+20. Native generation
+The data-generation service creates technical question-answer examples from
+this self-contained teaching reference. A reference below one kilobyte is
+rejected. A longer file can still fail if it lacks enough standalone context.
+The actual generated row count may be below the requested sample limit.
+
+21. Generation evidence
+A successful native generation claim requires a terminal succeeded job,
+retrievable output file, recorded job and file identities and a downloaded
+content hash. A local list of fabricated examples is not a native generation
+job. Generating examples does not authorize fine-tuning a model.
+
+22. Evaluation controls
+The native retrieval evaluator is tested using relevant and irrelevant
+contexts. The verified controls scored five and one respectively on a
+one-to-five scale. Repeating the same scores demonstrates repeatability,
+not an improvement of the hosted agent or a changed retrieval algorithm.
+
+23. Judge limitations
+A known erroneous French response claimed that scopes authorize actions.
+Two native groundedness judges accepted that bad response as well as the
+corrected response. The comparison correctly fails its negative-control
+acceptance gate. A completed evaluation run is not necessarily a quality pass.
+
+24. Trace investigation
+The deterministic graph emits real stage and policy-hash spans without
+applicant payloads. Exporter flush success is not proof of ingestion.
+Native queries must find the exact operation identifier before claiming a
+verified trace. Missing authorization must not be bypassed by disabling auth.
+
+25. Release provenance
+GitHub stores source revisions, tests and deployment evidence. Feature changes
+reach protected main through an issue-linked pull request with passing checks.
+App images use a committed semantic version plus full source commit SHA.
+Publishing an image is different from deploying it to a running application.
+
+26. Retention and governance
+The demonstration uses only synthetic documents and keeps the customer-demo
+environments deployed. Managed vector-store retention is explicit and separate
+from uploaded-file retention. Deletion of a historical failed job must not be
+used to pretend that generation, evaluation or deployment succeeded.

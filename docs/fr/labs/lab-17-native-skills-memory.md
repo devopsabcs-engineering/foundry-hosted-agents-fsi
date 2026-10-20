@@ -1,0 +1,136 @@
+---
+permalink: /fr/labs/lab-17-native-skills-memory
+lang: fr
+title: "Atelier 17 - Compétences d'exécution et frontières mémoire"
+description: "Enregistrer et consommer la compétence du projet dans un moteur isolé, puis distinguer segmentation mémoire et autorisation."
+---
+
+[English](../../labs/lab-17-native-skills-memory.md) | [Ateliers](index.md)
+
+## Portée et prérequis
+
+Prévoyez 40 minutes. Terminez l'[Atelier 16](lab-16-native-search-invoice.md)
+ou obtenez le même environnement Python et l'accès opérateur approuvé à staging.
+La compétence utilise `gpt-4o-mini` existant avec ses frais d'inférence.
+L'exercice mémoire exige des déploiements de conversation et d'embedding
+compatibles approuvés séparément; staging n'a que son modèle de conversation.
+
+Tout est synthétique et non contraignant, sans produit, tarif ou police
+Desjardins réel. Ne modifiez ni agent hébergé, ni `quote-tools`, ni état métier
+Cosmos DB, ni approbation réservée à l'employé. Ne déployez pas de modèle
+pour débloquer l'exercice. Depuis PowerShell à la racine du dépôt :
+
+```powershell
+$endpoint = 'https://aif-desjardins-quote-preparation-staging.services.ai.azure.com/api/projects/proj-desjardins-quote-preparation-staging'
+$evidence = Join-Path '.local' ('lab17-' + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $evidence
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\preflight.json"
+Get-Content data\showcase\runtime-skill\SKILL.md
+```
+
+La compétence est créée par ce projet, pas fournie par Microsoft comme
+compétence native d'exécution. L'ancienne compétence Azure Kusto pour
+développeurs/Copilot est un autre artefact. Lisez les contraintes de sortie
+avant tout appel d'inférence.
+
+## Exercice 17.1 : Enregistrer et rattacher sans prétendre consommer
+
+```powershell
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\skill.json" skill-register --name showcase-synthetic-bilingual-brief --file data\showcase\runtime-skill\SKILL.md
+$skillVersion = (Get-Content "$evidence\skill.json" -Raw | ConvertFrom-Json).result.skill.version
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\skill-toolbox.json" skill-attach --name showcase-synthetic-bilingual-brief --version $skillVersion --toolbox showcase-synthetic-runtime-skills
+Get-Content "$evidence\skill-toolbox.json"
+```
+
+Notez identifiant/version natifs et nom de la toolbox distincte. La preuve
+doit conserver `consumed: false` : une entrée de catalogue ou un rattachement
+n'est pas une invocation. La toolbox séparée ne contient pas d'outil de
+production et ne modifie ni `quote-tools` ni l'agent courant. Tous les chemins
+de sortie doivent être nouveaux.
+
+## Exercice 17.2 : Prouver la consommation par le moteur opérateur isolé
+
+```powershell
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\skill-consumed.json" skill-consume --name showcase-synthetic-bilingual-brief --version $skillVersion --model gpt-4o-mini --scope fixture-alice
+if ($LASTEXITCODE -ne 0) { throw 'Skill consumption failed; retain the native error.' }
+Get-Content "$evidence\skill-consumed.json"
+```
+
+Suivez la preuve depuis la découverte native jusqu'au téléchargement immuable,
+puis l'appel Responses terminé. La CLI compare les instructions téléchargées
+au fichier révisé du dépôt et les envoie au modèle existant sans outil.
+Vérifiez SHA-256, identifiant de réponse et métadonnées exactes
+d'identifiant/version, au lieu de déduire la consommation de l'enregistrement.
+
+Examinez la sortie bilingue réelle : langue préférée en premier, désignation
+synthétique, `approved: false` et aucun montant. La preuve d'exécution réussie
+rapporte `consumed: true`; le rattachement antérieur reste faux. Une validation
+de sortie échouée reste un échec.
+
+Identifiez le moteur exécutant : Responses opérateur isolé, pas agent hébergé,
+client MCP de toolbox ou fournisseur de compétences Agent Framework.
+Aucun déploiement ni approbation métier ne change.
+
+## Exercice 17.3 : Identifier le prérequis mémoire manquant
+
+Lisez `preflight.json` et relevez les déploiements disponibles. Comparez-les
+aux entrées de conversation et d'embedding exigées :
+
+```powershell
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint memory-create --help
+```
+
+Staging n'a actuellement pas le déploiement d'embedding compatible nécessaire;
+la mémoire native n'est donc pas vérifiée en exécution réelle. Consignez un
+blocage de prérequis, pas une réussite ou un échec d'isolation. Une liste de
+modèles ou l'aide de la CLI ne prouve pas le fonctionnement mémoire. Ne
+substituez pas un modèle de conversation à celui d'embedding.
+
+## Exercice 17.4 : Tester les namespaces après approbation des prérequis
+
+Ignorez les commandes réelles suivantes tant que les déploiements compatibles
+ne sont pas approuvés et provisionnés. Remplacez les deux paramètres par leurs
+noms exacts. Utilisez un magasin synthétique isolé avec une durée de vie
+par défaut d'une heure :
+
+```powershell
+$chat = '<supported-memory-chat-deployment>'
+$embedding = '<supported-embedding-deployment>'
+$store = 'showcase-synthetic-memory'
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-create.json" memory-create --store $store --chat-model $chat --embedding-model $embedding --ttl-seconds 3600
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\alice-seed.json" memory-seed --store $store --scope fixture-alice
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\bob-seed.json" memory-seed --store $store --scope fixture-bob
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-contents.json" memory-list --store $store --scope fixture-alice
+& .venv\Scripts\python.exe scripts\native_foundry_showcase.py --endpoint $endpoint --output "$evidence\memory-isolation.json" memory-search --store $store --scope fixture-alice
+Get-Content "$evidence\memory-isolation.json"
+```
+
+Arrêtez à la première erreur. Examinez `positive`, `negative`, `scope`,
+`negative_scope` et `scope_negative_check`. Le marqueur d'Alice doit être trouvé
+dans son scope et absent de celui de Bob. Un résultat positif vide échoue;
+attendez l'indexation et reprenez vers un nouveau fichier plutôt que déclarer
+un magasin vide isolé. Les alimentations séquentielles réutilisent le contenu
+identique, mais les appels concurrents ne sont pas atomiques.
+
+Même réussi, ce test prouve une partition de récupération, pas l'autorisation.
+Un appelant privilégié du projet peut choisir un autre namespace. Liez le
+scope à l'identité authentifiée, limitez les rôles et envisagez des frontières
+de projet/magasin distinctes pour renforcer l'isolation. N'acceptez jamais
+de scope arbitraire d'un chatbot. Un scope partagé n'est pas une liste
+d'accès par agent.
+
+La durée de vie mémoire n'est pas la rétention Cosmos DB. La mémoire ne fait
+autorité ni pour la soumission ni pour l'audit. Le rattachement à l'agent
+hébergé exige une vérification de compatibilité d'exécution distincte.
+
+## Preuves de réalisation
+
+* Conservez enregistrement et rattachement séparément de la consommation.
+* Notez réponse native, version immuable, hachage des instructions et contrôles
+  bilingues, ou l'erreur exacte.
+* Consignez le blocage mémoire de staging. Seulement si les prérequis approuvés
+  existent, conservez les recherches positives et négatives.
+* Expliquez pourquoi un namespace ne donne ni approbation ni autorisation.
+
+Gardez les preuves sous `.local`, ignoré par Git; aucun démantèlement requis.
+Passez à l'[Atelier 18 : Évaluation et rejeu](lab-18-native-evaluation-traces.md).
