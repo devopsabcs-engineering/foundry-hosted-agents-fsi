@@ -227,6 +227,11 @@ démonstration client.
    [Reviewer App Build](.github/workflows/reviewer-app-build.yml) sur la
    révision à déployer. Les exécutions manuelles des flux d'interfaces
    testent et compilent les applications sans les déployer.
+   Après fusion dans `main`, ces flux publient les images sous les étiquettes
+   `v<VERSION>-<SHA-source-complet>` et `latest`, sans créer de commit ni pousser
+   vers `main` protégée. Modifiez `VERSION` par une PR liée à une issue pour
+   augmenter la version sémantique. La publication n'est pas un déploiement;
+   déployez une image épinglée par empreinte.
 5. Lancez [Deploy and Evaluate](.github/workflows/deploy-and-evaluate.yml)
    pour cette révision. Le flux restaure la préproduction, évalue l'agent
    déployé et attend l'approbation humaine requise avant la promotion en

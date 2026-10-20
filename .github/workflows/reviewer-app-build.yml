@@ -144,53 +144,30 @@ jobs:
           python scripts/deployment_summary.py
 
   release:
-    name: Bump version, tag, and publish image
+    name: Publish source-qualified image
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
     permissions:
-      contents: write
+      contents: read
       id-token: write
     concurrency:
       group: release-reviewer-app-${{ github.ref }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Bump patch version
-        id: bump
+      - name: Derive immutable image version
+        id: image
         run: |
           set -euo pipefail
-          NEW_VERSION=$(python scripts/bump_version.py --app reviewer-app)
+          NEW_VERSION=$(python scripts/bump_version.py --app reviewer-app --source-sha "$GITHUB_SHA")
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-      - name: Commit and tag
-        run: |
-          set -euo pipefail
-          git add apps/reviewer-app/VERSION
-          git commit -m "chore(reviewer-app): bump version to v${{ steps.bump.outputs.version }} [skip ci]"
-          for attempt in 1 2 3 4 5; do
-            if git push origin HEAD:main; then
-              break
-            fi
-            if [ "$attempt" -eq 5 ]; then
-              echo "::error::Failed to push main after 5 attempts"
-              exit 1
-            fi
-            echo "Push rejected (attempt $attempt), rebasing onto origin/main and retrying..."
-            git fetch origin main
-            git rebase origin/main
-          done
-          # git tag creates a lightweight tag; --follow-tags only pushes annotated
-          # tags, so the tag ref must be pushed explicitly.
-          git tag "reviewer-app-v${{ steps.bump.outputs.version }}"
-          git push origin "reviewer-app-v${{ steps.bump.outputs.version }}"
       - name: Azure login (OIDC)
         uses: azure/login@v3
         with:
@@ -200,7 +177,7 @@ jobs:
       - name: Build and push versioned image
         env:
           MCP_ACR_NAME: ${{ vars.MCP_ACR_NAME }}
-          VERSION: ${{ steps.bump.outputs.version }}
+          VERSION: ${{ steps.image.outputs.version }}
         run: |
           set -euo pipefail
           az acr build --registry "$MCP_ACR_NAME" \
