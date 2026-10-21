@@ -120,12 +120,40 @@ state exactly which observable behavior is being judged.
 
 ## Exercise 19.5: Run the minimal native EN/FR experiment
 
-Inspect local `azd env list` and use the existing staging environment, not
-production. If it is not available locally, obtain the observed version from
-the authorized release custodian rather than provisioning a replacement.
+Use the existing staging endpoint, not production, with `az login` authorized
+for its tenant/project. Observe the server's latest active version and endpoint
+selector with the installed Projects SDK. `azd ai agent show` resolves a version
+from local environment metadata and can report an older active version;
+it is not sufficient proof of what the current endpoint invokes.
+Without read access, obtain the observation from the authorized release
+custodian rather than provisioning a replacement.
 
 ```powershell
-$agent = azd ai agent show quote-preparation-agent --environment desjardins-quote-preparation-staging --output json | ConvertFrom-Json
+$observeAgent = @'
+import json, sys
+from azure.ai.projects import AIProjectClient
+from azure.identity import AzureCliCredential
+with AzureCliCredential() as credential, AIProjectClient(
+    endpoint=sys.argv[1], credential=credential
+) as project:
+    details = project.agents.get("quote-preparation-agent").as_dict()
+latest = details["versions"]["latest"]
+if (
+    details["state"] != "enabled"
+    or details["configuration_state"] != "enabled"
+    or latest["status"] != "active"
+):
+    raise ValueError("Current agent is not enabled and active")
+rules = details["agent_endpoint"]["version_selector"]["version_selection_rules"]
+if rules != [{
+    "type": "FixedRatio", "agent_version": "@latest", "traffic_percentage": 100
+}]:
+    raise ValueError("Endpoint does not route all traffic to the latest version")
+print(json.dumps({
+    "name": details["name"], "version": latest["version"], "status": latest["status"]
+}))
+'@
+$agent = $observeAgent | & $python - $endpoint | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $agent.status -ne 'active') { throw 'Cannot verify active staging agent.' }
 $version = [string]$agent.version
 $agent | Select-Object name, version, status | ConvertTo-Json | Set-Content "$work\agent-before.json"
@@ -143,7 +171,7 @@ foreach ($locale in 'en-CA', 'fr-CA') {
     & $python eval\run_judge_evaluation.py --endpoint $endpoint --agent quote-preparation-agent --version $version --deployment gpt-4o-mini --dataset "$work\$locale.json" --output-dir "$work\$locale-trial1" --minimum-pass-rate 1.0
     if ($LASTEXITCODE -ne 0) { throw "Inspect $locale-trial1 evidence; distinguish quality from service errors." }
 }
-$after = azd ai agent show quote-preparation-agent --environment desjardins-quote-preparation-staging --output json | ConvertFrom-Json
+$after = $observeAgent | & $python - $endpoint | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or [string]$after.version -ne $version -or $after.status -ne 'active') { throw 'Deployment changed; invalidate the experiment.' }
 ```
 

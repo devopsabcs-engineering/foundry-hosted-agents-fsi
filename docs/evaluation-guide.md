@@ -110,7 +110,10 @@ before upgrading; preview contracts can change.
 
 1. Validate and convert `eval/applicant-message-dataset.jsonl` with
    `eval/convert_judge_dataset.py`, once for `en-CA` and once for `fr-CA`.
-2. Verify the deployed version before capture. `--version` on
+2. Read the server-side agent details and endpoint version selector before
+   capture, as shown in Lab 19. `azd ai agent show` can select an older version
+   from local metadata; do not equate that with current endpoint routing.
+   `--version` on
    `eval/run_judge_evaluation.py` is an **observed label, not a routing pin**:
    the native URL invokes the current deployment. Reserve a stable window
    and recheck after capture; reject contaminated runs.

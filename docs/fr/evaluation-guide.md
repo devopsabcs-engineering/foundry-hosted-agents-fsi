@@ -111,7 +111,10 @@ avant toute mise à niveau : les contrats en préversion évoluent.
 
 1. Validez et convertissez `eval/applicant-message-dataset.jsonl` avec
    `eval/convert_judge_dataset.py`, séparément pour `en-CA` et `fr-CA`.
-2. Vérifiez la version déployée avant la capture. `--version` dans
+2. Consultez la version et le sélecteur d'endpoint côté serveur avant la
+   capture, comme à l'Atelier 19. `azd ai agent show` peut sélectionner une
+   ancienne version depuis les métadonnées locales, pas le routage courant.
+   `--version` dans
    `eval/run_judge_evaluation.py` est une **étiquette observée, pas un routage
    épinglé**. L'URL appelle le déploiement courant. Réservez une fenêtre stable
    et revérifiez ensuite; invalidez les essais contaminés.
