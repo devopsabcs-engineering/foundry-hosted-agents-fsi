@@ -349,6 +349,11 @@ jobs:
             --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
             --agent-details /tmp/agent-show.json \
             --resource-group "$AZURE_RESOURCE_GROUP" --cosmos-account "$COSMOS_ACCOUNT"
+          REVIEWER_APP=$(azd env get-values --output json | jq -er '.REVIEWER_APP_NAME')
+          python eval/verify_reviewer_foundry_access.py \
+            --app "$REVIEWER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --subscription "$(az account show --query id -o tsv)" \
+            --output agent-identity/reviewer-access-staging.json
 
       - name: Upload the Foundry project identity JSON
         if: always() && steps.deploy.outcome == 'success'
@@ -710,6 +715,20 @@ jobs:
             --endpoint "$PROJECT_ENDPOINT" --agent "$AGENT_NAME" \
             --agent-details /tmp/prod-agent-show.json \
             --resource-group "$AZURE_RESOURCE_GROUP" --cosmos-account "$COSMOS_ACCOUNT"
+          REVIEWER_APP=$(azd env get-values --output json | jq -er '.REVIEWER_APP_NAME')
+          python eval/verify_reviewer_foundry_access.py \
+            --app "$REVIEWER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --subscription "$(az account show --query id -o tsv)" \
+            --output /tmp/reviewer-access-production.json
+
+      - name: Upload production reviewer identity evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reviewer-access-production
+          path: /tmp/reviewer-access-production.json
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Production promotion summary
         if: always() && steps.deploy.outcome == 'success' && steps.cosmos.outcome == 'success'

@@ -229,9 +229,12 @@ Le calcul d'un brouillon est identifié comme celui de la soumission précédent
 L'audit indique corrections, corrélation hachée, identifiant Responses et
 provenance du calcul, jamais la capacité privée.
 
-Un rôle personnalisé d'invocation au niveau du projet remplace tout octroi
-large `Foundry User` pour cette identité. Il n'autorise ni mémoire ni gestion
-d'agent. La validation déployée doit confirmer l'invocation et le maintien
+Le rôle intégré `Foundry Agent Consumer`, limité au projet, remplace tout octroi
+large `Foundry User` pour cette identité. Son action `endpoints/interact/action`
+autorise l'endpoint natif, ni la mémoire ni la gestion d'agent. L'ancien rôle
+personnalisé ne suffisait pas. La propagation RBAC peut prendre plusieurs minutes ;
+un premier refus 403 ne justifie pas l'ajout de `agents/write`.
+La validation déployée doit confirmer l'invocation et le maintien
 du refus d'accès à la mémoire. Aucun service de file supplémentaire n'est requis.
 
 Le chat vérifie l'appartenance pilote avant l'appel serveur par identité

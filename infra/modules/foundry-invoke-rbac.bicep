@@ -16,35 +16,15 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' exis
   name: projectName
 }
 
-// Provider-registered invocation operations only; no memory, agent-management,
-// model-deployment, or user-identity impersonation permissions.
-resource invoker 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
-  name: guid(resourceGroup().id, 'quote-preparation-responses-invoker')
-  properties: {
-    roleName: 'Quote Preparation Responses Invoker (${resourceGroup().name})'
-    description: 'Invoke hosted Foundry Responses endpoints without memory or management access.'
-    type: 'CustomRole'
-    assignableScopes: [resourceGroup().id]
-    permissions: [
-      {
-        actions: []
-        notActions: []
-        dataActions: [
-          'Microsoft.CognitiveServices/accounts/AIServices/endpoints/invoke/action'
-          'Microsoft.CognitiveServices/accounts/AIServices/applications/invoke/action'
-          'Microsoft.CognitiveServices/accounts/AIServices/responses/write'
-        ]
-        notDataActions: []
-      }
-    ]
-  }
-}
+// Foundry Agent Consumer grants endpoints/interact/action, not agent authoring
+// or memory access. Assignment propagation can take several minutes.
+var consumerRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'eed3b665-ab3a-47b6-8f48-c9382fb1dad6')
 
 resource assignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(project.id, principalId, invoker.id)
+  name: guid(project.id, principalId, consumerRoleId)
   scope: project
   properties: {
-    roleDefinitionId: invoker.id
+    roleDefinitionId: consumerRoleId
     principalId: principalId
     principalType: 'ServicePrincipal'
   }

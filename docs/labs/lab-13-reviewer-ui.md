@@ -235,7 +235,7 @@ after its 240-second lease; new attempts use a fresh request key. Previous
 calculations on a draft are historical, not a new quote.
 
 The deployed reviewer API requires `AGENT_ENDPOINT` pointing to the native
-Responses endpoint and a project-scoped invocation-only managed-identity role,
+Responses endpoint and the project-scoped `Foundry Agent Consumer` managed-identity role,
 in addition to Cosmos access. Infrastructure supplies both declaratively.
 An unconfigured local endpoint returns 503 without submitting anything.
 The reviewer never calls `approve`, `reject` or `revise` through the agent.
