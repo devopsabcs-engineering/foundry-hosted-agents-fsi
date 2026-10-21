@@ -293,6 +293,11 @@ CU fournit ses alias par requête sans modifier les valeurs par défaut du compt
 Le clone red team doit prouver son stockage privé avant les attaques révisées.
 Le code et les tests hors ligne ne constituent ni une validation native
 à l'exécution ni une approbation de sécurité.
+L'extraction CU est vérifiée dans les deux environnements. IQ staging récupère
+réellement par MCP, mais comporte des échecs de validation stricte. Le run red
+team isolé et approuvé a échoué avant tout résultat noté : l'absence d'usage
+de jetons a déclenché une erreur du callback natif. IQ production n'est pas
+promu et le graphe métier reste inchangé.
 
 ## Traces et évaluation native
 

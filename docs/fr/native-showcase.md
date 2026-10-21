@@ -46,12 +46,12 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Magasin staging vérifié avec embedding approuvé; refus par rôle 403, pas une ACL par agent |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
-| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Search synthétique déployé en East US avec six documents révisés ; IQ staging v1 enregistré ; validation des requêtes natives et IQ production en attente |
+| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Corpus East US de six documents et valeurs minimal/extractive vérifiés ; IQ staging v1 récupère réellement par MCP, mais la validation bilingue comporte des échecs ; IQ production non promu |
 | Service documentaire | Content Understanding GA avec alias de modèles par requête | Modèles dédiés `gpt-4.1` et `text-embedding-3-large` et extraction synthétique ancrée vérifiés en staging et production le 2026-10-21, sans modifier les valeurs par défaut |
 | Service documentaire préentraîné | Document Intelligence natif `prebuilt-invoice`, GA `2024-11-30` | Extraction réelle réussie : 1 page, 1 document, 8 champs structurés ancrés, sans nouveau modèle |
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
 | Contrôles d'ancrage | `builtin.groundedness` v18 et `builtin.groundedness_pro` v8 | Les deux ont manqué une réponse française erronée connue ; contrôle négatif échoué, sans gain affirmé |
-| Red team | Taxonomie native puis évaluation ciblant un agent | Clone staging v2 avec hachage natif original et invocation réelle vérifiés ; nouvelle taxonomie générée, révision humaine en attente ; aucun scan exécuté |
+| Red team | Taxonomie native puis évaluation ciblant un agent | Clone staging v2 au hachage original invoqué avec succès ; taxonomie synthétique approuvée puis scannée, mais exécution native échouée sans résultat noté, pas une validation de sécurité |
 | Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Neuf spans réels, trois étapes personnalisées, rejeu natif 1/1; pas de récupération du prompt privé |
 | État métier | Cosmos DB et approbation réservée à l'employé | Distinct de la mémoire ; l'agent n'approuve jamais |
 
@@ -322,8 +322,11 @@ Le plan des extensions est approuvé dans
 Le code, les tests hors ligne, l'approbation de l'artefact exact et la validation
 native restent des étapes distinctes. CU a réussi réellement dans les deux
 environnements. Search est déployé et le clone isolé a réussi une invocation
-native. La validation IQ et le scan après révision de taxonomie restent des
-étapes distinctes. La démo v6/v7 reste inchangée.
+native. Les corrections approuvées de la base ont été appliquées après la fusion
+de la [PR 47](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/47),
+dont l'arbre correspond exactement au code révisé. La validation IQ et un rapport
+red team natif réellement noté restent en attente. Ces limites ne bloquent pas
+la démo client v6/v7 inchangée.
 
 ```mermaid
 flowchart LR
@@ -392,6 +395,23 @@ et retrouver leur marqueur de version dans le résultat natif de l'outil.
 Ce contrôle d'ID n'invente pas d'annotations natives et n'est pas un juge
 sémantique. Les deux refus hors corpus doivent être exactement
 `OUT_OF_CORPUS`. Les réponses brutes restent conservées en cas d'échec.
+
+Le premier lot natif de huit cas du v1 déployé a réussi seulement 1/8.
+Les contrôles de requête pris en charge ont ensuite réussi 6/8 : la réponse
+anglaise de scope omettait son ID source et le refus anglais ajoutait un point.
+Aucun contrôle n'a été assoupli. Un essai de surcharge `instructions` par requête
+a reçu HTTP400 pour les huit cas et a été retiré ; ne l'associez pas à
+`agent_reference`. La CLI force maintenant l'outil MCP autorisé, conserve la
+phase d'échec, accepte une récupération réellement vide seulement pour un refus
+hors corpus exact et produit du JSON compatible ASCII sous Windows.
+
+Des instructions persistées renforcées sont préparées pour une future version,
+pas appliquées au v1 déployé. Après approbation de l'artefact exact, créez une
+nouvelle version et un nouveau binding avant une validation native fraîche.
+Ne modifiez pas un ancien binding et n'utilisez pas l'ancien 6/8 comme preuve
+pour les nouvelles instructions. Les marqueurs source du scénario en font un
+contrôle de provenance et de format, pas une évaluation sémantique indépendante
+ni une preuve de fiabilité générale du modèle.
 
 ## Utiliser un service documentaire natif
 
@@ -693,6 +713,32 @@ réelle pour le bon run. Un délai azd arrête l'attente locale, pas forcément 
 build/déploiement Azure. Rapports incomplets, erreurs d'évaluateur et violations
 échouent explicitement. `scan_completed`, `report_complete` et `no_violations`
 sont distincts, jamais une approbation générale de sécurité.
+
+### Scan approuvé réel et blocage d'exécution
+
+La taxonomie initiale entièrement désactivée reste une preuve historique.
+La politique distincte `synthetic-quote-policy-shadow-v2`, version `2.0`,
+active trois contrôles synthétiques : divulgation prématurée du montant,
+contournement de l'approbation employé et accès aux dossiers hors atelier.
+Son SHA-256 natif exact est
+`c880c7c706775794f0cf998cf1637b55c27d6f809accb182dfb10582e790fc56`.
+L'approbation humaine a précédé son exécution bornée en staging seulement.
+
+L'évaluation `eval_071d7281d7e1468aa39c62616b5adcee`, run
+`evalrun_889cdf2fe1d84f11be5d089100164998`, a échoué avec
+`red_team_no_results`. Le journal natif détaillé indique trois objectifs
+incomplets et une erreur du callback `objective_target` :
+`AttributeError: 'NoneType' object has no attribute 'input_tokens'`.
+L'invocation Responses hébergée réussie conservée n'a pas d'objet `usage`.
+Aucun résultat d'attaque valide n'a été récupéré. Cet échec d'intégration
+ne démontre pas que la cible a résisté à toutes les attaques.
+
+Conservez le run échoué, les journaux natifs et la cible immuable originale.
+N'inventez pas de nombres de jetons, n'affaiblissez pas les empreintes source
+et ne répétez pas un scan facturé sans correction concrète. Une prise en charge
+côté service ou une correction de protocole révisée séparément est nécessaire
+avant de déclarer la validation red team native. Ne remplacez jamais la cible
+par l'agent de soumission en production.
 
 ## Suivi d'expériences et recommandation
 

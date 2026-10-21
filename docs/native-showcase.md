@@ -44,12 +44,12 @@ different claims. Only recorded live evidence establishes the last claim.
 | Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Staging store verified with approved embedding; caller-role negative returned 403, not a per-agent ACL |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
-| Knowledge | Azure AI Search GA indexing/retrieval plus preview MCP and knowledge-base defaults | Synthetic Search deployed in East US with six reviewed documents; staging IQ v1 registered; native query acceptance and production IQ remain pending |
+| Knowledge | Azure AI Search GA indexing/retrieval plus preview MCP and knowledge-base defaults | Six-document East US corpus and minimal/extractive defaults verified; staging IQ v1 performs real MCP retrieval, but bilingual acceptance has failures; production IQ is not promoted |
 | Document service | Content Understanding GA invoice analyzer with per-request model aliases | Dedicated `gpt-4.1` and `text-embedding-3-large` deployments and grounded synthetic invoice extraction verified in staging and production on 2026-10-21; no account defaults changed |
 | Pretrained document service | Native Document Intelligence `prebuilt-invoice`, GA `2024-11-30` | Live extraction succeeded: 1 page, 1 document, 8 structured fields with grounding; no new models |
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
 | Grounding controls | `builtin.groundedness` v18 and `builtin.groundedness_pro` v8 | Both missed a known erroneous French baseline; negative-control gate fails, not an improvement claim |
-| Red team | Native taxonomy and bounded agent-targeted evaluation | Isolated staging shadow v2 has the original immutable code hash and passed native invocation; new taxonomy generated, human review pending; no scan run |
+| Red team | Native taxonomy and bounded agent-targeted evaluation | Original-hash isolated staging shadow v2 invoked successfully; exact human-approved synthetic taxonomy scanned, but native execution failed with zero scored outcomes, not a safety pass |
 | Traces | Deterministic instrumentation, native Log Analytics query and replay fixture | Nine actual spans exported, three custom stages verified, trace-derived native replay passed 1/1; not original-prompt recovery |
 | Business state | Cosmos DB and employee-only approval | Independent of native memory; never approve a quote from the agent |
 
@@ -64,8 +64,11 @@ The extension plan is approved under [issue 45](https://github.com/devopsabcs-en
 Implementation, offline checks, exact-artifact release approval and real native
 acceptance are separate milestones. The existing v6/v7 demo is not replaced by
 these extensions. CU extraction passed live in both environments. Search is
-deployed and the isolated shadow passed native invocation. IQ acceptance and
-the reviewed-taxonomy scan remain separate outstanding gates.
+deployed and the isolated shadow passed native invocation. Approved KB corrections
+were applied after [PR 47](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/47)
+merged with the identical reviewed tree. IQ acceptance and a successfully scored
+native red-team report remain outstanding; neither blocks the unchanged v6/v7
+customer demo.
 
 ```mermaid
 flowchart LR
@@ -389,6 +392,22 @@ source-ID checks, not invented native annotation fields or a semantic judge.
 Both out-of-corpus answers must be exactly `OUT_OF_CORPUS`. Keep raw responses
 even when these checks fail; registration alone is not runtime acceptance.
 
+The deployed v1's initial eight-case batch passed only 1/8. Supported request
+controls subsequently passed 6/8: English scope omitted its source ID and the
+English refusal added a period. Neither check was relaxed. An attempted
+request-level `instructions` override returned HTTP400 for all eight cases
+and was removed; do not combine that override with `agent_reference`.
+The CLI now forces the allowed MCP tool, records failed phases, accepts a
+genuinely empty retrieval only for an exact out-of-corpus refusal, and emits
+ASCII-safe JSON on Windows.
+
+Stronger persisted companion instructions are prepared for a future version,
+not applied to the deployed v1. After exact-artifact approval, create a new
+version and a new binding before fresh native acceptance. Do not edit an old
+binding or reuse the historical 6/8 observation as evidence for new instructions.
+Scenario source markers make this a provenance/format smoke check, not an
+independent semantic evaluation or a model-robustness claim.
+
 ## Use a real document service
 
 The invoice is fictional and rendered to a minimal PDF locally; its extraction
@@ -688,6 +707,30 @@ confirmed for the original run. An azd timeout only stops local waiting; Azure
 build/deployment may continue. Incomplete reports, evaluator errors and policy
 violations fail explicitly. `scan_completed`, `report_complete` and
 `no_violations` are distinct observations, never a blanket security sign-off.
+
+### Actual approved scan and execution blocker
+
+The original all-disabled taxonomy is retained as historical review input.
+A separate `synthetic-quote-policy-shadow-v2`, version `2.0`, has three enabled
+synthetic controls: premature quote disclosure, bypassing employee approval,
+and accessing records outside the synthetic workshop. Its exact persisted
+SHA-256 is `c880c7c706775794f0cf998cf1637b55c27d6f809accb182dfb10582e790fc56`.
+Human approval was received before its bounded staging-only execution.
+
+Evaluation `eval_071d7281d7e1468aa39c62616b5adcee`, run
+`evalrun_889cdf2fe1d84f11be5d089100164998`, failed with
+`red_team_no_results`. The native detailed log reports three incomplete
+objectives and an `objective_target` callback error:
+`AttributeError: 'NoneType' object has no attribute 'input_tokens'`.
+The retained successful hosted Responses invocation has no `usage` object.
+No valid attack results were recovered. This is an execution/integration
+failure, not evidence that the target resisted all attacks.
+
+Keep the failed run, native logs and original immutable target. Do not invent
+token counts, weaken source pins or repeatedly rerun a metered scan without
+a concrete correction. Service-side handling or a separately reviewed
+protocol correction is needed before claiming native red-team acceptance.
+Never scan the production quote agent as a substitute.
 
 ## Experiment tracking and architecture recommendation
 

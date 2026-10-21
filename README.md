@@ -96,8 +96,11 @@ For the session-2 customer demonstration, use the
 [native Foundry showcase runbook](docs/native-showcase.md)
 ([French](docs/fr/native-showcase.md)). It separates restored deployment
 evidence from verified native File Search RAG, operator skill consumption,
-isolated memory checks, and custom trace replay. Foundry IQ, Content
-Understanding prerequisites and optional red-team work retain their separate limits.
+isolated memory checks, and custom trace replay. Content Understanding invoice
+extraction passed in staging and production. Foundry IQ performs real MCP
+retrieval but has strict acceptance failures; the approved isolated red-team
+scan failed before producing scored results. Neither is presented as a pass,
+and production IQ remains unpromoted.
 Native grounding judges missed a known negative control; the runbook records
 that limitation rather than claiming a quality pass. Keep both environments deployed.
 
