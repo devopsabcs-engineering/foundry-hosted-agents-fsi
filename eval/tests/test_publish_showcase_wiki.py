@@ -106,7 +106,7 @@ def test_all_maintained_wiki_pages_are_source_backed():
         "Home", "_Sidebar", "Architecture", "Architecture-FR", "Operations",
         "Workflows", "Release-Evidence", "Native-Foundry-Showcase",
         "Native-Foundry-Showcase-FR", "Native-Foundry-Evidence",
-        "Native-Foundry-Evidence-FR",
+        "Native-Foundry-Evidence-FR", "Evaluation-Engineering", "Evaluation-Engineering-FR",
     }
 
 

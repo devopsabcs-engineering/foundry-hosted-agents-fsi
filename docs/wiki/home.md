@@ -16,6 +16,9 @@ historical author-only descriptions.
 * [Authentic screenshots and evidence](../showcase-evidence.md) | [Preuves et captures](../fr/showcase-evidence.md)
 * [Operations](operations.md) | [Workflow inventory](workflows.md)
 * [Release evidence](release-evidence.md) | [Continuous test trends](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Continuous-Test-Trends)
+* [Evaluation engineering guide](../evaluation-guide.md) | [Guide des évaluations](../fr/evaluation-guide.md)
+* [Deep Lab 19](../labs/lab-19-evaluation-engineering.md) | [Atelier 19](../fr/labs/lab-19-evaluation-engineering.md)
+* [English evaluation PowerPoint](../assets/decks/foundry-evaluation-engineering-en.pptx) | [PowerPoint français](../assets/decks/foundry-evaluation-engineering-fr.pptx)
 
 ## Deployed baseline
 

@@ -57,7 +57,15 @@ Pour la démo Azure conservée et les suivis de la séance 2, consultez les
 [fonctions natives Foundry](native-showcase.md).
 
 Les [preuves de livraison](showcase-evidence.md#livraison-approuvée-actuelle)
-consignent la livraison approuvée staging v5/production v6 sans remplacer les
+consignent la livraison approuvée staging v6/production v7 sans remplacer les
 échecs historiques. Le programme complet se trouve dans [Ateliers](labs/) :
 fondations locales 00–09, surfaces pilotes contrôlées 10–14 et exercices
 natifs isolés 15–18. Conservez les environnements déployés.
+
+Poursuivez avec le [guide d'ingénierie des évaluations](evaluation-guide.md)
+et l'[Atelier 19](labs/lab-19-evaluation-engineering.md) : dix exercices
+sur tests déterministes/stochastiques, portail et SDK Foundry, jeux indépendants,
+calibration des juges, incertitude et non-régression avec état.
+Les [34 diapositives françaises](../assets/decks/foundry-evaluation-engineering-fr.pptx)
+et [anglaises](../assets/decks/foundry-evaluation-engineering-en.pptx)
+incluent les notes de formation pour une séance de 3 à 4 heures.

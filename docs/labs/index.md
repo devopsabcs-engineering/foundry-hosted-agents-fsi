@@ -1,7 +1,7 @@
 ---
 permalink: /labs/
 title: "Labs"
-description: "The nineteen-lab curriculum for the synthetic Ontario auto-insurance quote-preparation workshop."
+description: "The twenty-lab curriculum for the synthetic Ontario auto-insurance quote-preparation workshop."
 ---
 
 > 🇫🇷 **[Version française](../fr/labs/)**
@@ -18,7 +18,7 @@ Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot
 Labs 15 through 18 add isolated native showcase exercises with explicit evidence
 checks. Some exercises require approved service prerequisites or retained native
 artifacts; record missing prerequisites as blocked rather than inventing results.
-Keep the approved staging v5 and production v6 deployment available when
+Keep the approved staging v6 and production v7 deployment available when
 continuing. Check the [release evidence](../showcase-evidence.md#current-approved-release)
 and [architecture](../architecture.md) before using live surfaces.
 
@@ -58,6 +58,16 @@ and [architecture](../architecture.md) before using live surfaces.
 
 The [native showcase runbook](../native-showcase.md) records historical evidence
 and service limits. The labs do not authorize deployment, access changes or teardown.
+
+### Evaluation Engineering
+
+| Lab | Title | What you will do |
+| --- | --- | --- |
+| [19](lab-19-evaluation-engineering.md) | Evaluation Engineering | Build a layered non-regression plan, run native EN/FR judges, calibrate controls, repeat trials and evaluate stateful revisions |
+
+Use the [step-by-step guide](../evaluation-guide.md) and
+[PowerPoint with instructor notes](../assets/decks/foundry-evaluation-engineering-en.pptx)
+for the 3–4 hour deep lab. The complete curriculum now spans Labs 00–19.
 
 ## Next Steps
 

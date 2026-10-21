@@ -83,6 +83,19 @@ et `COMPOSITION`; calcul et persistance de l'ébauche ont lieu dans
 seulement des messages bilingues bornés; l'API de révision expose le calcul
 et consigne les décisions des employés.
 
+## Atelier d'ingénierie des évaluations
+
+Le [guide Foundry étape par étape](docs/fr/evaluation-guide.md) et
+l'[Atelier 19](docs/fr/labs/lab-19-evaluation-engineering.md) proposent
+3 à 4 heures de progression : contrats déterministes, juges modèles natifs,
+calibration, essais répétés et régression avec état.
+Les [PowerPoint français](docs/assets/decks/foundry-evaluation-engineering-fr.pptx)
+et [anglais](docs/assets/decks/foundry-evaluation-engineering-en.pptx)
+contiennent chacun 34 diapositives modifiables et des notes de formation.
+Régénérez-les avec `npm run build-evaluation-deck`.
+Le [guide anglais](docs/evaluation-guide.md) et
+le [lab anglais](docs/labs/lab-19-evaluation-engineering.md) présentent les mêmes exercices.
+
 ## Essayer l'interface de clavardage
 
 Pour la démonstration client de la séance 2, consultez le

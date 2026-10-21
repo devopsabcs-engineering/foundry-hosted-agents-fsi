@@ -53,7 +53,15 @@ For the retained Azure demo and session-2 follow-ups, see the
 [native Foundry showcase](native-showcase.md).
 
 The [release evidence](showcase-evidence.md#current-approved-release) records
-the approved staging v5/production v6 release and keeps historical failures
+the approved staging v6/production v7 release and keeps historical failures
 separate from current checks. The full curriculum lives in [Labs](labs/):
 local foundations 00–09, controlled pilot surfaces 10–14, and isolated native
 exercises 15–18. Keep the retained environments deployed.
+
+Continue with the [evaluation engineering guide](evaluation-guide.md) and
+[Lab 19](labs/lab-19-evaluation-engineering.md): ten exercises covering
+deterministic versus stochastic testing, the Foundry portal and SDK, independent
+datasets, judge calibration, uncertainty and stateful non-regression.
+The [34-slide English deck](assets/decks/foundry-evaluation-engineering-en.pptx)
+and [French deck](assets/decks/foundry-evaluation-engineering-fr.pptx)
+include instructor notes for the 3–4 hour session.

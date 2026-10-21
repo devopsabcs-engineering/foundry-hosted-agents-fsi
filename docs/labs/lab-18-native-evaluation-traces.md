@@ -59,6 +59,8 @@ Require nonzero and the specific same-run diagnostic. A missing-file error is
 not the intended negative control. This is an evaluator demonstration, not
 evidence of hosted-agent RAG or improved production retrieval.
 
+<a id="grounding-negative-controls"></a>
+
 ## Exercise 18.2: Preserve the grounding judges' false positives
 
 Obtain retained known-bad and corrected native RAG responses from the evidence

@@ -21,6 +21,8 @@ PAGES = {
     "docs/wiki/operations.md": ("Operations", "Operations"),
     "docs/wiki/workflows.md": ("Workflows", "Workflows"),
     "docs/wiki/release-evidence.md": ("Release-Evidence", "Release evidence"),
+    "docs/evaluation-guide.md": ("Evaluation-Engineering", "Evaluation engineering"),
+    "docs/fr/evaluation-guide.md": ("Evaluation-Engineering-FR", "Ingénierie des évaluations"),
 }
 DIAGRAMS = {
     "docs/architecture.md": ("architecture-en", 7),

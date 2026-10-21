@@ -88,3 +88,8 @@ Expected result: every fixture matches its `expectedCalculation` exactly, printi
 ## Next Steps
 
 Continue to [Lab 09: Teardown](lab-09-teardown.md).
+
+After the pilot and native prerequisites, use the
+[evaluation guide](../evaluation-guide.md) and
+[Lab 19](lab-19-evaluation-engineering.md) to add calibrated model judges,
+repeated trials and stateful regression evidence to this deterministic foundation.

@@ -5,7 +5,8 @@
   "description": "Build scripts for the Desjardins bilingual hosted agents workshop deliverables",
   "type": "module",
   "scripts": {
-    "build-workshop-deck": "node scripts/build-workshop-deck.js"
+    "build-workshop-deck": "node scripts/build-workshop-deck.js",
+    "build-evaluation-deck": "node scripts/build-evaluation-deck.js"
   },
   "dependencies": {
     "pptxgenjs": "^4.0.1"
