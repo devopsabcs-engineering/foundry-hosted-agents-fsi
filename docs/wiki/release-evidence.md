@@ -7,7 +7,34 @@ description: Verified release outcomes and explicit limits on native showcase ev
 [Current screenshots](../showcase-evidence.md) | [Captures françaises](../fr/showcase-evidence.md) |
 [Native runbook](../native-showcase.md) | [Architecture](../architecture.md)
 
-## New revision workflow: staging proof
+## Current approved production release
+
+[Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+succeeded at approved source `2c3f13b`: staging agent v6 and production v7.
+Production used the protected reviewer gate and the exact evaluated staging
+reviewer/MCP digests. Chat retains its prior image. All environments remain deployed.
+
+The [authentic bilingual production captures](../showcase-evidence.md) show
+isolated `CASE-SYN-004` revision 2, corrected `TRAINING_BASIC`, current audit,
+native response `resp_x17dKvgjXUeG5WiGayxga6LUnpIjYR2W6bAvDx194iEbUUHngH`,
+`PENDING_REVIEW`, `READY` and `90000` cents. The returned draft stayed visible
+in active and draft-filtered queues. Self-approval returned 403 `SELF_APPROVAL`.
+Both actual reviewer identities passed invocation200/memory403, first attempt.
+No queue was cleared and benchmark cases were not corrected.
+
+Release checks passed 565 offline tests with 50 conditional skips and the
+13/13 deterministic gate. Both native locale runs completed all five cases
+with 100% on all three criteria and no errors:
+
+* English: `evalrun_985de95ac8e742be88c6172d8a4098d6`
+* French: `evalrun_db159f558fd847668d7bba275ba1a353`
+
+Attempt 1 had native service errors with no scored items; those remain failed
+evidence. Retrying only the failed evaluation job at the same source succeeded
+before promotion. This is neither a weakened gate nor a same-dataset claim
+against the historical 0/10 benchmark.
+
+## Earlier revision workflow staging proof
 
 Authenticated [English and French captures](../showcase-evidence.md) show
 `CASE-SYN-004` revision 2 after a genuine native-agent preparation:
@@ -20,9 +47,10 @@ Source `cf2d003` supplied this live business-flow proof. PR #34 makes the
 working role declarative and gates both environments on workload identity
 controls. Release 39523315263 reached healthy staging but stopped on a Linux
 CLI terminal requirement; PR #36 corrects that CI-only problem.
-These observations do not claim completed production promotion.
+These earlier observations alone did not establish production promotion;
+the successful corrected release is recorded above.
 
-## Last successful full-release checkpoint
+## Historical full-release checkpoint
 
 | Evidence | Verified result | Boundary |
 | --- | --- | --- |

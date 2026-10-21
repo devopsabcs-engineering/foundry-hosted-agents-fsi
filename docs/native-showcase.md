@@ -18,10 +18,12 @@ Both staging and production switch back before refreshing the native credential.
 
 ## Keep the restored customer demo available
 
-The current verified staging agent is version 5; production is version 6.
-[Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-deployed approved runtime source `01af1fb`, with independently verified,
-matching chat and reviewer digests in both environments. The earlier
+The current verified staging agent is version 6; production is version 7.
+[Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+deployed approved runtime source `2c3f13b`, with independently verified,
+matching reviewer and MCP digests in both environments. Chat retains its
+previous verified image. The production revision/correction flow and both
+reviewer identities' invocation200/memory403 controls passed. The earlier
 [release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 restored the v2/v3 baseline. Both environments remain deployed. Do not run teardown,
 replace agent identities, change `quote-tools`, or infer production from the

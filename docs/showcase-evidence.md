@@ -8,7 +8,64 @@ description: Recorded native generation recovery, running demo versions and auth
 
 [Deployed architecture and evidence lineage](architecture.md)
 
-## Revision workflow verified in staging
+## Current approved release
+
+[Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+succeeded on 2026-10-21 UTC at explicitly approved source
+`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. The active hosted agent is
+version **6 in staging** and **7 in production**. Production used the normal
+required-reviewer approval and promoted the exact evaluated staging images.
+Both environments remain deployed; no teardown or queue clearing occurred.
+
+| Application | Verified digest, identical in both environments | Ready revision suffix, staging / production |
+| --- | --- | --- |
+| Reviewer | `sha256:0176ca8e2d9ada81ee32b03daab98b5020c66c3d6a116f6cf885329be2b2b8aa` | `0000010` / `0000004` |
+| Application MCP | `sha256:086fa676193ff80660822e2fbb2cbbe878154fe89d8158cbe2c55548b9c4b913` | `0000010` / `0000004` |
+| Rulebook MCP | `sha256:d880c8800dd847b59da72e164a11e6d83101707be31f40614721c0b62779e245` | `0000010` / `0000004` |
+| Chat, retained unchanged | `sha256:50bf8a52bd062aa86621fffa4a9330d1461706892f954900edf868fdcfbd8929` | `0000003` / `0000002` |
+
+All eight apps reported provisioning `Succeeded` and ready revisions. The four
+chat/reviewer apps passed health/configuration checks and denied anonymous
+`/api/me` with HTTP 401. The actual reviewer identities in both environments
+returned invocation HTTP 200 and operator-memory HTTP 403, each on the first
+attempt. The Linux pseudo-terminal fix therefore passed the real workflow,
+not only its regression tests. Tokens were not logged and memory was not modified.
+
+Offline release evidence contains **565 passed tests and 50 conditional skips**;
+the deterministic gate passed **13/13** with bilingual parity. Native judging
+completed all five cases per language at 100% on coherence, groundedness and
+task adherence:
+
+* English: `evalrun_985de95ac8e742be88c6172d8a4098d6`
+* French: `evalrun_db159f558fd847668d7bba275ba1a353`
+
+Attempt 1 encountered native evaluation `SystemError` failures before producing
+any scored items. Those failed records remain evidence, not zero-quality scores.
+Only the failed evaluation job was retried at the same source; complete
+attempt-2 evidence passed before production approval. No gate was weakened.
+
+### Authenticated production revision acceptance
+
+An isolated synthetic `CASE-SYN-004` was created through the native production
+agent, returned from revision 1 to **DRAFT revision 2**, and verified in both
+active and draft-filtered queues. Its previous CAD 1,100 calculation was labeled
+not current. Selecting `TRAINING_BASIC` and preparing again returned HTTP 200,
+`PENDING_REVIEW`, `READY` and **90000 cents**. The current audit records
+`PREPARATION_REQUESTED` and `PREPARATION_COMPLETED` with correlation
+`a23851c8e671831b` and native response
+`resp_x17dKvgjXUeG5WiGayxga6LUnpIjYR2W6bAvDx194iEbUUHngH`.
+Self-approval returned HTTP 403 `SELF_APPROVAL`; the case remains pending for
+another employee. Existing benchmark cases were not corrected or cleared.
+
+These authentic captures use presentation-only zoom and preserve all values:
+
+![Production revision 2 completed, English](assets/evidence/revision-production-completed-en.png)
+
+![Production revision 2 completed, French](assets/evidence/revision-production-completed-fr.png)
+
+![Native production hosted agent version 7](assets/evidence/foundry-production-agent-v7.png)
+
+## Earlier revision workflow proof in staging
 
 On 2026-10-21 UTC, authenticated staging testing verified the issue #28
 revision flow on source `cf2d003`, hosted agent version `6`, reviewer revision
@@ -40,10 +97,10 @@ and negative memory controls to both deployment stages. The subsequent
 reached a healthy staging reviewer revision `0000009`, but its Linux CLI probe
 failed before remote execution because stdin was not a terminal. PR #36 fixes
 that CI-only issue; Linux regression tests exercise real cbreak mode.
-Production promotion did not occur in that run. The inventory below is the
-last successful full-release checkpoint, not the newer staging inventory.
+Production promotion did not occur in that run. The successful corrected
+release is recorded above; the inventory below is a historical checkpoint.
 
-## Last successful full-release checkpoint
+## Historical full-release checkpoint
 
 [Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
 succeeded on approved runtime source
@@ -64,7 +121,7 @@ updated separately from the agent release. Production used an image-only
 Container Apps update, not a broader infrastructure redeployment. Readback
 confirmed all eight latest revisions ready with provisioning state `Succeeded`.
 
-### Current regression and native judges
+### Historical regression and native judges
 
 CI passed 476 offline tests with 36 conditional skips, the deterministic
 13/13 release gate, frontend builds and infrastructure validation. Independent

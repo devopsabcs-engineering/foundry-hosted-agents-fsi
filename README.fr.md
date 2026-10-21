@@ -98,10 +98,13 @@ Conservez les deux environnements déployés.
 Consultez les [preuves actuelles et captures](docs/fr/showcase-evidence.md)
 pour les remplacements réussis des deux générations échouées et la distinction
 entre les images publiées et les versions réellement déployées. La livraison
-approuvée [`39424857559`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-a déployé la révision `01af1fb` en staging v5 et production v6, avec les
+approuvée [`39527950931`, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+a déployé la révision `2c3f13b` en staging v6 et production v7, avec les
 interfaces de clavardage/révision et les deux services MCP prêts dans chaque
-environnement. Les vrais playgrounds ont réussi. Le juge des messages au
+environnement. La correction de révision 2 en production, le journal actuel
+et le refus d'auto-approbation ont réussi. Les deux identités reviewer ont
+réussi invocation200/mémoire403. Le chat conserve son image vérifiée.
+Le juge des messages au
 demandeur a réussi 5/5 dans chaque langue sur les trois critères, sans erreur;
 l'ancien résultat 0/10 relève d'un autre contrat et reste conservé.
 Ces résultats ne garantissent pas une disponibilité continue.

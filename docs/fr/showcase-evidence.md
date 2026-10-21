@@ -8,7 +8,66 @@ description: Reprise des générations natives, versions réellement exécutées
 
 [Architecture déployée et provenance des preuves](architecture.md)
 
-## Révision vérifiée en staging
+## Livraison approuvée actuelle
+
+La [livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+a réussi le 2026-10-21 UTC sur le code explicitement approuvé
+`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. L'agent actif utilise la version
+**6 en staging** et **7 en production**. La promotion a conservé l'approbation
+GitHub obligatoire et les images exactes évaluées en staging.
+Les deux environnements restent déployés, sans démantèlement ni vidage de file.
+
+| Application | Digest vérifié identique entre les environnements | Suffixe prêt, staging / production |
+| --- | --- | --- |
+| Reviewer | `sha256:0176ca8e2d9ada81ee32b03daab98b5020c66c3d6a116f6cf885329be2b2b8aa` | `0000010` / `0000004` |
+| MCP application | `sha256:086fa676193ff80660822e2fbb2cbbe878154fe89d8158cbe2c55548b9c4b913` | `0000010` / `0000004` |
+| MCP rulebook | `sha256:d880c8800dd847b59da72e164a11e6d83101707be31f40614721c0b62779e245` | `0000010` / `0000004` |
+| Chat conservé sans changement | `sha256:50bf8a52bd062aa86621fffa4a9330d1461706892f954900edf868fdcfbd8929` | `0000003` / `0000002` |
+
+Les huit applications indiquent `Succeeded` et une révision prête. Les quatre
+interfaces chat/reviewer ont réussi santé/configuration et refusé `/api/me`
+anonyme avec HTTP 401. Dans chaque environnement, l'identité réelle du reviewer
+a obtenu invocation HTTP 200 et mémoire opérateur HTTP 403 au premier essai.
+Le correctif pseudo-terminal Linux est donc vérifié dans le vrai pipeline.
+Aucun jeton n'a été journalisé et la mémoire n'a pas été modifiée.
+
+Les preuves hors ligne comptent **565 tests réussis et 50 exclusions
+conditionnelles**. Le contrôle déterministe a réussi **13/13** avec parité
+bilingue. Les cinq cas natifs de chaque langue ont obtenu 100 % sur coherence,
+groundedness et task adherence :
+
+* Anglais : `evalrun_985de95ac8e742be88c6172d8a4098d6`
+* Français : `evalrun_db159f558fd847668d7bba275ba1a353`
+
+La tentative 1 a rencontré des `SystemError` natifs avant tout résultat noté.
+Ces échecs restent conservés et ne sont pas des scores de qualité nuls.
+Seul le job d'évaluation échoué a été relancé sur le même code. Les preuves
+complètes de la tentative 2 ont précédé l'approbation de production.
+Aucun contrôle n'a été assoupli.
+
+### Acceptation authentifiée de la révision en production
+
+Le dossier synthétique isolé `CASE-SYN-004`, créé par l'agent natif, est passé
+de la révision 1 à **DRAFT révision 2**, visible dans les filtres actif et
+brouillon. Le précédent calcul de 1 100 CAD était identifié comme non actuel.
+La correction `TRAINING_BASIC` et la nouvelle préparation ont retourné HTTP 200,
+`PENDING_REVIEW`, `READY` et **90000 cents**. Le journal actuel contient
+`PREPARATION_REQUESTED` et `PREPARATION_COMPLETED`, la corrélation
+`a23851c8e671831b` et la réponse native
+`resp_x17dKvgjXUeG5WiGayxga6LUnpIjYR2W6bAvDx194iEbUUHngH`.
+L'auto-approbation a retourné HTTP 403 `SELF_APPROVAL`. Un autre employé doit
+décider le dossier, toujours en attente. Les cas du benchmark n'ont été ni
+corrigés ni effacés.
+
+Ces captures authentiques utilisent seulement un zoom de présentation :
+
+![Révision 2 terminée en production, anglais](../assets/evidence/revision-production-completed-en.png)
+
+![Révision 2 terminée en production, français](../assets/evidence/revision-production-completed-fr.png)
+
+![Agent natif de production version 7](../assets/evidence/foundry-production-agent-v7.png)
+
+## Preuve antérieure de révision en staging
 
 Le 2026-10-21 UTC, un test authentifié a vérifié le parcours de révision de
 l'issue #28 sur la source `cf2d003`, agent hébergé version `6`, reviewer
@@ -39,10 +98,10 @@ et de refus mémoire aux deux étapes de déploiement. La
 a ensuite atteint la révision staging saine `0000009`, mais son contrôle CLI
 Linux a échoué avant l'exécution distante : stdin n'était pas un terminal.
 La PR #36 corrige ce défaut CI avec des tests Linux du véritable mode cbreak.
-Cette exécution n'a pas promu la production. L'inventaire ci-dessous est le
-dernier point de contrôle complet réussi, pas le nouvel inventaire staging.
+Cette exécution n'a pas promu la production. La livraison corrigée réussie
+figure ci-dessus; l'inventaire ci-dessous reste un point de contrôle historique.
 
-## Dernier point de contrôle de livraison complète
+## Point de contrôle historique de livraison complète
 
 La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
 a réussi le 2026-10-20 UTC sur le code approuvé
@@ -63,7 +122,7 @@ puis déployé séparément. En production, seule l'image Container Apps a chang
 sans redéploiement général. La relecture confirme les huit dernières révisions
 prêtes et l'état de provisionnement `Succeeded`.
 
-### Régression actuelle et juges natifs
+### Régression historique et juges natifs
 
 La CI a réussi 476 tests hors ligne avec 36 exclusions conditionnelles,
 le contrôle déterministe 13/13, les builds frontend et la validation
