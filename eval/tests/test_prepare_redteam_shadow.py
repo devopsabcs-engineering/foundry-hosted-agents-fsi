@@ -4,7 +4,7 @@ import importlib.util
 import io
 import json
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -130,9 +130,21 @@ def test_preparation_rejects_mutation_reuse_and_unreviewed_packaging(preparation
 @pytest.mark.parametrize("member", [
     "src/quote-preparation-agent/../escape.py", "other/escape.py",
     "src/quote-preparation-agent/C:escape.py",
+    "src/quote-preparation-agent/C:/escape.py",
+    r"src/quote-preparation-agent/C:\escape.py",
+    "src/quote-preparation-agent///server/share/escape.py",
+    r"src/quote-preparation-agent/\\server\share\escape.py",
+    r"src/quote-preparation-agent/\escape.py",
+    "src/quote-preparation-agent//escape.py",
+    r"src/quote-preparation-agent/subdir\..\escape.py",
 ])
-def test_approved_archive_still_cannot_escape_local_snapshot(preparation, monkeypatch, member):
+@pytest.mark.parametrize("path_semantics", ["native", "posix"])
+def test_approved_archive_still_cannot_escape_local_snapshot(
+    preparation, monkeypatch, member, path_semantics,
+):
     args, _, _ = preparation
+    if path_semantics == "posix":
+        monkeypatch.setattr(shadow, "Path", PurePosixPath)
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as bundle:
         bundle.writestr(member, "not a quote source path")

@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 import zipfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "eval"))
@@ -86,9 +86,12 @@ def prepare(args) -> dict:
         for item in archive.infolist():
             if item.is_dir():
                 continue
-            relative = Path(item.filename.removeprefix(relative_source + "/"))
-            if (not item.filename.startswith(relative_source + "/") or relative.is_absolute() or relative.drive
-                    or ".." in relative.parts or (item.external_attr >> 16) & 0o170000 == 0o120000):
+            member = item.filename.removeprefix(relative_source + "/")
+            relative = Path(member)
+            windows_relative = PureWindowsPath(member)
+            if (not item.filename.startswith(relative_source + "/") or relative.is_absolute()
+                    or windows_relative.anchor or ".." in relative.parts or ".." in windows_relative.parts
+                    or (item.external_attr >> 16) & 0o170000 == 0o120000):
                 raise ValueError("Source archive contains unreviewed paths or links")
             snapshot[relative] = archive.read(item)
     if not snapshot or Path("main.py") not in snapshot:
