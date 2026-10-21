@@ -1,10 +1,12 @@
 """Validate the bilingual teaching package offline, without model calls."""
 
 import ast
+from contextlib import nullcontext
 import json
 from pathlib import Path
 import re
 import sys
+from types import SimpleNamespace
 import unicodedata
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
@@ -30,6 +32,13 @@ NS = {
 def python_examples(path):
     text = path.read_text(encoding="utf-8")
     return re.findall(r"^@'\n(.*?)^'@ \| & \$python", text, re.MULTILINE | re.DOTALL)
+
+
+def observer_example(path):
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r"^\$observeAgent = @'\n(.*?)^'@", text, re.MULTILINE | re.DOTALL)
+    assert match
+    return match.group(1)
 
 
 def anchors(text):
@@ -71,6 +80,58 @@ def test_translations_share_all_ten_exercises_and_executable_python():
         for index, source in enumerate(python_examples(path)):
             ast.parse(source, filename=f"{path.name}:example{index}")
     assert python_examples(LABS[0]) == python_examples(LABS[1])
+    assert observer_example(LABS[0]) == observer_example(LABS[1])
+    ast.parse(observer_example(LABS[0]))
+
+
+@pytest.fixture
+def server_observer(monkeypatch):
+    import azure.ai.projects
+    import azure.identity
+
+    def run(details):
+        project = SimpleNamespace(agents=SimpleNamespace(
+            get=lambda name: SimpleNamespace(as_dict=lambda: details)
+        ))
+        monkeypatch.setattr(azure.ai.projects, "AIProjectClient",
+                            lambda **kwargs: nullcontext(project))
+        monkeypatch.setattr(azure.identity, "AzureCliCredential",
+                            lambda: nullcontext(object()))
+        monkeypatch.setattr(sys, "argv", ["-", "https://example.test"])
+        exec(compile(observer_example(LABS[0]), "server-observation-example", "exec"), {})
+
+    return run
+
+
+@pytest.mark.parametrize("version", ["6", "7"])
+@pytest.mark.parametrize("failure", [None, "inactive", "disabled-agent", "disabled-config",
+                                    "old-version", "partial-traffic"])
+def test_observer_requires_active_server_version_and_current_endpoint(
+    version, failure, server_observer, capsys,
+):
+    details = {
+        "name": "quote-preparation-agent",
+        "state": "disabled" if failure == "disabled-agent" else "enabled",
+        "configuration_state": "disabled" if failure == "disabled-config" else "enabled",
+        "versions": {"latest": {
+            "version": version, "status": "inactive" if failure == "inactive" else "active",
+            "definition": {"environment_variables": {"private_setting": "not-for-output"}},
+        }},
+        "agent_endpoint": {"version_selector": {"version_selection_rules": [{
+            "type": "FixedRatio",
+            "agent_version": "1" if failure == "old-version" else "@latest",
+            "traffic_percentage": 50 if failure == "partial-traffic" else 100,
+        }]}},
+    }
+    if failure:
+        with pytest.raises(ValueError):
+            server_observer(details)
+        assert capsys.readouterr().out == ""
+    else:
+        server_observer(details)
+        assert json.loads(capsys.readouterr().out) == {
+            "name": "quote-preparation-agent", "version": version, "status": "active",
+        }
 
 
 def test_judge_only_recipe_reuses_captures_and_fails_on_existing_output(tmp_path, monkeypatch):
