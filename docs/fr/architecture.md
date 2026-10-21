@@ -8,7 +8,7 @@ description: Agent Foundry déployé, traitement déterministe, validation humai
 
 ## État déployé
 
-La démonstration conservée utilise le véritable hôte Responses de Foundry :
+Le dernier point de contrôle complet utilisait le véritable hôte Responses de Foundry :
 agent staging **v5**, production **v6**, source approuvée `01af1fb`,
 [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
 Le suffixe `-poc` du compte/projet désigne la production. Les deux chats, les
@@ -21,8 +21,11 @@ Toute nouvelle modification d'infrastructure reste soumise à approbation.
 
 La resoumission après correction décrite ci-dessous est suivie dans
 [l'issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
-Une livraison approuvée ultérieure doit confirmer son déploiement ; la
-livraison précédente ne prouve pas que ces nouveaux contrôles sont actifs.
+Un test staging authentifié a ensuite vérifié la nouvelle préparation native
+de révision 2, le journal actuel et les contrôles d'identité sur `cf2d003`.
+Consultez les [preuves bilingues de révision](showcase-evidence.md).
+La promotion de cette fonction en production n'est pas encore confirmée ;
+l'ancienne livraison complète ne prouve pas que ces contrôles y sont actifs.
 
 Les données, tarifs et résultats sont synthétiques. Aucune offre réelle,
 livraison au client ou approbation automatique n'est représentée.

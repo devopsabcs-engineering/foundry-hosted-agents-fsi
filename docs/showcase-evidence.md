@@ -8,7 +8,42 @@ description: Recorded native generation recovery, running demo versions and auth
 
 [Deployed architecture and evidence lineage](architecture.md)
 
-## Current approved release
+## Revision workflow verified in staging
+
+On 2026-10-21 UTC, authenticated staging testing verified the issue #28
+revision flow on source `cf2d003`, hosted agent version `6`, reviewer revision
+`foundry-quote-reviewer-staging--0000008`. An isolated `CASE-SYN-004` was
+returned from revision 1 to a visible revision 2 draft. Selecting
+`TRAINING_BASIC` and preparing again invoked the actual native agent and
+persisted `PENDING_REVIEW`, `READY`, and `90000` cents instead of the previous
+`110000`. The current audit includes the saved correction and
+`PREPARATION_COMPLETED`, with matching response ID
+`resp_s3sUcqvCtyQESOmh5YWwTY30XsH5UzmgpFJzGMP2DCTSW2JohY`.
+
+The same preparer's approval attempt returned HTTP 403 `SELF_APPROVAL`.
+The real reviewer workload identity invoked the endpoint with HTTP 200 and
+received HTTP 403 when listing operator memory after the project-scoped
+`Foundry Agent Consumer` assignment propagated. No `agents/write`, broad
+Foundry User role, memory modification, queue clearing or benchmark-case
+correction was needed. Earlier failed preparation attempts remain in audit.
+
+These are real bilingual application captures, with presentation-only zoom;
+displayed values and audit entries were not altered.
+
+![Staging revision 2 completed through the native agent, English](assets/evidence/revision-staging-completed-en.png)
+
+![Staging revision 2 completed through the native agent, French](assets/evidence/revision-staging-completed-fr.png)
+
+PR #34 makes the verified Consumer role declarative and adds positive invocation
+and negative memory controls to both deployment stages. The subsequent
+[release 39523315263](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39523315263)
+reached a healthy staging reviewer revision `0000009`, but its Linux CLI probe
+failed before remote execution because stdin was not a terminal. PR #36 fixes
+that CI-only issue; Linux regression tests exercise real cbreak mode.
+Production promotion did not occur in that run. The inventory below is the
+last successful full-release checkpoint, not the newer staging inventory.
+
+## Last successful full-release checkpoint
 
 [Release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
 succeeded on approved runtime source

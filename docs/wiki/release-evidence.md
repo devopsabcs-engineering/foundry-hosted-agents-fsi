@@ -7,7 +7,22 @@ description: Verified release outcomes and explicit limits on native showcase ev
 [Current screenshots](../showcase-evidence.md) | [Captures françaises](../fr/showcase-evidence.md) |
 [Native runbook](../native-showcase.md) | [Architecture](../architecture.md)
 
-## Current verified release
+## New revision workflow: staging proof
+
+Authenticated [English and French captures](../showcase-evidence.md) show
+`CASE-SYN-004` revision 2 after a genuine native-agent preparation:
+`TRAINING_BASIC`, `READY`, `90000` cents and `PENDING_REVIEW`, with current
+corrections, response ID and audit. The case remained visible when returned
+to draft. Self-approval returned 403; the real reviewer identity returned
+invocation 200 and memory denial 403 under `Foundry Agent Consumer`.
+
+Source `cf2d003` supplied this live business-flow proof. PR #34 makes the
+working role declarative and gates both environments on workload identity
+controls. Release 39523315263 reached healthy staging but stopped on a Linux
+CLI terminal requirement; PR #36 corrects that CI-only problem.
+These observations do not claim completed production promotion.
+
+## Last successful full-release checkpoint
 
 | Evidence | Verified result | Boundary |
 | --- | --- | --- |
