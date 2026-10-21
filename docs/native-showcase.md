@@ -44,12 +44,12 @@ different claims. Only recorded live evidence establishes the last claim.
 | Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Staging store verified with approved embedding; caller-role negative returned 403, not a per-agent ACL |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
-| Knowledge | Azure AI Search GA retrieval plus isolated native IQ MCP companion | Companion CLI is implemented; new Search resource and native query acceptance require the extension release |
-| Document service | Content Understanding GA invoice analyzer with per-request model aliases | Native catalog supports `gpt-4.1` and `text-embedding-3-large`; compatible deployments and live extraction require the extension release |
+| Knowledge | Azure AI Search GA indexing/retrieval plus preview MCP and knowledge-base defaults | Synthetic Search deployed in East US with six reviewed documents; staging IQ v1 registered; native query acceptance and production IQ remain pending |
+| Document service | Content Understanding GA invoice analyzer with per-request model aliases | Dedicated `gpt-4.1` and `text-embedding-3-large` deployments and grounded synthetic invoice extraction verified in staging and production on 2026-10-21; no account defaults changed |
 | Pretrained document service | Native Document Intelligence `prebuilt-invoice`, GA `2024-11-30` | Live extraction succeeded: 1 page, 1 document, 8 structured fields with grounding; no new models |
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
 | Grounding controls | `builtin.groundedness` v18 and `builtin.groundedness_pro` v8 | Both missed a known erroneous French baseline; negative-control gate fails, not an improvement claim |
-| Red team | Native taxonomy and bounded agent-targeted evaluation | Taxonomy created for staging v2; inspect and approve exact categories before attacks |
+| Red team | Native taxonomy and bounded agent-targeted evaluation | Isolated staging shadow v2 has the original immutable code hash and passed native invocation; new taxonomy generated, human review pending; no scan run |
 | Traces | Deterministic instrumentation, native Log Analytics query and replay fixture | Nine actual spans exported, three custom stages verified, trace-derived native replay passed 1/1; not original-prompt recovery |
 | Business state | Cosmos DB and employee-only approval | Independent of native memory; never approve a quote from the agent |
 
@@ -63,7 +63,9 @@ Log Analytics provide the existing Azure observability backend.
 The extension plan is approved under [issue 45](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/45).
 Implementation, offline checks, exact-artifact release approval and real native
 acceptance are separate milestones. The existing v6/v7 demo is not replaced by
-these extensions. No live IQ/CU/red-team success is claimed from offline tests.
+these extensions. CU extraction passed live in both environments. Search is
+deployed and the isolated shadow passed native invocation. IQ acceptance and
+the reviewed-taxonomy scan remain separate outstanding gates.
 
 ```mermaid
 flowchart LR
@@ -82,9 +84,12 @@ flowchart LR
 
 There is no extension-to-Cosmos arrow. IQ has one allowed read-only MCP tool.
 CU observations never enter pricing or approval. A red-team shadow must prove
-its isolated storage before attacks. Search Basic in East US 2 is currently
+its isolated storage before attacks. Search Basic in East US is currently
 USD 0.101/hour (about USD 73.73 for 730 hours), plus metered model, document,
 hosted-agent and evaluation usage. Budget alerts are not hard spending caps.
+East US 2 rejected the new Search service with `InsufficientResourcesAvailable`.
+The synthetic-only service was deployed in East US at the same Basic unit
+price; Foundry accounts, CU models and the existing demo remain in East US 2.
 
 ## Applicant-message judge contract
 
@@ -331,8 +336,12 @@ $principal = '<operator-object-id>'
 
 Inspect the actual source, base, retrieval activity and citations. Unknown source
 IDs, changed hashes, wrong-language references, missing citations and unsupported
-excerpts fail explicitly. GA `2026-04-01` extractive retrieval does not require a
-new retrieval LLM. This CLI does not automatically create a Foundry project
+excerpts fail explicitly. GA `2026-04-01` indexing, sources and direct extractive retrieval do not require a
+new retrieval LLM. The knowledge-base defaults use `2026-08-01-preview` to set
+`retrievalReasoningEffort={"kind":"minimal"}` and `outputMode=extractiveData`.
+Creating only the GA definition leaves a preview MCP default that can request
+an unconfigured retrieval model. Apply the reviewed `upsert` correction before
+native IQ acceptance; do not add an unapproved retrieval model. The CLI does not automatically create a Foundry project
 connection or attach knowledge to the running hosted agent.
 
 ### Register and exercise the native IQ companion
@@ -388,15 +397,16 @@ The analyzer must return structured fields and inspectable grounding.
 
 ```powershell
 $cu = '<Content Understanding resource endpoint>'
-& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py cu-preflight --cu-endpoint $cu
-& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py analyze --cu-endpoint $cu --poll-timeout 120
+$mapping = '{"prebuilt-analyzer-completion":"fsi-showcase-cu-completion","prebuilt-analyzer-embedding":"fsi-showcase-cu-embedding"}'
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py cu-preflight --cu-endpoint $cu --model-deployments $mapping
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py analyze --cu-endpoint $cu --model-deployments $mapping --poll-timeout 120 --output "$evidence\cu-native-invoice.json"
 ```
 
-Current staging returns `DefaultsNotSet` for its GA defaults resource.
+The unchanged staging GA defaults resource returns `DefaultsNotSet`.
 Do not overwrite account defaults or substitute the existing chat deployment
 for an unsupported analyzer model. Provisioning compatible models is a separate
-approved change. The CLI reports the missing prerequisite rather than
-fabricating document fields.
+approved change. Dedicated compatible deployments are now verified in both
+accounts; use the complete request mapping, not those unset defaults.
 
 For the approved extension, [the dedicated-model template](../infra/content-understanding.bicep)
 adds only `fsi-showcase-cu-completion` (`gpt-4.1`, Standard capacity 10) and
@@ -418,6 +428,15 @@ The output file must be fresh. It journals the operation URL before polling,
 retains authentic failures and checks `SYN-REPAIR-001`, finite confidence, text
 spans and page-polygon grounding. A timeout retains a resumable operation URL
 and explicitly warns that the remote CU operation may still run.
+
+On 2026-10-21, native staging operation
+`3fba3bf0-7066-4982-902b-f4d61b5d481a` and production operation
+`a87c001e-9b27-4070-aa1b-4fe86457ee09` passed the unchanged extraction validator.
+The first staging poll hit a local Azure CLI credential-process timeout; its
+original operation was resumed and validated, not resubmitted. An already
+authenticated `AZURE_TOKEN_CREDENTIALS=AzureDeveloperCliCredential` is another
+supported local credential selection when the CLI subprocess exceeds its
+default timeout. Never print tokens or use an API-key fallback.
 
 For a working native pretrained service without those additional generative
 models, use the existing account's Document Intelligence invoice analyzer:
@@ -570,9 +589,37 @@ retaining Toolbox configuration does not prove an alternative native Toolbox
 execution route.
 
 The preparer only materializes approved Git archive bytes and an isolated azd
-manifest under git-ignored `.local`. It never executes azd. SDK registration
-cannot copy the source's read-only uploaded code hash: this is explicitly a
-**new source upload and remote build**, not immutable-artifact reuse.
+manifest under git-ignored `.local`. It never executes azd. Its service
+`project` is relative (`source`), as required by azd.
+
+Prefer `shadow-create` for an existing code-based source. The supported SDK
+`download_code` returns the original version's ZIP; `create_version_from_code`
+uploads that exact ZIP with its verified SHA-256. The runner checks the
+download against the independently reviewed source pin before upload, removes
+the read-only `content_hash` from the submitted definition, and compares the
+actual returned source/target definitions and hashes. It never assigns a new
+expected hash merely to pass.
+
+After exact-artifact release approval:
+
+```powershell
+$clone = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+           '--agent', $shadow, '--turns', '1', '--timeout', '120') + $sourcePins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-create @clone --output-dir "$evidence\shadow-original-package"
+if ($LASTEXITCODE -ne 0) { throw 'Keep registration evidence; inspect actual version before retrying' }
+```
+
+A new code version may change only the isolated shadow's default; the baseline
+is never updated. If registration is still activating, observe that exact
+version and resume `shadow-preflight`, not another creation. The code ZIP has a
+250 MB bound. Exact source bytes do not establish identical resolved build
+dependencies or a running process.
+
+The source-based azd route below is optional. A fresh ZIP can differ from the
+original because of checkout line endings and packaging metadata. A raw native
+ZIP is not an azd service-package descriptor: `azd deploy --from-package` did
+not provide this extension's `code-zip` artifact. Prefer the supported SDK
+helper above; never weaken native hash equality to accept a fresh build.
 
 After exact-artifact release approval, create a fresh local azd environment
 for the prepared workspace, bind the existing staging resource group and load
@@ -609,19 +656,24 @@ $common = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
             '--turns', '1', '--timeout', '120') + $sourcePins
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-preflight @common --output-dir "$evidence\shadow-preflight"
 if ($LASTEXITCODE -ne 0) { throw 'Shadow source/runtime/isolation verification failed' }
-azd ai agent invoke $shadow 'CASE-SYN-001' --version $shadowVersion --timeout 120 --cwd $prepared --environment $shadowEnvironment --output json
+azd ai agent invoke $shadow 'CASE-SYN-001' --version $shadowVersion --protocol responses --timeout 120 --cwd $prepared --environment $shadowEnvironment --output raw
 if ($LASTEXITCODE -ne 0) { throw 'Shadow activation or actual invocation failed' }
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py taxonomy-create @common --taxonomy synthetic-prohibited-actions --output-dir "$evidence\taxonomy"
 ```
 
 The observed native code hashes and sanitized runtime definitions must match,
-including routing, CPU/memory, protocols and private storage. Unchanged Git bytes
+including routing, CPU/memory, both protocol representations and private storage. Unchanged Git bytes
 or a successful upload do not waive that check. No baseline metadata is patched
 to fabricate provenance. Fresh output paths are required for every retry.
 
 Inspect every category and subcategory of the generated native taxonomy. The
 service may generate universal scenarios outside the intended synthetic policy.
-Taxonomy generation is not approval. Only after human review of its exact hash:
+The shadow v2 taxonomy generated on 2026-10-21 contains 28 universal actions,
+all disabled. It is review input, not a runnable synthetic policy. Configure
+only the intended synthetic prohibited actions, re-export the native taxonomy
+and review its new exact hash. The runner rejects an all-disabled or empty
+action set before creating an evaluation. Taxonomy generation is not approval.
+Only after human review of its exact hash:
 
 ```powershell
 $approvedHash = '<SHA-256 of the exact reviewed native taxonomy>'

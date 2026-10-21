@@ -53,7 +53,9 @@ def test_prepares_only_named_agent_with_same_source_and_private_store(preparatio
     result = shadow.prepare(args)
     manifest = json.loads((args.output_dir / "azure.yaml").read_text())
     service = manifest["services"][args.agent]
-    assert service["name"] == args.agent and service["project"] == str(args.output_dir / "source")
+    assert service["name"] == args.agent and service["project"] == "source"
+    assert not Path(service["project"]).is_absolute()
+    assert (args.output_dir / service["project"] / "main.py").is_file()
     assert (args.output_dir / "source" / "main.py").read_bytes() == b"print('unchanged')\n"
     assert not (args.output_dir / "source" / "__pycache__").exists()
     assert service["codeConfiguration"] == {

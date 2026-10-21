@@ -7,6 +7,7 @@ isolated project MCP connection and prompt agent. Preview contracts are explicit
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -19,6 +20,7 @@ from native_knowledge_showcase import (
     FILE_SEARCH_QUESTIONS,
     FILE_SEARCH_SOURCE_TOPICS,
     Knowledge,
+    MCP_API,
     Rest,
     ShowcaseError,
     load_corpus,
@@ -26,7 +28,6 @@ from native_knowledge_showcase import (
 )
 
 CONNECTION_API = "2025-10-01-preview"
-MCP_API = "2026-08-01-preview"
 LABEL = "fsi-knowledge"
 TOOL = "knowledge_base_retrieve"
 ARM_SCOPE = "https://management.azure.com/.default"
@@ -116,6 +117,13 @@ class FoundryIQ:
 
     def verify_knowledge(self):
         objects = self.knowledge.status()
+        base = objects["knowledgebases"]
+        if (base.get("retrievalReasoningEffort") != {"kind": "minimal"}
+                or base.get("outputMode") != "extractiveData"
+                or base.get("models") not in (None, [])
+                or base.get("retrievalInstructions") not in (None, "")
+                or base.get("answerInstructions") not in (None, "")):
+            raise ShowcaseError("IQ requires model-free minimal extractive knowledge with no extra instructions")
         sources = objects["knowledgebases"].get("knowledgeSources")
         if (not isinstance(sources, list) or len(sources) != 1
                 or sources[0].get("name") != self.knowledge.source):
@@ -192,9 +200,15 @@ class FoundryIQ:
                 or not re.fullmatch(r"[0-9a-f]{40}", str(binding.get("source_revision", "")))):
             raise ShowcaseError("IQ binding does not match this isolated project/agent/version")
         expected = self.definition(binding.get("model")).as_dict()
-        current = self.project.agents.get_version(
+        current = copy.deepcopy(self.project.agents.get_version(
             agent_name=self.agent_name, agent_version=str(binding["agent_version"]),
-        ).definition.as_dict()
+        ).definition.as_dict())
+        if isinstance(current.get("tools"), list):
+            for tool in current["tools"]:
+                if isinstance(tool, dict):
+                    allowed = tool.get("allowed_tools")
+                    if isinstance(allowed, dict) and set(allowed) == {"tool_names"}:
+                        tool["allowed_tools"] = allowed["tool_names"]
         if current != expected:
             raise ShowcaseError("Pinned IQ agent definition or read-only tool binding changed")
         digest = hashlib.sha256(json.dumps(expected, sort_keys=True).encode("utf-8")).hexdigest()
@@ -222,7 +236,7 @@ class FoundryIQ:
         response = self.client.responses.create(
             input=FILE_SEARCH_QUESTIONS[scenario][language], max_output_tokens=1000,
             max_tool_calls=1,
-            extra_body={"agent": {"type": "agent_reference", "name": self.agent_name,
+            extra_body={"agent_reference": {"type": "agent_reference", "name": self.agent_name,
                                   "version": str(binding["agent_version"])}},
         ).model_dump(mode="json")
         value["native_response"] = response

@@ -458,6 +458,9 @@ def test_upsert_creates_native_index_source_and_base_without_model():
     assert calls[1].args[3]["kind"] == "searchIndex"
     assert calls[1].args[3]["searchIndexParameters"]["semanticConfigurationName"] == "showcase-semantic"
     assert calls[2].args[3]["knowledgeSources"] == [{"name": "fsi-showcase-source"}]
+    assert calls[2].args[1].endswith("?api-version=2026-08-01-preview")
+    assert calls[2].args[3]["retrievalReasoningEffort"] == {"kind": "minimal"}
+    assert calls[2].args[3]["outputMode"] == "extractiveData"
     assert "models" not in calls[2].args[3]
     assert "vectorSearch" not in calls[0].args[3]
 

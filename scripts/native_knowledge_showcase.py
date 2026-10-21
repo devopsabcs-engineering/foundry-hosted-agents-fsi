@@ -3,6 +3,7 @@
 No agent, toolbox, model deployment, pricing, memory, or case store is modified.
 Managed File Search uses reviewed synthetic files and the existing model.
 Search GA 2026-04-01 uses semantic intents with extractive output, not an LLM.
+Knowledge-base preview defaults explicitly select minimal, extractive MCP retrieval.
 CU GA 2025-11-01 uses prebuilt-invoice and never patches resource defaults.
 """
 
@@ -26,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "data" / "showcase" / "knowledge"
 DOCUMENT = ROOT / "data" / "showcase" / "documents" / "synthetic-repair-invoice.txt"
 SEARCH_API = "2026-04-01"
+MCP_API = "2026-08-01-preview"
 CU_API = "2025-11-01"
 DI_API = "2024-11-30"
 ANALYZER = "prebuilt-invoice"
@@ -382,13 +384,15 @@ class Knowledge:
         self.source = f"{prefix}-source"
         self.base = f"{prefix}-kb"
 
-    def call(self, method, path, payload=None, expected=(200,)):
+    def call(self, method, path, payload=None, expected=(200,), *, api_version=SEARCH_API):
         return self.rest.call(
-            method, f"{self.endpoint}/{path}?api-version={SEARCH_API}",
+            method, f"{self.endpoint}/{path}?api-version={api_version}",
             "https://search.azure.com/.default", payload, expected)[0]
 
     def status(self):
-        return {kind: self.call("GET", f"{kind}/{name}") for kind, name in (
+        return {kind: self.call("GET", f"{kind}/{name}",
+                               api_version=MCP_API if kind == "knowledgebases" else SEARCH_API)
+                for kind, name in (
             ("indexes", self.index), ("knowledgesources", self.source),
             ("knowledgebases", self.base))}
 
@@ -410,11 +414,13 @@ class Knowledge:
                       "sourceDataFields": [{"name": n} for n in
                                            ("id", "title", "content", "language", "version", "sha256")]}}
         base = {"name": self.base, "description": "Non-binding synthetic employee training",
-                "knowledgeSources": [{"name": self.source}]}
+                "knowledgeSources": [{"name": self.source}],
+                "retrievalReasoningEffort": {"kind": "minimal"}, "outputMode": "extractiveData"}
         for kind, name, payload in (("indexes", self.index, index),
                                     ("knowledgesources", self.source, source),
                                     ("knowledgebases", self.base, base)):
-            self.call("PUT", f"{kind}/{name}", payload, (200, 201))
+            self.call("PUT", f"{kind}/{name}", payload, (200, 201),
+                      api_version=MCP_API if kind == "knowledgebases" else SEARCH_API)
         return self.status()
 
     def ingest(self, documents):

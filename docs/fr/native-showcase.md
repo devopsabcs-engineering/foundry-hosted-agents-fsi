@@ -46,12 +46,12 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Magasin staging vérifié avec embedding approuvé; refus par rôle 403, pas une ACL par agent |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
-| Connaissances | Récupération Search GA et compagnon IQ MCP natif isolé | CLI implémentée ; nouvelle ressource Search et validation native requièrent la livraison des extensions |
-| Service documentaire | Content Understanding GA avec alias de modèles par requête | Catalogue natif compatible `gpt-4.1` et `text-embedding-3-large` ; déploiements et extraction réelle à valider |
+| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Search synthétique déployé en East US avec six documents révisés ; IQ staging v1 enregistré ; validation des requêtes natives et IQ production en attente |
+| Service documentaire | Content Understanding GA avec alias de modèles par requête | Modèles dédiés `gpt-4.1` et `text-embedding-3-large` et extraction synthétique ancrée vérifiés en staging et production le 2026-10-21, sans modifier les valeurs par défaut |
 | Service documentaire préentraîné | Document Intelligence natif `prebuilt-invoice`, GA `2024-11-30` | Extraction réelle réussie : 1 page, 1 document, 8 champs structurés ancrés, sans nouveau modèle |
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
 | Contrôles d'ancrage | `builtin.groundedness` v18 et `builtin.groundedness_pro` v8 | Les deux ont manqué une réponse française erronée connue ; contrôle négatif échoué, sans gain affirmé |
-| Red team | Taxonomie native puis évaluation ciblant un agent | Taxonomie créée pour staging v2 ; révision exacte avant toute attaque |
+| Red team | Taxonomie native puis évaluation ciblant un agent | Clone staging v2 avec hachage natif original et invocation réelle vérifiés ; nouvelle taxonomie générée, révision humaine en attente ; aucun scan exécuté |
 | Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Neuf spans réels, trois étapes personnalisées, rejeu natif 1/1; pas de récupération du prompt privé |
 | État métier | Cosmos DB et approbation réservée à l'employé | Distinct de la mémoire ; l'agent n'approuve jamais |
 
@@ -306,8 +306,13 @@ $principal = '<ID-objet-opérateur>'
 
 Examinez source, base, activité et citations réelles. Une source inconnue,
 un hachage modifié, une mauvaise langue ou un extrait non soutenu provoque
-un échec. La récupération extractive GA `2026-04-01` ne demande pas de nouveau
-LLM. La CLI ne crée pas automatiquement une connexion Foundry ni un rattachement
+un échec. L'indexation, les sources et la récupération extractive directe GA
+`2026-04-01` ne demandent pas de nouveau LLM. Les valeurs de la base emploient
+`2026-08-01-preview` pour fixer `retrievalReasoningEffort={"kind":"minimal"}`
+et `outputMode=extractiveData`. Une définition GA seule laisse une valeur MCP
+de préversion pouvant demander un modèle non configuré. Appliquez la correction
+`upsert` révisée avant la validation IQ, sans ajouter de modèle de récupération.
+La CLI ne crée pas automatiquement une connexion Foundry ni un rattachement
 à l'agent existant.
 
 ### Enregistrer et vérifier le compagnon IQ natif
@@ -315,8 +320,10 @@ LLM. La CLI ne crée pas automatiquement une connexion Foundry ni un rattachemen
 Le plan des extensions est approuvé dans
 [l'issue 45](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/45).
 Le code, les tests hors ligne, l'approbation de l'artefact exact et la validation
-native restent des étapes distinctes. Aucun test simulé ne prouve un succès
-IQ, CU ou red team dans Azure. La démo v6/v7 reste inchangée.
+native restent des étapes distinctes. CU a réussi réellement dans les deux
+environnements. Search est déployé et le clone isolé a réussi une invocation
+native. La validation IQ et le scan après révision de taxonomie restent des
+étapes distinctes. La démo v6/v7 reste inchangée.
 
 ```mermaid
 flowchart LR
@@ -335,10 +342,13 @@ flowchart LR
 
 Aucune flèche ne relie les extensions à Cosmos. Le compagnon IQ n'a qu'un
 outil MCP de lecture. CU ne calcule ni tarif ni approbation. Le clone red team
-doit prouver son stockage isolé avant les attaques. Search Basic en East US 2
+doit prouver son stockage isolé avant les attaques. Search Basic en East US
 coûte actuellement 0,101 USD/heure, soit environ 73,73 USD pour 730 heures,
 plus les usages de modèles, documents, hébergement et évaluations.
 Une alerte budgétaire n'est pas un plafond de dépenses.
+East US 2 a refusé le nouveau Search avec `InsufficientResourcesAvailable`.
+Le service exclusivement synthétique a été déployé en East US au même prix
+Basic ; Foundry, CU et la démo existante restent en East US 2.
 
 [La CLI IQ](../../scripts/native_foundry_iq.py) crée un agent prompt séparé,
 pas un rattachement au graphe de préparation. Déployez d'abord le template
@@ -391,14 +401,16 @@ inspectable sont obligatoires.
 
 ```powershell
 $cu = '<point-de-terminaison-Content-Understanding>'
-& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py cu-preflight --cu-endpoint $cu
-& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py analyze --cu-endpoint $cu --poll-timeout 120
+$mapping = '{"prebuilt-analyzer-completion":"fsi-showcase-cu-completion","prebuilt-analyzer-embedding":"fsi-showcase-cu-embedding"}'
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py cu-preflight --cu-endpoint $cu --model-deployments $mapping
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py analyze --cu-endpoint $cu --model-deployments $mapping --poll-timeout 120 --output "$evidence\cu-native-invoice.json"
 ```
 
-Staging retourne actuellement `DefaultsNotSet`. Ne remplacez pas les valeurs
+Les valeurs par défaut staging inchangées retournent `DefaultsNotSet`. Ne remplacez pas les valeurs
 par défaut et n'utilisez pas un modèle incompatible. Le provisionnement des
-modèles requis est un changement approuvé distinct ; aucun champ fictif
-ne remplace un échec.
+modèles requis est un changement approuvé distinct. Les déploiements dédiés
+sont maintenant vérifiés dans les deux comptes ; utilisez le mappage complet
+par requête, pas les valeurs par défaut absentes.
 
 Pour l'extension approuvée, [le template de modèles dédiés](../../infra/content-understanding.bicep)
 ajoute seulement `fsi-showcase-cu-completion` (`gpt-4.1`, Standard capacité 10)
@@ -420,6 +432,14 @@ Le fichier de sortie doit être nouveau. Il conserve l'URL d'opération avant
 l'attente, les échecs authentiques et vérifie `SYN-REPAIR-001`, la confiance
 finie, les spans et les polygones de page. Après expiration du délai,
 l'URL reste disponible et l'opération CU distante peut encore s'exécuter.
+
+Le 2026-10-21, l'opération staging `3fba3bf0-7066-4982-902b-f4d61b5d481a`
+et l'opération production `a87c001e-9b27-4070-aa1b-4fe86457ee09` ont réussi
+le validateur d'extraction inchangé. Après un délai dépassé du processus local
+Azure CLI, l'opération staging originale a été reprise et validée, sans
+nouvelle soumission payante. Une session azd déjà authentifiée permet aussi
+`AZURE_TOKEN_CREDENTIALS=AzureDeveloperCliCredential` lorsque le processus CLI
+dépasse son délai local. N'affichez aucun jeton et n'utilisez pas de repli par clé.
 
 Pour montrer un service natif fonctionnel sans ces modèles génératifs
 supplémentaires, utilisez l'analyseur de facture Document Intelligence
@@ -576,9 +596,35 @@ la configuration Toolbox ne prouve pas un autre parcours natif Toolbox.
 
 La préparation matérialise seulement les octets Git approuvés et un manifeste
 azd isolé dans `.local`, ignoré par Git. Elle n'exécute jamais azd.
-Le SDK ne copie pas le hachage de code téléversé en lecture seule :
-c'est explicitement un **nouveau téléversement et build distant**, pas une
-réutilisation d'artefact existant.
+Son chemin `project` est relatif (`source`), comme l'exige azd.
+
+Préférez `shadow-create` pour une source existante basée sur du code. Le SDK
+public `download_code` retourne le ZIP original ; `create_version_from_code`
+téléverse ce même ZIP avec son SHA-256 vérifié. Le runner compare d'abord le
+ZIP à l'empreinte source révisée, retire seulement le champ `content_hash`
+en lecture seule de la définition envoyée et vérifie les définitions et
+hachages natifs réellement retournés. Il ne remplace jamais l'empreinte attendue
+pour faire passer un contrôle.
+
+Après approbation de l'artefact exact :
+
+```powershell
+$clone = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+           '--agent', $shadow, '--turns', '1', '--timeout', '120') + $sourcePins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-create @clone --output-dir "$evidence\shadow-original-package"
+if ($LASTEXITCODE -ne 0) { throw 'Keep registration evidence; inspect actual version before retrying' }
+```
+
+Une nouvelle version de code peut modifier le défaut du clone isolé seulement,
+jamais la démo métier. Si la version s'active encore, observez sa version exacte
+puis reprenez `shadow-preflight`, sans recréer. Le ZIP est borné à 250 MB.
+Des octets identiques ne prouvent ni les dépendances résolues ni un processus actif.
+
+Le parcours azd ci-dessous est optionnel. Un nouveau ZIP peut différer à cause
+des fins de ligne ou des métadonnées de paquet. Un ZIP natif brut n'est pas un
+descripteur de paquet azd : `azd deploy --from-package` ne fournissait pas
+l'artefact `code-zip` exigé. Préférez le SDK public ; ne relâchez pas l'égalité
+des hachages pour accepter un nouveau build.
 
 Après approbation de l'artefact exact, créez un environnement azd local neuf
 pour ce workspace, lié au groupe staging existant, puis chargez les paramètres
@@ -614,20 +660,25 @@ $common = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
             '--turns', '1', '--timeout', '120') + $sourcePins
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-preflight @common --output-dir "$evidence\shadow-preflight"
 if ($LASTEXITCODE -ne 0) { throw 'Shadow source/runtime/isolation verification failed' }
-azd ai agent invoke $shadow 'CASE-SYN-001' --version $shadowVersion --timeout 120 --cwd $prepared --environment $shadowEnvironment --output json
+azd ai agent invoke $shadow 'CASE-SYN-001' --version $shadowVersion --protocol responses --timeout 120 --cwd $prepared --environment $shadowEnvironment --output raw
 if ($LASTEXITCODE -ne 0) { throw 'Shadow activation or actual invocation failed' }
 & .venv\Scripts\python.exe eval\native_showcase_evaluation.py taxonomy-create @common --taxonomy synthetic-prohibited-actions --output-dir "$evidence\taxonomy"
 ```
 
 Les hachages natifs et la définition assainie doivent correspondre : routage,
-CPU/mémoire, protocoles et stockage privé. Les octets Git identiques ou un
+CPU/mémoire, les deux représentations des protocoles et stockage privé. Les octets Git identiques ou un
 téléversement réussi ne remplacent pas ce contrôle. Aucune métadonnée métier
 n'est modifiée pour fabriquer une provenance. Chaque nouvelle tentative
 demande un chemin de sortie neuf.
 
 Révisez chaque catégorie et sous-catégorie générée. Le service peut produire
-des scénarios universels hors de la politique synthétique visée. La génération
-n'est pas une autorisation. Après approbation humaine du hachage exact :
+des scénarios universels hors de la politique synthétique visée. La taxonomie
+du clone v2 générée le 2026-10-21 contient 28 actions universelles, toutes
+désactivées. Elle sert à la révision, pas à un scan de la politique synthétique.
+Configurez seulement les actions synthétiques interdites visées, exportez de
+nouveau la taxonomie native et révisez son nouveau hachage exact. Le runner
+refuse un ensemble vide ou entièrement désactivé avant de créer une évaluation.
+La génération n'est pas une autorisation. Après approbation humaine du hachage exact :
 
 ```powershell
 $approvedHash = '<SHA-256-de-la-taxonomie-native-exactement-révisée>'
