@@ -19,11 +19,13 @@ historical author-only descriptions.
 
 ## Deployed baseline
 
-Release [39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-deployed approved runtime source `01af1fb`: staging agent v5 and production v6.
+Release [39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+deployed approved runtime source `2c3f13b`: staging agent v6 and production v7.
 Both environments include chat, employee review, two read-only MCP endpoints,
 Cosmos persistence and native telemetry. The project suffix `-poc` means
-production. Documentation-only changes do not dispatch a release.
+production. Production revision-2 correction/audit, self-approval denial and
+both reviewer identities' invocation200/memory403 controls are verified.
+Chat retains its prior image. Documentation-only changes do not dispatch a release.
 
 The graph uses deterministic stages and calculator logic, not a generative
 pricing model. Employee approval remains separate. Native skills, File Search,

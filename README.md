@@ -92,10 +92,12 @@ that limitation rather than claiming a quality pass. Keep both environments depl
 See [current release evidence and screenshots](docs/showcase-evidence.md) for
 the successful replacements of both failed generation jobs and the distinction
 between published images and deployed runtime versions. Approved release
-[`39424857559`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-deployed runtime revision `01af1fb` as staging v5 and production v6, with
-both chat/reviewer UIs and both MCP services ready. Genuine playground checks
-passed. Native applicant-message judging passed 5/5 in each language on all
+[`39527950931`, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+deployed runtime revision `2c3f13b` as staging v6 and production v7, with
+both chat/reviewer UIs and both MCP services ready. Production revision-2
+correction, current audit and self-approval denial passed; both actual reviewer
+identities passed invocation200/memory403. Chat retains its verified image.
+Native applicant-message judging passed 5/5 in each language on all
 three criteria without errors; the historical 0/10 result belongs to a
 different contract and remains preserved. These retained results are not
 continuous availability guarantees.

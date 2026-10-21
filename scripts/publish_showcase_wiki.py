@@ -53,6 +53,9 @@ SCREENSHOTS = (
     "foundry-production-playground-v6.png",
     "revision-staging-completed-en.png",
     "revision-staging-completed-fr.png",
+    "revision-production-completed-en.png",
+    "revision-production-completed-fr.png",
+    "foundry-production-agent-v7.png",
 )
 
 

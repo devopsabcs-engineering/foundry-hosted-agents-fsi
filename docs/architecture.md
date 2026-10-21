@@ -8,22 +8,22 @@ description: Deployed Foundry agent, deterministic workflow, employee review, na
 
 ## Current implementation and deployed baseline
 
-The last successful full-release checkpoint ran a real Microsoft Foundry Responses host:
-staging agent **v5**, production **v6**, approved runtime source `01af1fb`,
-[release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
+The verified release runs a real Microsoft Foundry Responses host:
+staging agent **v6**, production **v7**, approved runtime source `2c3f13b`,
+[release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931).
 The `-poc` Foundry account/project suffix identifies production, not staging.
-Both chat apps, both reviewer apps and four MCP apps are deployed. Publication
-commits preceding issue #28 changed documentation, not the runtime. The source
-trees for `src`, `apps` and `infra` matched merged main `a4b6008` at that checkpoint.
+Both chat apps, both reviewer apps and four MCP apps are deployed. Reviewer
+and MCP images match their evaluated staging digests. Chat retains its
+previous verified image; it was not rebuilt by this release.
 Version numbers are a dated observation, not invocation-routing parameters.
 
 The revision-resubmission implementation below is tracked in
 [issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
-Authenticated staging testing subsequently verified native revision-2
-resubmission, current audit and identity controls on source `cf2d003`.
-See the [bilingual revision proof](showcase-evidence.md).
-Production promotion of this revision feature is not yet confirmed; the earlier
-full release is not evidence that these new controls are live in production.
+Authenticated production testing verified native revision-2 resubmission,
+active/draft queue visibility, current audit and self-approval denial.
+The actual reviewer identities in both environments passed invocation 200
+and operator-memory denial 403. See the [bilingual revision proof](showcase-evidence.md)
+for response provenance, native judge runs and historical checkpoints.
 
 All data, rates and outputs are synthetic training material. No actual
 insurance quote, delivery, customer policy or automatic approval is represented.

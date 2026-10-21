@@ -9,8 +9,8 @@ description: Safe operation and troubleshooting of the retained synthetic demo e
 
 ## Retained environment
 
-Release [39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-is the current verified baseline: staging v5, production v6, source `01af1fb`.
+Release [39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+is the current verified baseline: staging v6, production v7, source `2c3f13b`.
 Both environments are retained without teardown. Home contains actual app and
 Foundry links; `-poc` identifies production.
 

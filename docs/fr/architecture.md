@@ -8,24 +8,25 @@ description: Agent Foundry déployé, traitement déterministe, validation humai
 
 ## État déployé
 
-Le dernier point de contrôle complet utilisait le véritable hôte Responses de Foundry :
-agent staging **v5**, production **v6**, source approuvée `01af1fb`,
-[livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
+La livraison vérifiée utilise le véritable hôte Responses de Foundry :
+agent staging **v6**, production **v7**, source approuvée `2c3f13b`,
+[livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931).
 Le suffixe `-poc` du compte/projet désigne la production. Les deux chats, les
 deux applications de révision et les quatre services MCP sont déployés.
-Les arbres `src`, `apps` et `infra` correspondaient au main fusionné `a4b6008`
-à ce point de contrôle.
+Les digests reviewer et MCP correspondent aux images évaluées en staging.
+Le chat conserve son image précédemment vérifiée, sans nouveau build.
 Ces versions constituent une observation datée, pas des paramètres de routage.
 Les anciens avertissements « author-only » ne décrivent plus cet inventaire.
 Toute nouvelle modification d'infrastructure reste soumise à approbation.
 
 La resoumission après correction décrite ci-dessous est suivie dans
 [l'issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
-Un test staging authentifié a ensuite vérifié la nouvelle préparation native
-de révision 2, le journal actuel et les contrôles d'identité sur `cf2d003`.
-Consultez les [preuves bilingues de révision](showcase-evidence.md).
-La promotion de cette fonction en production n'est pas encore confirmée ;
-l'ancienne livraison complète ne prouve pas que ces contrôles y sont actifs.
+Le test authentifié de production a vérifié la nouvelle préparation native
+de révision 2, sa visibilité dans les files active/brouillon, le journal actuel
+et le refus d'auto-approbation. Les vraies identités reviewer des deux
+environnements ont obtenu invocation 200 et refus mémoire opérateur 403.
+Consultez les [preuves bilingues de révision](showcase-evidence.md), leur
+provenance, les juges natifs et les points de contrôle historiques.
 
 Les données, tarifs et résultats sont synthétiques. Aucune offre réelle,
 livraison au client ou approbation automatique n'est représentée.

@@ -19,10 +19,12 @@ Staging et production rétablissent le mode natif avant de renouveler le jeton.
 
 ## Conserver la démo restaurée
 
-L'agent actuellement vérifié utilise la version 5 en staging et la version 6
-en production. La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
-a déployé le code approuvé `01af1fb`, avec des digests de chat et de reviewer
-identiques entre les environnements, vérifiés indépendamment.
+L'agent actuellement vérifié utilise la version 6 en staging et la version 7
+en production. La [livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
+a déployé le code approuvé `2c3f13b`, avec des digests reviewer et MCP
+identiques entre les environnements, vérifiés indépendamment. Le chat conserve
+son image vérifiée précédente. Le parcours de correction en production et les
+contrôles invocation200/mémoire403 des deux identités reviewer ont réussi.
 La [livraison 39293980605, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 avait restauré la référence v2/v3. Les deux environnements restent
 déployés. Ne lancez aucun démantèlement, ne remplacez pas les identités et ne
