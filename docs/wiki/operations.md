@@ -56,6 +56,10 @@ The actual workload identity must obtain a native Responses result for the
 existing synthetic smoke case and receive 403 when listing operator memory.
 The probe retries only invocation 403 responses during bounded RBAC propagation;
 it never logs tokens, changes memory, or grants additional permissions.
+On headless Linux runners it supplies a temporary pseudo-terminal for Azure CLI's
+stdin because `containerapp exec` sets terminal cbreak mode even for a fixed
+command. Descriptors are closed on success and failure; output remains captured
+and the authorization checks are unchanged.
 
 ## Safe changes
 

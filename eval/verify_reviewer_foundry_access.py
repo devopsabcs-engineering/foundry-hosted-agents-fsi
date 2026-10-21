@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import argparse
 import base64
+from contextlib import contextmanager
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 MARKER = "REVIEWER_FOUNDRY_ACCESS="
 PROBE = """
@@ -63,6 +66,21 @@ def validate_result(stdout: str) -> dict:
     return result
 
 
+@contextmanager
+def terminal_stdin():
+    if sys.platform == "win32":
+        yield None
+        return
+    import pty
+
+    master, slave = pty.openpty()
+    try:
+        yield slave
+    finally:
+        os.close(slave)
+        os.close(master)
+
+
 def verify_access(args) -> dict:
     cli = shutil.which("az")
     if cli is None:
@@ -75,11 +93,13 @@ def verify_access(args) -> dict:
     encoded = base64.b64encode(PROBE.encode()).decode()
     command = f"python -c \"exec(__import__('base64').b64decode('{encoded}'))\""
     try:
-        completed = subprocess.run([
-            *prefix, "containerapp", "exec", "--name", args.app,
-            "--resource-group", args.resource_group, "--subscription", args.subscription,
-            "--command", command,
-        ], capture_output=True, text=True, check=True, timeout=1200)
+        # Azure CLI sets cbreak mode on stdin even for a noninteractive command.
+        with terminal_stdin() as stdin:
+            completed = subprocess.run([
+                *prefix, "containerapp", "exec", "--name", args.app,
+                "--resource-group", args.resource_group, "--subscription", args.subscription,
+                "--command", command,
+            ], stdin=stdin, capture_output=True, text=True, check=True, timeout=1200)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             f"Reviewer workload probe exited {exc.returncode}:\n{exc.stdout}\n{exc.stderr}"

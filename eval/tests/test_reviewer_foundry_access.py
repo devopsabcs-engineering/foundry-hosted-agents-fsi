@@ -1,6 +1,8 @@
 import json
+import os
 from pathlib import Path
 import sys
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -63,3 +65,29 @@ def test_both_release_environments_gate_on_actual_reviewer_identity():
     assert workflow.count("python eval/verify_reviewer_foundry_access.py") == 2
     assert 'reviewer-access-staging.json' in workflow
     assert 'reviewer-access-production.json' in workflow
+
+
+def test_windows_preserves_default_stdin(monkeypatch):
+    monkeypatch.setattr(probe.sys, "platform", "win32")
+    with probe.terminal_stdin() as stdin:
+        assert stdin is None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX pseudo-terminal contract")
+@pytest.mark.parametrize("failed", [False, True])
+def test_posix_stdin_supports_real_cli_cbreak_and_closes_descriptors(failed):
+    fd = None
+    try:
+        with probe.terminal_stdin() as fd:
+            assert os.isatty(fd)
+            child = subprocess.run(
+                [sys.executable, "-c", "import tty; tty.setcbreak(0); print('terminal-ready')"],
+                stdin=fd, capture_output=True, text=True, check=True, timeout=10,
+            )
+            assert child.stdout.strip() == "terminal-ready"
+            if failed:
+                raise RuntimeError("synthetic subprocess failure")
+    except RuntimeError as exc:
+        assert failed and str(exc) == "synthetic subprocess failure"
+    with pytest.raises(OSError):
+        os.fstat(fd)
