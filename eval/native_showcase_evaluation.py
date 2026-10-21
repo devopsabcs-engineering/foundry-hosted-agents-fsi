@@ -437,7 +437,7 @@ def shadow_source(project, args) -> tuple[dict, dict]:
             raise ValueError("Source container artifact must be immutable and digest-pinned")
     runtime_keys = {
         "kind", "cpu", "memory", "rai_config", "container_configuration", "code_configuration",
-        "protocol_versions",
+        "protocol_versions", "container_protocol_versions",
     }
     if set(definition) - runtime_keys - {"environment_variables", "telemetry_config"}:
         raise ValueError("Unreviewed source runtime fields require explicit isolation review")
@@ -474,7 +474,7 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
         "source_definition_sha256": args.source_definition_sha256,
         "source_content_sha256": (source["definition"].get("code_configuration") or {}).get("content_hash"),
         "deployment_kind": "independently-deployed-code-shadow" if isolated.get("code_configuration") else "container-clone",
-        "artifact_relationship": "Observed immutable artifact equality; no SDK code-clone or upload receipt claimed",
+        "artifact_relationship": "Observed immutable artifact equality; identical resolved dependencies or container image not asserted",
         "shadow_definition_sha256": taxonomy_digest(isolated),
         "agent": args.agent, "same_staging_project": True,
         "cosmos_configured": False, "case_store": "private-in-memory",
@@ -485,23 +485,40 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
         "baseline_modified": False,
     }
     if create:
-        if isolated.get("code_configuration"):
-            write_json(args.output_dir / "shadow-preflight.json", identity | {
-                "ready_for_native_scan": False, "running": False,
-                "limitation": (
-                    "SDK content_hash is read-only: use scripts/prepare_redteam_shadow.py and a NEW "
-                    "azd remote-build deployment, then verify its exact observed content_hash and definition. "
-                    "No copied uploaded artifact is claimed."
-                ),
-            })
-            raise ValueError("SDK content_hash is read-only; prepare a NEW azd remote-build deployment instead")
         from azure.ai.projects.models import HostedAgentDefinition
 
-        # draft avoids changing even this shadow endpoint's default/latest resolution.
-        target = project.agents.create_version(
-            args.agent, definition=HostedAgentDefinition(isolated), draft=True,
-            metadata={"source_revision": args.source_revision, "source_id": source["id"]},
-        ).as_dict()
+        if isolated.get("code_configuration"):
+            package = args.output_dir / "original-native-code.zip"
+            digest, size = hashlib.sha256(), 0
+            with package.open("xb") as handle:
+                for chunk in project.agents.download_code(
+                    args.source_agent, agent_version=args.source_agent_version,
+                ):
+                    size += len(chunk)
+                    if size > 250_000_000:
+                        raise ValueError("Original native code ZIP exceeds the supported 250 MB limit")
+                    digest.update(chunk)
+                    handle.write(chunk)
+            if digest.hexdigest() != args.source_content_sha256:
+                write_json(args.output_dir / "shadow-preflight.json", identity | {
+                    "ready_for_native_scan": False, "running": False,
+                    "limitation": "Downloaded original native ZIP differs from the pinned source content_hash",
+                })
+                raise ValueError("Downloaded original native ZIP differs from the pinned source content_hash")
+            upload_definition = copy.deepcopy(isolated)
+            del upload_definition["code_configuration"]["content_hash"]
+            with package.open("rb") as handle:
+                target = project.agents.create_version_from_code(
+                    args.agent, definition=HostedAgentDefinition(upload_definition), code=handle,
+                    code_zip_sha256=args.source_content_sha256,
+                    metadata={"source_revision": args.source_revision, "source_id": source["id"]},
+                ).as_dict()
+        else:
+            # Draft avoids changing this container shadow endpoint's default resolution.
+            target = project.agents.create_version(
+                args.agent, definition=HostedAgentDefinition(isolated), draft=True,
+                metadata={"source_revision": args.source_revision, "source_id": source["id"]},
+            ).as_dict()
         write_json(args.output_dir / "shadow-registration.json", identity | {
             "agent_version": target.get("version"), "id": target.get("id"),
             "status": target.get("status"), "running": False,
@@ -561,7 +578,7 @@ def taxonomy_digest(taxonomy: dict) -> str:
     ).hexdigest()
 
 
-def validate_taxonomy(taxonomy: dict, args) -> dict:
+def validate_taxonomy(taxonomy: dict, args, *, require_enabled: bool = False) -> dict:
     if taxonomy.get("name") != args.taxonomy:
         raise ValueError("Native taxonomy identity differs from requested taxonomy")
     taxonomy_input = taxonomy.get("taxonomy_input", taxonomy.get("taxonomyInput", {}))
@@ -575,6 +592,7 @@ def validate_taxonomy(taxonomy: dict, args) -> dict:
     if not taxonomy.get("id") or not isinstance(categories, list) or not categories:
         raise ValueError("Native taxonomy is not ready or has no reviewable categories")
     ids = set()
+    enabled = 0
     for category in categories:
         if (not isinstance(category, dict) or not category.get("id") or not category.get("name")
                 or category["id"] in ids
@@ -586,6 +604,9 @@ def validate_taxonomy(taxonomy: dict, args) -> dict:
             if (not isinstance(subcategory, dict) or not subcategory.get("id")
                     or not subcategory.get("name") or type(subcategory.get("enabled")) is not bool):
                 raise ValueError("Malformed generated taxonomy subcategory; human review required")
+            enabled += int(subcategory["enabled"])
+    if require_enabled and not enabled:
+        raise ValueError("Reviewed taxonomy must enable at least one synthetic prohibited action before scanning")
     return target
 
 
@@ -639,7 +660,7 @@ def red_team(project, client, args) -> dict:
     taxonomy = project.beta.evaluation_taxonomies.get(args.taxonomy).as_dict()
     if taxonomy_digest(taxonomy) != args.approved_taxonomy_sha256:
         raise ValueError("Taxonomy changed or was not reviewed; export, inspect, and approve its exact hash")
-    target = validate_taxonomy(taxonomy, args)
+    target = validate_taxonomy(taxonomy, args, require_enabled=True)
     evaluation = client.evals.create(
         name="Session 2 reviewed synthetic red team",
         timeout=min(60, args.timeout),

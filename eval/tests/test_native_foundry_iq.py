@@ -35,7 +35,8 @@ def native(tmp_path, monkeypatch):
     fields = [{"name": name} for name in ("id", "title", "content", "language", "version", "sha256")]
     monkeypatch.setattr(companion.knowledge, "status", Mock(return_value={
         "indexes": {"fields": fields},
-        "knowledgebases": {"knowledgeSources": [{"name": "fsi-showcase-source"}]},
+        "knowledgebases": {"knowledgeSources": [{"name": "fsi-showcase-source"}],
+                          "retrievalReasoningEffort": {"kind": "minimal"}, "outputMode": "extractiveData"},
         "knowledgesources": {"kind": "searchIndex", "searchIndexParameters": {
             "searchIndexName": "fsi-showcase-index", "sourceDataFields": fields,
         }},
@@ -158,7 +159,8 @@ def test_query_pins_agent_version_and_retains_actual_mcp_source_markers(native, 
     evidence_path = output.with_name("query.json")
     result = companion.query(value, language, scenario, evidence_path)
     args = client.responses.create.call_args.kwargs
-    assert args["extra_body"]["agent"] == {
+    assert "agent" not in args["extra_body"]
+    assert args["extra_body"]["agent_reference"] == {
         "type": "agent_reference", "name": "fsi-showcase-iq", "version": "1",
     }
     assert args["max_tool_calls"] == 1
@@ -237,6 +239,39 @@ def test_binding_tampering_and_live_definition_changes_block_request(native):
     client.responses.create.assert_not_called()
 
 
+def test_canonical_native_tool_filter_preserves_original_binding_digest(native):
+    companion, _, project, client, _ = native
+    value = binding(native)
+    current = companion.definition("existing-mini").as_dict()
+    current["tools"][0]["allowed_tools"] = {"tool_names": [iq.TOOL]}
+    project.agents.get_version.return_value = SimpleNamespace(
+        definition=SimpleNamespace(as_dict=lambda: current),
+    )
+    companion.check_binding(value)
+    assert current["tools"][0]["allowed_tools"] == {"tool_names": [iq.TOOL]}
+    client.responses.create.assert_not_called()
+
+
+@pytest.mark.parametrize("allowed", [
+    {"tool_names": [iq.TOOL, "write_case"]},
+    {"tool_names": []},
+    {"tool_names": [iq.TOOL], "read_only": True},
+    {"tool_names": [iq.TOOL], "unexpected": "unreviewed"},
+    {"tool_names": None},
+])
+def test_canonical_native_filter_drift_still_blocks_before_model_request(native, allowed):
+    companion, _, project, client, _ = native
+    value = binding(native)
+    current = companion.definition("existing-mini").as_dict()
+    current["tools"][0]["allowed_tools"] = allowed
+    project.agents.get_version.return_value = SimpleNamespace(
+        definition=SimpleNamespace(as_dict=lambda: current),
+    )
+    with pytest.raises(iq.ShowcaseError, match="definition"):
+        companion.check_binding(value)
+    client.responses.create.assert_not_called()
+
+
 def test_optional_knowledge_reference_properties_do_not_change_its_pinned_source(native):
     companion, _, _, _, _ = native
     companion.knowledge.status.return_value["knowledgebases"]["knowledgeSources"][0][
@@ -263,11 +298,22 @@ def test_preflight_verifies_actual_project_identity_and_isolated_source(native, 
     assert verify.call_args.args[-2:] == ("actual-project-mi", "query")
 
 
-@pytest.mark.parametrize("damage", ["base", "index", "kind", "index-fields", "source-fields"])
+@pytest.mark.parametrize("damage", [
+    "base", "index", "kind", "index-fields", "source-fields",
+    "reasoning", "retrieval-model", "synthesis", "extra-instructions",
+])
 def test_query_rechecks_mutable_knowledge_links_and_schema_before_model_request(native, damage):
     companion, _, _, client, output = native
     value = binding(native)
     objects = companion.knowledge.status.return_value
+    if damage == "reasoning":
+        objects["knowledgebases"]["retrievalReasoningEffort"] = {"kind": "low"}
+    elif damage == "retrieval-model":
+        objects["knowledgebases"]["models"] = [{"kind": "azureOpenAI"}]
+    elif damage == "synthesis":
+        objects["knowledgebases"]["outputMode"] = "answerSynthesis"
+    elif damage == "extra-instructions":
+        objects["knowledgebases"]["retrievalInstructions"] = "Use another source"
     if damage == "base":
         objects["knowledgebases"]["knowledgeSources"] = [{"name": "unreviewed-source"}]
     elif damage == "index":
@@ -276,7 +322,7 @@ def test_query_rechecks_mutable_knowledge_links_and_schema_before_model_request(
         objects["knowledgesources"]["kind"] = "web"
     elif damage == "index-fields":
         objects["indexes"]["fields"] = objects["indexes"]["fields"] + [{"name": "unreviewed"}]
-    else:
+    elif damage == "source-fields":
         objects["knowledgesources"]["searchIndexParameters"]["sourceDataFields"] = [{"name": "unreviewed"}]
     with pytest.raises(iq.ShowcaseError):
         companion.query(value, "en", "approval", output.with_name("changed-knowledge.json"))

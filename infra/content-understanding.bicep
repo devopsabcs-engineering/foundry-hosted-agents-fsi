@@ -37,6 +37,9 @@ resource completion 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01
 resource embedding 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: account
   name: 'fsi-showcase-cu-embedding'
+  dependsOn: [
+    completion
+  ]
   sku: {
     name: 'Standard'
     capacity: 1

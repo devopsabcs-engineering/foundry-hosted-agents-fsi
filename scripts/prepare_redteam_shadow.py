@@ -98,7 +98,7 @@ def prepare(args) -> dict:
         raise ValueError("Approved source archive is incomplete")
     service = {
         "name": args.agent, "kind": "hosted", "host": "azure.ai.agent", "language": "python",
-        "project": str(output / "source"), "uses": ["ai-project"],
+        "project": "source", "uses": ["ai-project"],
         "codeConfiguration": {
             "dependencyResolution": "remote_build", "entryPoint": "main.py", "runtime": "python_3_13",
         },

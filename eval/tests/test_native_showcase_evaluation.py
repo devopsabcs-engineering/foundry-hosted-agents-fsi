@@ -284,7 +284,10 @@ def shadow_clients(native_clients):
         },
         "taxonomy_categories": [{
             "id": "premature-disclosure", "name": "premature-disclosure",
-            "risk_category": "ProhibitedActions", "sub_categories": [],
+            "risk_category": "ProhibitedActions", "sub_categories": [{
+                "id": "premature-amount", "name": "Disclose an unapproved synthetic amount",
+                "enabled": True,
+            }],
         }],
     }
     project.beta.evaluation_taxonomies.get.return_value.as_dict.return_value = taxonomy
@@ -316,6 +319,20 @@ def test_red_team_requires_exact_reviewed_taxonomy_before_any_run(shadow_clients
     project, client, args, *_ = shadow_clients
     args.approved_taxonomy_sha256 = "0" * 64
     with pytest.raises(ValueError, match="not reviewed"):
+        showcase.red_team(project, client, args)
+    client.evals.create.assert_not_called()
+
+
+@pytest.mark.parametrize("empty", [True, False])
+def test_red_team_rejects_taxonomy_without_enabled_actions_before_any_run(shadow_clients, empty):
+    project, client, args, _, _, taxonomy, *_ = shadow_clients
+    actions = taxonomy["taxonomy_categories"][0]["sub_categories"]
+    if empty:
+        actions.clear()
+    else:
+        actions[0]["enabled"] = False
+    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+    with pytest.raises(ValueError, match="enable at least one"):
         showcase.red_team(project, client, args)
     client.evals.create.assert_not_called()
 
@@ -403,25 +420,63 @@ def test_pinned_shadow_checks_reject_metadata_only_isolation(shadow_clients, cha
     client.evals.create.assert_not_called()
 
 
-def test_code_artifact_clone_is_explicitly_blocked_without_inventing_reuse(shadow_clients):
+@pytest.mark.parametrize("damaged_download", [None, "hash", "oversized"])
+def test_code_shadow_reuploads_only_the_verified_original_native_zip(shadow_clients, damaged_download):
+    import hashlib
+
     from azure.ai.projects.models import CodeConfiguration
 
     assert "read-only" in CodeConfiguration.__doc__
-    project, client, args, source, *_ = shadow_clients
+    project, client, args, source, target, *_ = shadow_clients
+    package = b"original-reviewed-native-code-zip"
+    expected = hashlib.sha256(package).hexdigest()
     source["definition"].pop("container_configuration")
     source["definition"]["code_configuration"] = {
         "runtime": "python_3_13", "entry_point": ["python", "main.py"],
-        "dependency_resolution": "remote_build", "content_hash": "a" * 64,
+        "dependency_resolution": "remote_build", "content_hash": expected,
     }
-    args.source_content_sha256 = "a" * 64
+    args.source_content_sha256 = expected
     args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
-    with pytest.raises(ValueError, match="content_hash is read-only"):
-        showcase.shadow_preflight(project, args, create=True)
+    target["definition"] = json.loads(json.dumps(source["definition"]))
+    target["definition"]["environment_variables"] = showcase.shadow_environment(
+        source["definition"]["environment_variables"], args.endpoint,
+    )
+    downloaded = b"unreviewed-zip" if damaged_download == "hash" else package
+    chunks = [downloaded[:4], downloaded[4:]]
+    if damaged_download == "oversized":
+        oversized = MagicMock()
+        oversized.__len__.return_value = 250_000_001
+        chunks = [oversized]
+    project.agents.download_code.return_value = iter(chunks)
+    uploads = []
+
+    def upload(*positional, **kwargs):
+        uploads.append(kwargs["code"].read())
+        assert kwargs["code_zip_sha256"] == expected
+        assert "content_hash" not in kwargs["definition"].as_dict()["code_configuration"]
+        assert kwargs["definition"].as_dict()["environment_variables"]["CASE_STORE_DB_PATH"] == ":memory:"
+        return SimpleNamespace(as_dict=lambda: target)
+
+    project.agents.create_version_from_code.side_effect = upload
+    if damaged_download:
+        message = "250 MB" if damaged_download == "oversized" else "Downloaded original native ZIP"
+        with pytest.raises(ValueError, match=message):
+            showcase.shadow_preflight(project, args, create=True)
+        project.agents.create_version_from_code.assert_not_called()
+        assert uploads == []
+    else:
+        result = showcase.shadow_preflight(project, args, create=True)
+        assert result["ready_for_native_scan"] is True
+        assert result["source_content_sha256"] == expected
+        assert uploads == [package]
+    project.agents.download_code.assert_called_once_with(
+        args.source_agent, agent_version=args.source_agent_version,
+    )
     project.agents.create_version.assert_not_called()
     client.evals.create.assert_not_called()
 
 
-@pytest.mark.parametrize("drift", [None, "bundle", "runtime", "cosmos", "project", "toolbox", "source-pin"])
+@pytest.mark.parametrize("drift", [None, "bundle", "runtime", "cosmos", "project", "toolbox", "source-pin", "legacy-protocol"])
 def test_fresh_azd_code_shadow_requires_observed_bundle_runtime_and_route_equality(shadow_clients, drift):
     project, client, args, source, target, *_ = shadow_clients
     source.pop("metadata")
@@ -430,6 +485,7 @@ def test_fresh_azd_code_shadow_requires_observed_bundle_runtime_and_route_equali
         "runtime": "python_3_13", "entry_point": ["python", "main.py"],
         "dependency_resolution": "remote_build", "content_hash": "a" * 64,
     }
+    source["definition"]["container_protocol_versions"] = []
     source["definition"]["environment_variables"].update({
         "AZURE_AI_PROJECT_ENDPOINT": args.endpoint, "FOUNDRY_TOOLBOX_VERSION": "1",
         "AZURE_AI_MODEL_DEPLOYMENT_NAME": "gpt-4o-mini",
@@ -454,6 +510,8 @@ def test_fresh_azd_code_shadow_requires_observed_bundle_runtime_and_route_equali
         target["definition"]["environment_variables"].pop("FOUNDRY_TOOLBOX_VERSION")
     elif drift == "source-pin":
         args.source_content_sha256 = "c" * 64
+    elif drift == "legacy-protocol":
+        target["definition"]["container_protocol_versions"] = [{"protocol": "activity", "version": "v1"}]
     if drift:
         with pytest.raises(ValueError):
             showcase.red_team(project, client, args)
@@ -518,6 +576,14 @@ def test_taxonomy_creation_uses_native_sdk_models_and_requires_review(shadow_cli
         "riskCategories": ["ProhibitedActions"],
     }
     assert result["human_review_required"] is True and result["approved"] is False
+
+
+def test_taxonomy_creation_preserves_disabled_actions_for_human_review(shadow_clients):
+    project, _, args, _, _, taxonomy, *_ = shadow_clients
+    taxonomy["taxonomy_categories"][0]["sub_categories"][0]["enabled"] = False
+    result = showcase.taxonomy_create(project, args)
+    assert result["human_review_required"] is True and result["approved"] is False
+    assert (args.output_dir / "taxonomy.json").is_file()
 
 
 @pytest.mark.parametrize("change", ["name", "version", "target-type", "risks", "generated-risk", "missing"])
