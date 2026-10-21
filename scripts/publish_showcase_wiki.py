@@ -51,6 +51,8 @@ SCREENSHOTS = (
     "foundry-memory-portal.png",
     "foundry-staging-playground-v5.png",
     "foundry-production-playground-v6.png",
+    "revision-staging-completed-en.png",
+    "revision-staging-completed-fr.png",
 )
 
 

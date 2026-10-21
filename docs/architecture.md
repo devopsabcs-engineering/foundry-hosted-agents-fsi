@@ -8,7 +8,7 @@ description: Deployed Foundry agent, deterministic workflow, employee review, na
 
 ## Current implementation and deployed baseline
 
-The retained customer demo runs a real Microsoft Foundry Responses host:
+The last successful full-release checkpoint ran a real Microsoft Foundry Responses host:
 staging agent **v5**, production **v6**, approved runtime source `01af1fb`,
 [release 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559).
 The `-poc` Foundry account/project suffix identifies production, not staging.
@@ -19,8 +19,11 @@ Version numbers are a dated observation, not invocation-routing parameters.
 
 The revision-resubmission implementation below is tracked in
 [issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
-Its deployment must be confirmed by a subsequent approved release; the earlier
-release is not evidence that these new controls are live.
+Authenticated staging testing subsequently verified native revision-2
+resubmission, current audit and identity controls on source `cf2d003`.
+See the [bilingual revision proof](showcase-evidence.md).
+Production promotion of this revision feature is not yet confirmed; the earlier
+full release is not evidence that these new controls are live in production.
 
 All data, rates and outputs are synthetic training material. No actual
 insurance quote, delivery, customer policy or automatic approval is represented.

@@ -8,7 +8,41 @@ description: Reprise des générations natives, versions réellement exécutées
 
 [Architecture déployée et provenance des preuves](architecture.md)
 
-## Livraison approuvée actuelle
+## Révision vérifiée en staging
+
+Le 2026-10-21 UTC, un test authentifié a vérifié le parcours de révision de
+l'issue #28 sur la source `cf2d003`, agent hébergé version `6`, reviewer
+`foundry-quote-reviewer-staging--0000008`. Le dossier isolé `CASE-SYN-004`
+est passé de la révision 1 à un brouillon visible de révision 2. La correction
+`TRAINING_BASIC` a réellement appelé l'agent natif et persisté
+`PENDING_REVIEW`, `READY` et `90000` cents au lieu de `110000`. Le journal
+actuel contient la correction et `PREPARATION_COMPLETED`, avec le même
+identifiant de réponse :
+`resp_s3sUcqvCtyQESOmh5YWwTY30XsH5UzmgpFJzGMP2DCTSW2JohY`.
+
+L'auto-approbation a retourné HTTP 403 `SELF_APPROVAL`. L'identité réelle du
+reviewer a obtenu HTTP 200 sur l'endpoint natif et HTTP 403 sur la liste mémoire
+après propagation du rôle projet `Foundry Agent Consumer`. Aucun `agents/write`,
+rôle large Foundry User, changement mémoire, vidage de file ou correction de
+cas du benchmark n'a été nécessaire. Les essais échoués restent dans le journal.
+
+Ces captures bilingues proviennent de l'application réelle, avec seulement
+un zoom de présentation ; valeurs et journal n'ont pas été modifiés.
+
+![Révision 2 staging préparée par l'agent natif, anglais](../assets/evidence/revision-staging-completed-en.png)
+
+![Révision 2 staging préparée par l'agent natif, français](../assets/evidence/revision-staging-completed-fr.png)
+
+La PR #34 rend le rôle Consumer déclaratif et ajoute les contrôles d'invocation
+et de refus mémoire aux deux étapes de déploiement. La
+[livraison 39523315263](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39523315263)
+a ensuite atteint la révision staging saine `0000009`, mais son contrôle CLI
+Linux a échoué avant l'exécution distante : stdin n'était pas un terminal.
+La PR #36 corrige ce défaut CI avec des tests Linux du véritable mode cbreak.
+Cette exécution n'a pas promu la production. L'inventaire ci-dessous est le
+dernier point de contrôle complet réussi, pas le nouvel inventaire staging.
+
+## Dernier point de contrôle de livraison complète
 
 La [livraison 39424857559](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39424857559)
 a réussi le 2026-10-20 UTC sur le code approuvé
