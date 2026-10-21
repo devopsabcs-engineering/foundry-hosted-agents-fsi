@@ -253,9 +253,11 @@ Audit includes corrections, a hashed preparation correlation, the native
 response ID and calculation provenance. The private capability is never
 returned to the browser or recorded in audit/telemetry.
 
-The reviewer identity receives a project-scoped custom invocation role,
-not the broad `Foundry User` role. It grants only registered endpoint/application
-invocation and Responses write data actions, not memory or agent management.
+The reviewer identity receives the project-scoped built-in `Foundry Agent Consumer`
+role, not the broad `Foundry User` role. Its `endpoints/interact/action` data action
+permits native endpoint invocation, not memory or agent management. The earlier
+custom invocation role did not authorize this endpoint. Role-assignment propagation
+can take several minutes; an initial 403 is not evidence that `agents/write` is needed.
 Live deployment verification must prove both successful invocation and
 continued denial of reviewer memory access. No new queue service is required.
 

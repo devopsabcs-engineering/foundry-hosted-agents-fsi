@@ -236,7 +236,7 @@ d'échec restent sur le brouillon visible. Une demande en cours abandonnée
 peut être remplacée après son bail de 240 secondes, avec une nouvelle clé.
 Le calcul précédent d'un brouillon est historique, pas une nouvelle soumission.
 
-L'API déployée exige `AGENT_ENDPOINT` natif, le rôle personnalisé d'invocation
+L'API déployée exige `AGENT_ENDPOINT` natif, le rôle intégré `Foundry Agent Consumer`
 au niveau du projet et l'accès Cosmos. L'infrastructure fournit ces éléments.
 Sans endpoint local configuré, l'API retourne 503 sans rien soumettre.
 L'agent ne reçoit jamais de commande d'approbation, refus ou révision humaine.

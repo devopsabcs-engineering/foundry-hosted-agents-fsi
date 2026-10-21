@@ -1,20 +1,17 @@
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_reviewer_invocation_role_excludes_memory_and_management_permissions():
     text = (ROOT / "infra" / "modules" / "foundry-invoke-rbac.bicep").read_text(encoding="utf-8")
-    permission_block = re.search(r"\bdataActions:\s*\[([^]]+)]", text).group(1)
-    actions = re.findall(r"'(Microsoft\.CognitiveServices/[^']+)'", permission_block)
-    assert set(actions) == {
-        "Microsoft.CognitiveServices/accounts/AIServices/endpoints/invoke/action",
-        "Microsoft.CognitiveServices/accounts/AIServices/applications/invoke/action",
-        "Microsoft.CognitiveServices/accounts/AIServices/responses/write",
-    }
+    assert "'eed3b665-ab3a-47b6-8f48-c9382fb1dad6'" in text
+    assert "roleDefinitionId: consumerRoleId" in text
     assert "scope: project" in text
     assert "principalType: 'ServicePrincipal'" in text
+    assert "resource invoker" not in text
+    assert "dataActions:" not in text
+    assert "agents/write" not in text
     assert "Microsoft.CognitiveServices/*" not in text
     assert "UserIdentityImpersonation" not in text
 

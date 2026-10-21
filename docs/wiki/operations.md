@@ -40,7 +40,7 @@ Before a customer demo:
 | Protected route returns 401 | Entra session, audience, scope, role or pilot group | Health endpoint success proves authorization |
 | Chat healthy but no agent answer | Foundry deployment readiness, server identity, Responses request | Frontend build rolls out the agent |
 | Reviewer candidate exits during identity initialization | Backend image includes the bounded `aiohttp` dependency required by `azure.identity.aio`; inspect the candidate revision console log | Offline tests with a mocked upstream prove real managed-identity startup |
-| Provisioning cannot write a custom role definition | Workflow identity needs resource-group-scoped `Microsoft.Authorization/roleDefinitions/read` and `/write` in addition to existing role-assignment rights | RBAC Administrator includes custom role-definition creation |
+| Native preparation returns 403 | Use the project-scoped built-in `Foundry Agent Consumer` role (`endpoints/interact/action`) and allow several minutes for propagation; verify with the actual reviewer identity | Add `agents/write`, grant broad Foundry User, or assume similarly named invocation actions are equivalent |
 | Agent persistence fails | Actual hosted identity and Cosmos data role; readiness evidence | Provisioning identity equals runtime identity |
 | Missing custom stages | SDK dependency operation IDs and ingestion delay | Platform root ID must contain SDK spans |
 | Native judge incomplete | All expected cases, three criteria, service errors | Advisory scores allow missing evidence |
@@ -49,6 +49,13 @@ Before a customer demo:
 | Returned draft absent | Select the active/DRAFT queue filter on an issue #28 build | A pending-only queue means the case was deleted |
 | Preparation failed or still requested | Refresh draft/audit, check reviewer invocation role and native endpoint; retry abandoned requests after 240 seconds | Revision alone invokes the agent or local SQLite is shared with a hosted agent |
 | Wiki live links unchanged | New release artifacts may be absent | Documentation publication redeployed Azure |
+
+The staging and production deployment readiness gates now execute
+`eval/verify_reviewer_foundry_access.py` inside the reviewer container.
+The actual workload identity must obtain a native Responses result for the
+existing synthetic smoke case and receive 403 when listing operator memory.
+The probe retries only invocation 403 responses during bounded RBAC propagation;
+it never logs tokens, changes memory, or grants additional permissions.
 
 ## Safe changes
 
