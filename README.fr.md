@@ -107,7 +107,10 @@ personnalisées. L'extraction de facture Content Understanding a réussi en stag
 et production. Foundry IQ récupère réellement par MCP, mais comporte des échecs
 de validation stricte ; le scan red team isolé et approuvé a échoué avant tout
 résultat noté. Aucun de ces deux parcours n'est présenté comme une réussite,
-et IQ production n'est pas promu. Les juges natifs ont manqué un contrôle
+et IQ production n'est pas promu. Un adaptateur de protocole distinct est testé
+hors ligne ; son nouvel artefact et sa nouvelle cible demandent une approbation
+de déploiement et une validation native distinctes, sans réutiliser l'approbation
+du scan original. Les juges natifs ont manqué un contrôle
 négatif connu; cette limite est documentée, sans faux succès de qualité.
 Conservez les deux environnements déployés.
 

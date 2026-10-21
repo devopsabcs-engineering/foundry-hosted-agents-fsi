@@ -732,6 +732,65 @@ a concrete correction. Service-side handling or a separately reviewed
 protocol correction is needed before claiming native red-team acceptance.
 Never scan the production quote agent as a substitute.
 
+### Separately pinned protocol shadow
+
+An offline-tested adapter is available in
+[redteam_protocol_entrypoint.py](../scripts/redteam_protocol_entrypoint.py).
+It does not change the baseline or the original shadow. The adapter serializes
+the same bounded bilingual acknowledgement as a JSON string, reports completion,
+and adds a standard `usage` object to non-streaming and terminal streaming
+responses. The original graph, pricing, approval checks and original files remain
+unchanged.
+
+Zero own-model tokens are accurate only because this adapter explicitly selects
+the original network-free `default_model` and checks the normalized graph hash
+`bd25b1e5c627802521ff178fa5bfea20e42d3a3d1063b1fe9357ed48c76a83ee`.
+Changing that graph fails startup and packaging. Zero does not describe the
+red-team service's evaluator models, platform usage or costs. This deterministic
+shadow is not evidence about the safety of a different LLM-backed agent.
+
+Prepare the derived artifact locally with
+[redteam_protocol_package.py](../scripts/redteam_protocol_package.py).
+Supply the original ZIP obtained through the SDK, its independently reviewed
+source pin, and the separately reviewed adapter revision and file hash. Run
+from that exact checked-out revision:
+
+```powershell
+$protocolRevision = '<reviewed-full-Git-SHA>'
+$protocolEntrypointSha = '<reviewed-entrypoint-SHA-256>'
+$protocolPreparation = '.local\redteam\protocol-preparation-001'
+& .venv\Scripts\python.exe scripts\redteam_protocol_package.py --source-zip $reviewedOriginalZip --source-content-sha256 $observedNativeContentSha --protocol-revision $protocolRevision --protocol-entrypoint-sha256 $protocolEntrypointSha --output-dir $protocolPreparation
+if ($LASTEXITCODE -ne 0) { throw 'Protocol preparation failed; preserve original evidence' }
+$protocolProof = Get-Content "$protocolPreparation\protocol-preparation.json" -Raw | ConvertFrom-Json
+```
+
+The packager adds one reviewed entrypoint, preserves every original ZIP member,
+rejects unsafe archives, and records a distinct deterministic derived hash.
+`immutable_artifact_equality` is explicitly false. Review both the new package
+hash and its provenance before approving any resource write. Do not repackage
+with azd and assume its output has the same hash.
+
+Only after exact-artifact deployment approval:
+
+```powershell
+$protocolPins = @('--protocol-revision', $protocolRevision,
+                  '--protocol-entrypoint-sha256', $protocolEntrypointSha,
+                  '--protocol-content-sha256', $protocolProof.target_content_sha256)
+$protocolCommon = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+                     '--agent', 'fsi-showcase-redteam-protocol-quote-001',
+                     '--turns', '1', '--timeout', '120') + $sourcePins + $protocolPins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-create @protocolCommon --output-dir "$evidence\protocol-registration-001"
+if ($LASTEXITCODE -ne 0) { throw 'Inspect recorded registration before any retry' }
+```
+
+Observe that exact new version; resume `shadow-preflight` with the same three
+protocol pins and `--agent-version`, then verify a genuine hosted Responses
+invocation. A successful local test or registration is not native acceptance.
+Create a separately named taxonomy targeting this new protocol shadow, export
+and review its persisted native hash, and obtain human scan approval. The old
+`c880c7c7` approval targets the original shadow and cannot authorize a new-target
+scan. Retain the original failed run and both targets' distinct provenance.
+
 ## Experiment tracking and architecture recommendation
 
 Start with native evaluation comparisons and actual Azure traces. Retain source

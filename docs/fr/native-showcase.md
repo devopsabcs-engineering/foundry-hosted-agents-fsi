@@ -740,6 +740,67 @@ côté service ou une correction de protocole révisée séparément est nécess
 avant de déclarer la validation red team native. Ne remplacez jamais la cible
 par l'agent de soumission en production.
 
+### Clone de protocole épinglé séparément
+
+Un adaptateur testé hors ligne est disponible dans
+[redteam_protocol_entrypoint.py](../../scripts/redteam_protocol_entrypoint.py).
+Il ne modifie ni le parcours métier ni le clone original. Il sérialise le même
+accusé de réception bilingue borné en chaîne JSON, indique la fin et ajoute un
+objet `usage` standard aux réponses non diffusées et à l'événement final diffusé.
+Le graphe original, la tarification, les contrôles d'approbation et les fichiers
+originaux restent inchangés.
+
+Zéro jeton du modèle propre est exact uniquement parce que cet adaptateur choisit
+explicitement le `default_model` original sans appel réseau et vérifie le hachage
+normalisé du graphe
+`bd25b1e5c627802521ff178fa5bfea20e42d3a3d1063b1fe9357ed48c76a83ee`.
+Toute modification de ce graphe bloque le démarrage et la préparation. Zéro ne
+décrit pas les modèles évaluateurs du service red team, l'utilisation de la
+plateforme ni les coûts. Ce clone déterministe ne constitue pas une preuve de
+sécurité pour un autre agent reposant sur un LLM.
+
+Préparez l'artefact dérivé localement avec
+[redteam_protocol_package.py](../../scripts/redteam_protocol_package.py).
+Fournissez le ZIP original obtenu par le SDK, son empreinte source révisée
+indépendamment, ainsi que la révision et le hachage de fichier de l'adaptateur
+révisés séparément. Exécutez depuis cette révision Git exacte :
+
+```powershell
+$protocolRevision = '<reviewed-full-Git-SHA>'
+$protocolEntrypointSha = '<reviewed-entrypoint-SHA-256>'
+$protocolPreparation = '.local\redteam\protocol-preparation-001'
+& .venv\Scripts\python.exe scripts\redteam_protocol_package.py --source-zip $reviewedOriginalZip --source-content-sha256 $observedNativeContentSha --protocol-revision $protocolRevision --protocol-entrypoint-sha256 $protocolEntrypointSha --output-dir $protocolPreparation
+if ($LASTEXITCODE -ne 0) { throw 'Protocol preparation failed; preserve original evidence' }
+$protocolProof = Get-Content "$protocolPreparation\protocol-preparation.json" -Raw | ConvertFrom-Json
+```
+
+La préparation ajoute un seul point d'entrée révisé, préserve chaque membre du
+ZIP original, refuse les archives dangereuses et consigne un hachage dérivé
+déterministe distinct. `immutable_artifact_equality` vaut explicitement false.
+Révisez le nouveau hachage et sa provenance avant toute approbation d'écriture
+cloud. Ne réemballez pas avec azd en supposant conserver le même hachage.
+
+Uniquement après approbation du déploiement de l'artefact exact :
+
+```powershell
+$protocolPins = @('--protocol-revision', $protocolRevision,
+                  '--protocol-entrypoint-sha256', $protocolEntrypointSha,
+                  '--protocol-content-sha256', $protocolProof.target_content_sha256)
+$protocolCommon = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+                     '--agent', 'fsi-showcase-redteam-protocol-quote-001',
+                     '--turns', '1', '--timeout', '120') + $sourcePins + $protocolPins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-create @protocolCommon --output-dir "$evidence\protocol-registration-001"
+if ($LASTEXITCODE -ne 0) { throw 'Inspect recorded registration before any retry' }
+```
+
+Observez cette nouvelle version exacte ; reprenez `shadow-preflight` avec les
+mêmes trois empreintes de protocole et `--agent-version`, puis vérifiez une
+invocation Responses hébergée réelle. Un test local ou un enregistrement réussi
+ne constitue pas une validation native. Créez une taxonomie distincte visant ce
+nouveau clone, exportez et révisez son hachage natif persisté et obtenez
+l'approbation humaine du scan. L'approbation `c880c7c7` vise le clone original,
+pas cette nouvelle cible. Conservez le run échoué et les deux provenances.
+
 ## Suivi d'expériences et recommandation
 
 Commencez par les comparaisons Foundry et les traces Azure réelles. Conservez

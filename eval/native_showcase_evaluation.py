@@ -8,6 +8,8 @@ import hashlib
 import json
 import math
 import re
+import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -17,6 +19,9 @@ from urllib.parse import urlparse
 from azure.core.exceptions import HttpResponseError
 from openai import APIError
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from redteam_protocol_package import ENTRYPOINT, build_package, reviewed_entrypoint
 from run_judge_evaluation import collect_output_items
 
 NATIVE_ERRORS = (OSError, RuntimeError, ValueError, APIError, HttpResponseError)
@@ -367,6 +372,19 @@ def shadow_bounds(args) -> None:
         raise ValueError("Reviewed source-definition-sha256 is required")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", args.source_deployment_provenance):
         raise ValueError("Explicit approved source deployment provenance is required")
+    protocol = [
+        getattr(args, name, None) for name in
+        ("protocol_revision", "protocol_entrypoint_sha256", "protocol_content_sha256")
+    ]
+    if args.agent.startswith("fsi-showcase-redteam-protocol-") or any(value is not None for value in protocol):
+        if not all(isinstance(value, str) and value for value in protocol) or not re.fullmatch(r"[0-9a-f]{40}", protocol[0]) or any(
+            not re.fullmatch(r"[0-9a-f]{64}", value) for value in protocol[1:]
+        ):
+            raise ValueError("Protocol correction requires its full revision, entrypoint and derived-package hashes")
+        if not args.agent.startswith("fsi-showcase-redteam-protocol-"):
+            raise ValueError("Protocol correction requires a separately named fsi-showcase-redteam-protocol-* target")
+        if protocol[2] == getattr(args, "source_content_sha256", None):
+            raise ValueError("Derived protocol package must not claim original immutable artifact equality")
 
 
 def shadow_environment(env: dict, staging_endpoint: str) -> dict:
@@ -456,6 +474,9 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
     if not create and not getattr(args, "agent_version", None):
         raise ValueError("Shadow preflight requires an exact numeric target version")
     fresh_output(args)
+    protocol_revision = getattr(args, "protocol_revision", None)
+    if protocol_revision:
+        reviewed_entrypoint(protocol_revision, args.protocol_entrypoint_sha256)
     try:
         source, isolated = shadow_source(project, args)
     except ValueError as exc:
@@ -466,6 +487,12 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
             "source_revision": args.source_revision, "baseline_modified": False,
         })
         raise
+    if protocol_revision:
+        code = isolated.get("code_configuration")
+        if not code or code["entry_point"][-1] != "main.py":
+            raise ValueError("Protocol correction requires the reviewed original quote main.py code entrypoint")
+        code["entry_point"][-1] = ENTRYPOINT
+        code["content_hash"] = args.protocol_content_sha256
     identity = {
         "source_agent": args.source_agent, "source_agent_version": args.source_agent_version,
         "source_id": source["id"], "source_revision": args.source_revision,
@@ -474,7 +501,13 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
         "source_definition_sha256": args.source_definition_sha256,
         "source_content_sha256": (source["definition"].get("code_configuration") or {}).get("content_hash"),
         "deployment_kind": "independently-deployed-code-shadow" if isolated.get("code_configuration") else "container-clone",
-        "artifact_relationship": "Observed immutable artifact equality; identical resolved dependencies or container image not asserted",
+        "artifact_relationship": (
+            "Separately pinned derived package: original files plus one reviewed protocol entrypoint; "
+            "NOT original immutable artifact equality or identical resolved dependencies"
+            if protocol_revision else
+            "Observed immutable artifact equality; identical resolved dependencies or container image not asserted"
+        ),
+        "immutable_artifact_equality": not bool(protocol_revision),
         "shadow_definition_sha256": taxonomy_digest(isolated),
         "agent": args.agent, "same_staging_project": True,
         "cosmos_configured": False, "case_store": "private-in-memory",
@@ -484,6 +517,20 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
         "telemetry": "Source telemetry configuration and connection settings omitted; platform defaults not asserted disabled",
         "baseline_modified": False,
     }
+    metadata = {"source_revision": args.source_revision, "source_id": source["id"]}
+    if protocol_revision:
+        identity["deployment_kind"] = "separately-reviewed-protocol-shadow"
+        identity["protocol_correction"] = {
+            "revision": protocol_revision,
+            "entrypoint_sha256": args.protocol_entrypoint_sha256,
+            "target_content_sha256": args.protocol_content_sha256,
+            "native_acceptance": "not_established_by_preflight",
+        }
+        metadata.update({
+            "protocol_revision": protocol_revision,
+            "protocol_entrypoint_sha256": args.protocol_entrypoint_sha256,
+            "source_content_sha256": args.source_content_sha256,
+        })
     if create:
         from azure.ai.projects.models import HostedAgentDefinition
 
@@ -505,13 +552,34 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
                     "limitation": "Downloaded original native ZIP differs from the pinned source content_hash",
                 })
                 raise ValueError("Downloaded original native ZIP differs from the pinned source content_hash")
+            upload_hash = args.source_content_sha256
+            if protocol_revision:
+                try:
+                    derived, proof = build_package(
+                        package.read_bytes(), source_sha256=args.source_content_sha256,
+                        protocol_revision=protocol_revision,
+                        entrypoint_sha256=args.protocol_entrypoint_sha256,
+                    )
+                    write_json(args.output_dir / "protocol-preparation.json", proof)
+                    if proof["target_content_sha256"] != args.protocol_content_sha256:
+                        raise ValueError("Derived protocol ZIP differs from the separately reviewed target hash")
+                    package = args.output_dir / "protocol-native-code.zip"
+                    with package.open("xb") as handle:
+                        handle.write(derived)
+                    upload_hash = args.protocol_content_sha256
+                except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+                    write_json(args.output_dir / "protocol-preparation-failure.json", identity | {
+                        "ready_for_native_scan": False, "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    })
+                    raise
             upload_definition = copy.deepcopy(isolated)
             del upload_definition["code_configuration"]["content_hash"]
             with package.open("rb") as handle:
                 target = project.agents.create_version_from_code(
                     args.agent, definition=HostedAgentDefinition(upload_definition), code=handle,
-                    code_zip_sha256=args.source_content_sha256,
-                    metadata={"source_revision": args.source_revision, "source_id": source["id"]},
+                    code_zip_sha256=upload_hash,
+                    metadata=metadata,
                 ).as_dict()
         else:
             # Draft avoids changing this container shadow endpoint's default resolution.
@@ -529,7 +597,8 @@ def shadow_preflight(project, args, *, create: bool = False) -> dict:
     target = project.agents.get_version(args.agent, args.agent_version).as_dict()
     if (target.get("name") != args.agent or target.get("version") != args.agent_version
             or not target.get("id") or target["id"] == source["id"]
-            or taxonomy_digest(target.get("definition", {})) != taxonomy_digest(isolated)):
+            or taxonomy_digest(target.get("definition", {})) != taxonomy_digest(isolated)
+            or (protocol_revision and target.get("metadata") != metadata)):
         raise ValueError("Shadow pinned definition does not match isolated source lineage")
     evidence = identity | {
         "agent_version": args.agent_version, "id": target["id"],
@@ -823,6 +892,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-definition-sha256")
     parser.add_argument("--source-content-sha256")
     parser.add_argument("--source-deployment-provenance")
+    parser.add_argument("--protocol-revision")
+    parser.add_argument("--protocol-entrypoint-sha256")
+    parser.add_argument("--protocol-content-sha256")
     parser.add_argument("--staging-endpoint")
     parser.add_argument("--taxonomy")
     parser.add_argument("--approved-taxonomy-sha256")
@@ -882,6 +954,10 @@ def main(argv: list[str] | None = None) -> int:
             shadow_bounds(args)
         except ValueError as exc:
             parser.error(str(exc))
+    elif any(value is not None for value in (
+        args.protocol_revision, args.protocol_entrypoint_sha256, args.protocol_content_sha256,
+    )):
+        parser.error("Protocol correction pins apply only to isolated shadow and red-team commands")
     if args.output_dir.exists() and any(args.output_dir.iterdir()):
         parser.error("output-dir must be new or empty to preserve previous evidence")
     args.output_dir.mkdir(parents=True, exist_ok=True)

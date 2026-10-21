@@ -100,7 +100,9 @@ isolated memory checks, and custom trace replay. Content Understanding invoice
 extraction passed in staging and production. Foundry IQ performs real MCP
 retrieval but has strict acceptance failures; the approved isolated red-team
 scan failed before producing scored results. Neither is presented as a pass,
-and production IQ remains unpromoted.
+and production IQ remains unpromoted. A separate protocol-only shadow adapter is
+tested offline; its new artifact and target require separate deployment approval
+and native validation, not reuse of the original scan's approval.
 Native grounding judges missed a known negative control; the runbook records
 that limitation rather than claiming a quality pass. Keep both environments deployed.
 

@@ -88,6 +88,10 @@ def test_iq_and_cu_extension_contracts_and_safety_boundaries_are_bilingual():
             "--source-deployment-provenance", "--staging-endpoint", "shadow-preflight",
             "CASE_STORE_DB_PATH=:memory:", "FOUNDRY_PROJECT_ENDPOINT",
             "scan_completed", "report_complete", "no_violations",
+            "redteam_protocol_entrypoint.py", "redteam_protocol_package.py",
+            "--protocol-revision", "--protocol-entrypoint-sha256", "--protocol-content-sha256",
+            "fsi-showcase-redteam-protocol-quote-001", "immutable_artifact_equality",
+            "bd25b1e5c627802521ff178fa5bfea20e42d3a3d1063b1fe9357ed48c76a83ee",
         ):
             assert token in text, f"{source} omits extension contract {token}"
         assert "```mermaid" in text
