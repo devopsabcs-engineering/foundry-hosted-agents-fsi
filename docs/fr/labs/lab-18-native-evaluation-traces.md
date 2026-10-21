@@ -62,6 +62,8 @@ Exigez un code non nul et le diagnostic précis de même exécution. Un fichier
 manquant n'est pas le contrôle voulu. Cette démonstration de juge ne prouve
 ni un RAG dans l'agent hébergé ni un gain de récupération en production.
 
+<a id="grounding-negative-controls"></a>
+
 ## Exercice 18.2 : Conserver les faux positifs des juges d'ancrage
 
 Obtenez les réponses RAG natives erronée et corrigée auprès du responsable des

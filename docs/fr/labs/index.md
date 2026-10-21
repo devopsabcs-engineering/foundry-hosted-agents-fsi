@@ -2,7 +2,7 @@
 permalink: /fr/labs/
 lang: fr
 title: "Ateliers"
-description: "Le programme de dix-neuf ateliers pour l'atelier synthétique de préparation de soumissions d'assurance auto en Ontario."
+description: "Le programme de vingt ateliers pour l'atelier synthétique de préparation de soumissions d'assurance auto en Ontario."
 ---
 
 > 🇬🇧 **[English version](../../labs/)**
@@ -19,7 +19,7 @@ Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les 
 Les ateliers 15 à 18 ajoutent des exercices natifs isolés avec des contrôles
 de preuve explicites. Certains exigent des prérequis approuvés ou des artefacts
 natifs conservés; consignez les prérequis manquants comme bloqués sans inventer
-de résultats. Conservez la livraison approuvée staging v5 et production v6.
+de résultats. Conservez la livraison approuvée staging v6 et production v7.
 Consultez les [preuves](../showcase-evidence.md#livraison-approuvée-actuelle)
 et l'[architecture](../architecture.md) avant d'utiliser les surfaces réelles.
 
@@ -59,6 +59,17 @@ et l'[architecture](../architecture.md) avant d'utiliser les surfaces réelles.
 
 Le [guide natif](../native-showcase.md) conserve preuves historiques et limites.
 Ces ateliers n'autorisent ni déploiement, ni changement d'accès, ni démantèlement.
+
+### Ingénierie des évaluations
+
+| Atelier | Titre | Ce que vous ferez |
+| --- | --- | --- |
+| [19](lab-19-evaluation-engineering.md) | Ingénierie des évaluations | Construire un plan multicouche, utiliser les juges natifs EN/FR, calibrer les contrôles, répéter les essais et vérifier les révisions avec état |
+
+Le [guide étape par étape](../evaluation-guide.md) et
+le [PowerPoint avec notes de formation](../../assets/decks/foundry-evaluation-engineering-fr.pptx)
+accompagnent cet atelier approfondi de 3 à 4 heures.
+Le programme complet couvre maintenant les ateliers 00–19.
 
 ## Étapes suivantes
 

@@ -89,3 +89,8 @@ Résultat attendu : chaque donnée correspond exactement à son `expectedCalcula
 ## Étapes suivantes
 
 Poursuivez avec l'[Atelier 09 : Démantèlement](lab-09-teardown.md).
+
+Après les prérequis pilotes et natifs, le
+[guide des évaluations](../evaluation-guide.md) et
+l'[Atelier 19](lab-19-evaluation-engineering.md) ajoutent juges calibrés,
+essais répétés et preuves de régression avec état à cette fondation déterministe.

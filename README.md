@@ -78,6 +78,18 @@ and `COMPOSITION`; calculation and draft persistence happen inside
 bounded bilingual messages, while the reviewer API exposes the calculation
 and records employee decisions.
 
+## Evaluation engineering workshop
+
+Use the [step-by-step Foundry evaluation guide](docs/evaluation-guide.md)
+and [Lab 19: Evaluation Engineering](docs/labs/lab-19-evaluation-engineering.md)
+for a 3–4 hour progression from deterministic contracts to native model judges,
+calibration, repeated trials and stateful regression checks.
+The [English PowerPoint](docs/assets/decks/foundry-evaluation-engineering-en.pptx)
+and [French PowerPoint](docs/assets/decks/foundry-evaluation-engineering-fr.pptx)
+contain 34 editable slides each with instructor notes. Rebuild both with
+`npm run build-evaluation-deck`. The [French guide](docs/fr/evaluation-guide.md)
+and [French lab](docs/fr/labs/lab-19-evaluation-engineering.md) cover the same exercises.
+
 ## Try the web chatbot
 
 For the session-2 customer demonstration, use the
