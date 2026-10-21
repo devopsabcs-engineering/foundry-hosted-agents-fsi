@@ -73,6 +73,27 @@ def test_both_languages_cover_all_shipped_demo_commands_and_live_boundaries():
         assert "evalrun_8683ff9a323a40de87cbeed5d752def2" in text
 
 
+def test_iq_and_cu_extension_contracts_and_safety_boundaries_are_bilingual():
+    for source in ["docs/native-showcase.md", "docs/fr/native-showcase.md"]:
+        text = (ROOT / source).read_text(encoding="utf-8")
+        for token in (
+            "native_foundry_iq.py", "--binding", "--project-resource-id",
+            "ProjectManagedIdentity", "queryPrincipalType=ServicePrincipal",
+            "2025-10-01-preview", "2026-08-01-preview", "knowledge_base_retrieve",
+            "fsi-showcase-cu-completion", "fsi-showcase-cu-embedding",
+            "--model-deployments", "SYN-REPAIR-001", "OUT_OF_CORPUS",
+            "content-understanding.bicep", "SQLite", "Cosmos",
+            "prepare_redteam_shadow.py", "--allow-new-code-deployment",
+            "--source-definition-sha256", "--source-content-sha256",
+            "--source-deployment-provenance", "--staging-endpoint", "shadow-preflight",
+            "CASE_STORE_DB_PATH=:memory:", "FOUNDRY_PROJECT_ENDPOINT",
+            "scan_completed", "report_complete", "no_violations",
+        ):
+            assert token in text, f"{source} omits extension contract {token}"
+        assert "```mermaid" in text
+        assert "red-team --endpoint $endpoint --agent quote-preparation-agent" not in text
+
+
 def test_all_lab_filenames_are_paired_and_both_indexes_link_twenty_labs():
     en = ROOT / "docs/labs"
     fr = ROOT / "docs/fr/labs"

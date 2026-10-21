@@ -44,8 +44,8 @@ different claims. Only recorded live evidence establishes the last claim.
 | Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Staging store verified with approved embedding; caller-role negative returned 403, not a per-agent ACL |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
-| Knowledge | Azure AI Search GA source, knowledge base and extractive retrieve | Optional isolated Search deployment; an index alone is not Foundry IQ |
-| Document service | Content Understanding GA invoice analyzer and grounded fields | Prebuilt analyzer is reachable; account defaults are unset and required model mappings are not provisioned |
+| Knowledge | Azure AI Search GA retrieval plus isolated native IQ MCP companion | Companion CLI is implemented; new Search resource and native query acceptance require the extension release |
+| Document service | Content Understanding GA invoice analyzer with per-request model aliases | Native catalog supports `gpt-4.1` and `text-embedding-3-large`; compatible deployments and live extraction require the extension release |
 | Pretrained document service | Native Document Intelligence `prebuilt-invoice`, GA `2024-11-30` | Live extraction succeeded: 1 page, 1 document, 8 structured fields with grounding; no new models |
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
 | Grounding controls | `builtin.groundedness` v18 and `builtin.groundedness_pro` v8 | Both missed a known erroneous French baseline; negative-control gate fails, not an improvement claim |
@@ -57,6 +57,34 @@ The web applications and read-only MCP servers run in Azure Container Apps.
 They are Azure-hosted, but not inside the Foundry project. Search is a separate
 Azure service underpinning the knowledge demonstration. Application Insights and
 Log Analytics provide the existing Azure observability backend.
+
+### Additive extension boundary
+
+The extension plan is approved under [issue 45](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/45).
+Implementation, offline checks, exact-artifact release approval and real native
+acceptance are separate milestones. The existing v6/v7 demo is not replaced by
+these extensions. No live IQ/CU/red-team success is claimed from offline tests.
+
+```mermaid
+flowchart LR
+  subgraph Baseline["Unchanged customer demo"]
+    Quote["Hosted quote agent v6 / v7"] --> Cases["Cosmos business state"]
+    Employee["Authenticated employee reviewer"] --> Cases
+  end
+  subgraph Extensions["Separate synthetic extensions"]
+    IQ["fsi-showcase-iq prompt agent"] --> Connection["ProjectManagedIdentity MCP connection"]
+    Connection --> Search["Synthetic Search knowledge base"]
+    Invoice["Synthetic invoice PDF"] --> CU["Native Content Understanding"]
+    CU --> Models["Dedicated completion and embedding deployments"]
+    Shadow["Staging red-team shadow"] --> Private["Private in-memory SQLite"]
+  end
+```
+
+There is no extension-to-Cosmos arrow. IQ has one allowed read-only MCP tool.
+CU observations never enter pricing or approval. A red-team shadow must prove
+its isolated storage before attacks. Search Basic in East US 2 is currently
+USD 0.101/hour (about USD 73.73 for 730 hours), plus metered model, document,
+hosted-agent and evaluation usage. Budget alerts are not hard spending caps.
 
 ## Applicant-message judge contract
 
@@ -307,6 +335,51 @@ excerpts fail explicitly. GA `2026-04-01` extractive retrieval does not require 
 new retrieval LLM. This CLI does not automatically create a Foundry project
 connection or attach knowledge to the running hosted agent.
 
+### Register and exercise the native IQ companion
+
+[The IQ CLI](../scripts/native_foundry_iq.py) creates a separate prompt agent,
+not an attachment to the hosted quote graph. First deploy the approved additive
+Search template, granting the actual Foundry project identities query-only
+access with `queryPrincipalType=ServicePrincipal`. Keep operator/ingestion roles
+separate. Stage and production may share this reviewed, synthetic-only corpus.
+
+After the six sources are ingested, use a clean checkout of the approved source.
+The ARM ID and project endpoint must refer to the same project:
+
+```powershell
+$projectId = '/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>'
+$env:AZURE_TOKEN_CREDENTIALS = 'AzureCliCredential'
+$iqArgs = @('--project-endpoint', $endpoint, '--project-resource-id', $projectId,
+            '--search-endpoint', $search, '--search-resource-id', $searchId)
+$iqRun = Join-Path $evidence ('iq-' + (Get-Date -Format yyyyMMddTHHmmss))
+New-Item -ItemType Directory -Path $iqRun | Out-Null
+& .venv\Scripts\python.exe scripts\native_foundry_iq.py preflight @iqArgs --output "$iqRun\preflight.json"
+& .venv\Scripts\python.exe scripts\native_foundry_iq.py create @iqArgs --model gpt-4o-mini --source-revision $revision --output "$iqRun\binding.json"
+foreach ($language in 'en', 'fr') {
+    foreach ($scenario in 'approval', 'scope', 'privacy', 'out-of-corpus') {
+        & .venv\Scripts\python.exe scripts\native_foundry_iq.py query @iqArgs --binding "$iqRun\binding.json" --language $language --scenario $scenario --output "$iqRun\$language-$scenario.json"
+        if ($LASTEXITCODE -ne 0) { throw "Native IQ acceptance failed: $language/$scenario" }
+    }
+}
+```
+
+Use connection API `2025-10-01-preview`, `ProjectManagedIdentity`, audience
+`https://search.azure.com/`, and the KB MCP API `2026-08-01-preview`.
+The only allowed tool is `knowledge_base_retrieve`. Existing connections with
+different authentication or targets are never overwritten. Preflight verifies
+the real project identity and scoped query role; corpus verification compares
+all six indexed documents, not merely their names.
+The local credential selection uses the authenticated Azure CLI through current
+`azure-identity`; it does not change workload authentication or Azure roles.
+
+Queries pin the actual registered agent version and recheck its definition,
+connection and corpus. Each accepted response must contain a real completed MCP
+call. In-corpus answers need same-language, scenario-relevant source IDs whose
+version markers occur in that native tool result. These are explicitly
+source-ID checks, not invented native annotation fields or a semantic judge.
+Both out-of-corpus answers must be exactly `OUT_OF_CORPUS`. Keep raw responses
+even when these checks fail; registration alone is not runtime acceptance.
+
 ## Use a real document service
 
 The invoice is fictional and rendered to a minimal PDF locally; its extraction
@@ -324,6 +397,27 @@ Do not overwrite account defaults or substitute the existing chat deployment
 for an unsupported analyzer model. Provisioning compatible models is a separate
 approved change. The CLI reports the missing prerequisite rather than
 fabricating document fields.
+
+For the approved extension, [the dedicated-model template](../infra/content-understanding.bicep)
+adds only `fsi-showcase-cu-completion` (`gpt-4.1`, Standard capacity 10) and
+`fsi-showcase-cu-embedding` (`text-embedding-3-large`, Standard capacity 1)
+under an existing account. Recheck the analyzer's current `supportedModels`,
+regional model/SKU availability and quota before each deployment. It neither
+replaces `gpt-4o-mini` nor patches account defaults.
+
+```powershell
+$mapping = '{"prebuilt-analyzer-completion":"fsi-showcase-cu-completion","prebuilt-analyzer-embedding":"fsi-showcase-cu-embedding"}'
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py cu-preflight --cu-endpoint $cu --model-deployments $mapping
+& .venv\Scripts\python.exe scripts\native_knowledge_showcase.py analyze --cu-endpoint $cu --model-deployments $mapping --poll-timeout 120 --output "$evidence\cu-native-invoice.json"
+```
+
+A complete request mapping skips the unconfigured defaults resource entirely;
+`DefaultsNotSet` is not converted into a fabricated default or an OCR fallback.
+The actual analyze operation still validates deployment/model compatibility.
+The output file must be fresh. It journals the operation URL before polling,
+retains authentic failures and checks `SYN-REPAIR-001`, finite confidence, text
+spans and page-polygon grounding. A timeout retains a resumable operation URL
+and explicitly warns that the remote CU operation may still run.
 
 For a working native pretrained service without those additional generative
 models, use the existing account's Document Intelligence invoice analyzer:
@@ -436,23 +530,112 @@ revision and trace-file hash; the native evaluation adds run identities.
 
 ## Safe native red teaming
 
+Do not scan the live quote agent or its case queue. The old v2 taxonomy is
+historical evidence, not a current scan approval. Prepare a separate
+`fsi-showcase-redteam-*` target in staging with the same approved source bytes
+and private in-memory storage.
+
+Obtain the pinned source version through `AIProjectClient.agents.get_version`.
+Compute its definition pin with `taxonomy_digest(source.definition.as_dict())`
+from the evaluation runner, not a hash of an indented JSON export. Review that
+definition and its observed `code_configuration.content_hash`. Keep routing
+values in local configuration; never dump the complete definition or credentials
+into evidence. The approved original runtime commit is distinct from the new
+extension runner commit.
+
 ```powershell
-& .venv\Scripts\python.exe eval\native_showcase_evaluation.py taxonomy-create --endpoint $endpoint --agent quote-preparation-agent --agent-version 2 --taxonomy showcase-synthetic-prohibited-actions --output-dir "$evidence\taxonomy"
+$shadow = 'fsi-showcase-redteam-quote-001'
+$sourcePins = @(
+    '--source-agent', 'quote-preparation-agent',
+    '--source-agent-version', $sourceVersion,
+    '--source-definition-sha256', $reviewedDefinitionSha,
+    '--source-content-sha256', $observedNativeContentSha,
+    '--source-revision', $originalRuntimeCommit,
+    '--source-deployment-provenance', $approvedOriginalRelease
+)
+$runtime = foreach ($setting in $reviewedSourceRouting.GetEnumerator()) {
+    '--runtime-setting'
+    '{0}={1}' -f $setting.Key, $setting.Value
+}
+& .venv\Scripts\python.exe scripts\prepare_redteam_shadow.py --allow-new-code-deployment --staging-endpoint $endpoint @sourcePins --agent $shadow @runtime --timeout 600 --output-dir .local\redteam\prepared-001
+if ($LASTEXITCODE -ne 0) { throw 'Local shadow preparation failed' }
 ```
 
-Inspect the complete native taxonomy. The service may generate broad universal
-categories beyond this workshop's intended no-amount/no-approval policy.
-Do not launch attacks merely because taxonomy generation succeeded.
-After human review, use the exact hash, a pinned synthetic target and one turn:
+`$reviewedSourceRouting` contains only source-present allowlisted MCP/project/
+model/Toolbox settings. The preparer validates staging endpoints, removes Cosmos
+and external state/credential settings, sets `CASE_STORE_DB_PATH=:memory:`, and
+omits source telemetry settings. It does not assert platform telemetry is off.
+The current hosted source calls the synthetic MCP fixtures via streamable HTTP;
+retaining Toolbox configuration does not prove an alternative native Toolbox
+execution route.
+
+The preparer only materializes approved Git archive bytes and an isolated azd
+manifest under git-ignored `.local`. It never executes azd. SDK registration
+cannot copy the source's read-only uploaded code hash: this is explicitly a
+**new source upload and remote build**, not immutable-artifact reuse.
+
+After exact-artifact release approval, create a fresh local azd environment
+for the prepared workspace, bind the existing staging resource group and load
+the generated local runtime settings. Deploy only the named shadow service.
+Never use the root manifest, `azd up`, `provision`, `--all`, production endpoints
+or a baseline agent name:
+
+```powershell
+$env:AZURE_DEV_USER_AGENT = 'microsoft_foundry_skill'
+$prepared = (Resolve-Path .local\redteam\prepared-001).Path
+$shadowEnvironment = 'redteam-shadow-staging'
+azd env new $shadowEnvironment --cwd $prepared --subscription $stagingSubscription --location eastus2 --no-prompt
+if ($LASTEXITCODE -ne 0) { throw 'Fresh staging environment setup failed' }
+azd env set AZURE_RESOURCE_GROUP $stagingResourceGroup --cwd $prepared --environment $shadowEnvironment
+if ($LASTEXITCODE -ne 0) { throw 'Staging resource-group binding failed' }
+azd env set FOUNDRY_PROJECT_ENDPOINT $endpoint --cwd $prepared --environment $shadowEnvironment
+if ($LASTEXITCODE -ne 0) { throw 'Staging project binding failed' }
+$settings = Get-Content "$prepared\runtime-settings.local.json" -Raw | ConvertFrom-Json
+foreach ($setting in $settings.PSObject.Properties) {
+    azd env set $setting.Name $setting.Value --cwd $prepared --environment $shadowEnvironment
+    if ($LASTEXITCODE -ne 0) { throw 'Staging shadow configuration failed' }
+}
+azd deploy $shadow --cwd $prepared --environment $shadowEnvironment --timeout 600 --no-prompt
+if ($LASTEXITCODE -ne 0) { throw 'Shadow deployment failed; remote build may still run' }
+```
+
+Observe the actual shadow version with the Projects SDK, not a historical local
+azd default. A provisioned `active` version is not proof of a running process.
+Before invoking, compare the pinned source and shadow definitions:
+
+```powershell
+$common = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+            '--agent', $shadow, '--agent-version', $shadowVersion,
+            '--turns', '1', '--timeout', '120') + $sourcePins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-preflight @common --output-dir "$evidence\shadow-preflight"
+if ($LASTEXITCODE -ne 0) { throw 'Shadow source/runtime/isolation verification failed' }
+azd ai agent invoke $shadow 'CASE-SYN-001' --version $shadowVersion --timeout 120 --cwd $prepared --environment $shadowEnvironment --output json
+if ($LASTEXITCODE -ne 0) { throw 'Shadow activation or actual invocation failed' }
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py taxonomy-create @common --taxonomy synthetic-prohibited-actions --output-dir "$evidence\taxonomy"
+```
+
+The observed native code hashes and sanitized runtime definitions must match,
+including routing, CPU/memory, protocols and private storage. Unchanged Git bytes
+or a successful upload do not waive that check. No baseline metadata is patched
+to fabricate provenance. Fresh output paths are required for every retry.
+
+Inspect every category and subcategory of the generated native taxonomy. The
+service may generate universal scenarios outside the intended synthetic policy.
+Taxonomy generation is not approval. Only after human review of its exact hash:
 
 ```powershell
 $approvedHash = '<SHA-256 of the exact reviewed native taxonomy>'
-& .venv\Scripts\python.exe eval\native_showcase_evaluation.py red-team --endpoint $endpoint --agent quote-preparation-agent --agent-version 2 --taxonomy showcase-synthetic-prohibited-actions --approved-taxonomy-sha256 $approvedHash --source-revision $revision --turns 1 --output-dir "$evidence\redteam"
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py red-team @common --taxonomy synthetic-prohibited-actions --approved-taxonomy-sha256 $approvedHash --output-dir "$evidence\redteam"
 ```
 
 Only `ProhibitedActions` is accepted. No harmful-content risk categories are
-requested. Native results and failures are retained; timeout requests
-cancellation. Successful scan execution is not a clean security sign-off.
+requested. One turn and a finite timeout bound the request, not its dollar cost
+or every service-generated objective. Native results and failures are retained.
+Timeout requests cancellation and records whether cancellation was actually
+confirmed for the original run. An azd timeout only stops local waiting; Azure
+build/deployment may continue. Incomplete reports, evaluator errors and policy
+violations fail explicitly. `scan_completed`, `report_complete` and
+`no_violations` are distinct observations, never a blanket security sign-off.
 
 ## Experiment tracking and architecture recommendation
 
@@ -487,10 +670,10 @@ Authentication regression tests and a package-advisory recheck validate that
 source change, not the unchanged deployed images. Existing dependency alerts
 must be rechecked after publication and rebuilding.
 
-GitHub CodeQL default setup is configured, but its last observed analysis
-targets main commit `b4ceba0`, not this unpublished feature. No local SAST or
-secret scanner is installed. A historical scan does not clear the new source;
-run the configured checks on the exact published feature before release.
+GitHub CodeQL default setup and offline validation are configured. A historical
+green main run does not clear new extension source; require the configured
+checks on the exact reviewed feature before release. Native acceptance then
+requires authentic service evidence, not the offline SDK mocks.
 
 ## Primary references
 

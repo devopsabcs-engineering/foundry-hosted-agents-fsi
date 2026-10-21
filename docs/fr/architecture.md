@@ -268,7 +268,14 @@ flowchart TD
     KMemory --> KAlice["Namespace Alice"]
     KMemory --> KBob["Namespace Bob"]
     KOperator --> KInvoice["Document Intelligence facture"]
-    KOperator -.->|"Optionnel non accepte"| KOptional["IQ et modeles CU"]
+    KOperator -.->|"Livraison separee"| KExtension["Plan approuve - validation native en attente"]
+    KExtension --> KIQ["Compagnon prompt IQ isole"]
+    KIQ --> KConnection["MCP ProjectManagedIdentity en lecture"]
+    KConnection --> KKnowledge["Base Search synthetique"]
+    KExtension --> KCU["Content Understanding natif"]
+    KCU --> KCUModels["Mappages de modeles dedies par requete"]
+    KExtension --> KShadow["Clone red team staging epingle"]
+    KShadow --> KPrivate["SQLite prive en memoire - sans Cosmos"]
 ```
 
 Le rappel, les contrôles croisés et le refus 403 de l'identité employé ont
@@ -278,7 +285,14 @@ Aucune extraction ni liaison à l'agent métier n'est revendiquée.
 Les entrées expirent après une heure :
 [Lab 17](labs/lab-17-native-skills-memory.md) réensemence le magasin existant.
 Le skill est écrit par ce projet, pas fourni comme skill Microsoft préinstallé.
-File Search et la facture vérifiés ne prouvent pas les options IQ/CU.
+File Search et Document Intelligence restent séparés de la nouvelle livraison
+IQ/CU/red team. Le [guide des extensions natives](native-showcase.md#enregistrer-et-vérifier-le-compagnon-iq-natif)
+décrit les coûts et l'isolation. IQ utilise une véritable connexion MCP du
+projet et le seul outil `knowledge_base_retrieve`, pas un index renommé IQ.
+CU fournit ses alias par requête sans modifier les valeurs par défaut du compte.
+Le clone red team doit prouver son stockage privé avant les attaques révisées.
+Le code et les tests hors ligne ne constituent ni une validation native
+à l'exécution ni une approbation de sécurité.
 
 ## Traces et évaluation native
 

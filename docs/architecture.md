@@ -292,8 +292,15 @@ flowchart TD
     NMemory --> NAlice["Alice namespace marker"]
     NMemory --> NBob["Bob namespace marker"]
     NOperator --> NInvoice["Document Intelligence invoice extraction"]
-    NOptional["Optional IQ and CU model setup"]
-    NOperator -.->|"Not yet accepted"| NOptional
+    NExtension["Approved extension plan - native acceptance pending"]
+    NOperator -.->|"Separate release"| NExtension
+    NExtension --> NIQ["Isolated IQ prompt agent"]
+    NIQ --> NConnection["Read-only ProjectManagedIdentity MCP"]
+    NConnection --> NKnowledge["Synthetic Search knowledge base"]
+    NExtension --> NCU["Native Content Understanding"]
+    NCU --> NCUModels["Dedicated request-scoped model mappings"]
+    NExtension --> NShadow["Pinned staging red-team shadow"]
+    NShadow --> NPrivate["Private in-memory SQLite - no Cosmos"]
 ```
 
 Memory recall and cross-scope controls passed; an existing reviewer workload
@@ -304,8 +311,14 @@ default. No extraction invocation or quote-agent attachment is claimed.
 Entries expire in one hour and [Lab 17](labs/lab-17-native-skills-memory.md)
 reseeds the existing store instead of recreating it.
 The skill is authored by this project, not a prebuilt Microsoft runtime skill.
-The verified File Search and invoice paths are separate from optional Foundry
-IQ and Content Understanding model setup.
+The verified File Search and Document Intelligence paths remain separate from
+the new IQ/CU/red-team release. The [native extension runbook](native-showcase.md#additive-extension-boundary)
+defines the additional isolation and cost boundary. Native IQ uses a real
+project MCP connection and one allowed `knowledge_base_retrieve` tool, not an
+index relabeled as IQ. CU uses complete per-request aliases and leaves account
+defaults unchanged. A pinned red-team shadow must prove private case storage
+before reviewed attacks. Source implementation and offline checks do not
+establish native runtime acceptance or security sign-off.
 
 ## Telemetry to native evaluation
 

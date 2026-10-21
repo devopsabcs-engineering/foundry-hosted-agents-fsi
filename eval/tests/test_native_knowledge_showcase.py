@@ -40,6 +40,35 @@ def retrieval(doc, language="en"):
     }
 
 
+@pytest.mark.parametrize("damage", [None, "changed-content", "changed-hash", "extra", "missing", "duplicate"])
+def test_search_verifies_exact_reviewed_corpus_not_only_source_names(docs, damage):
+    rows = copy.deepcopy(docs)
+    if damage == "changed-content":
+        rows[0]["content"] += " Changed outside review."
+    elif damage == "changed-hash":
+        rows[0]["sha256"] = "0" * 64
+    elif damage == "extra":
+        rows.append({**rows[0], "id": "UNREVIEWED"})
+    elif damage == "missing":
+        rows.pop()
+    elif damage == "duplicate":
+        rows[-1] = rows[0]
+    rest = Mock()
+    rest.call.return_value = ({"@odata.count": len(rows), "value": rows}, {})
+    knowledge = showcase.Knowledge(rest, SEARCH)
+    if damage:
+        with pytest.raises(showcase.ShowcaseError, match="Search corpus"):
+            knowledge.verify_corpus(docs)
+    else:
+        result = knowledge.verify_corpus(docs)
+        assert result["verified_documents"] == 6
+        assert result["source_sha256"] == {doc["id"]: doc["sha256"] for doc in docs}
+    request = rest.call.call_args.args
+    assert request[0] == "POST"
+    assert "/docs/search?" in request[1]
+    assert request[3]["top"] == 7
+
+
 def extracted():
     return {"status": "Succeeded", "result": {
         "analyzerId": "prebuilt-invoice", "apiVersion": "2025-11-01",
@@ -658,10 +687,104 @@ def test_cu_missing_model_alias_fails_preflight_without_changes():
 
 def test_cu_explicit_request_mapping_never_changes_defaults():
     rest = cu_rest([extracted()])
+    responses = list(rest.call.side_effect)
+    rest.call.side_effect = responses[:1] + responses[2:]
     mapping = {"prebuilt-analyzer-completion": "explicit-existing-deployment"}
     showcase.ContentUnderstanding(rest, CU, mapping).analyze()
-    assert rest.call.call_args_list[2].args[3]["modelDeployments"] == mapping
+    assert rest.call.call_args_list[1].args[3]["modelDeployments"] == mapping
+    assert not any("/defaults?" in call.args[1] for call in rest.call.call_args_list)
     assert all(c.args[0] != "PATCH" for c in rest.call.call_args_list)
+
+
+def test_cu_complete_two_model_override_does_not_require_account_defaults():
+    rest = Mock()
+    rest.call.return_value = ({
+        "models": {"completion": "prebuilt-analyzer-completion",
+                   "embedding": "prebuilt-analyzer-embedding"},
+        "supportedModels": {"completion": ["gpt-4.1"], "embedding": ["text-embedding-3-large"]},
+    }, {})
+    mapping = {"prebuilt-analyzer-completion": "fsi-showcase-cu-completion",
+               "prebuilt-analyzer-embedding": "fsi-showcase-cu-embedding"}
+    result = showcase.ContentUnderstanding(rest, CU, mapping).preflight()
+    assert result["defaults_read"] is False
+    assert result["defaults"] is None
+    assert result["request_model_deployments"] == mapping
+    assert rest.call.call_count == 1
+
+
+@pytest.mark.parametrize("mapping", [[], "", {"": "model"}, {"alias": ""}, {"alias": "../model"}])
+def test_cu_rejects_malformed_override_before_remote_effects(mapping):
+    rest = Mock()
+    with pytest.raises(showcase.ShowcaseError):
+        showcase.ContentUnderstanding(rest, CU, mapping)
+    rest.call.assert_not_called()
+
+
+def test_cu_unknown_alias_does_not_fall_back_to_shared_defaults():
+    rest = Mock()
+    rest.call.return_value = ({"models": {"completion": "expected-alias"}}, {})
+    with pytest.raises(showcase.ShowcaseError, match="alias not used"):
+        showcase.ContentUnderstanding(rest, CU, {"typo-alias": "existing"}).preflight()
+    assert rest.call.call_count == 1
+
+
+def test_cu_journals_actual_result_and_refuses_existing_evidence(tmp_path):
+    output = tmp_path / "cu.json"
+    rest = cu_rest([extracted()])
+    result = showcase.ContentUnderstanding(rest, CU).analyze(evidence_path=output)
+    assert json.loads(output.read_text()) == result
+    assert result["service"] == "Azure AI Content Understanding"
+    assert result["state"] == "Succeeded"
+    assert result["operation_location"] == OPERATION
+    assert len(result["document_sha256"]) == 64
+    rest.call.reset_mock()
+    with pytest.raises(FileExistsError):
+        showcase.ContentUnderstanding(rest, CU).analyze(evidence_path=output)
+    rest.call.assert_not_called()
+
+
+def test_cu_timeout_retains_resumable_operation_without_claiming_cancellation(tmp_path, monkeypatch):
+    output = tmp_path / "timeout.json"
+    rest = cu_rest([{"status": "Running"}])
+    monkeypatch.setattr(showcase.time, "monotonic", Mock(side_effect=[0, 0, 2, 2]))
+    monkeypatch.setattr(showcase.time, "sleep", Mock())
+    with pytest.raises(showcase.ShowcaseError, match="polling timeout"):
+        showcase.ContentUnderstanding(rest, CU).analyze(timeout=1, evidence_path=output)
+    result = json.loads(output.read_text())
+    assert result["operation_location"] == OPERATION
+    assert result["state"] == "timed-out-operation-may-still-run"
+
+
+@pytest.mark.parametrize("confidence", [None, True, -0.1, 1.1, float("nan"), float("inf"), "0.95"])
+def test_cu_grounding_requires_valid_native_confidence(confidence):
+    result = extracted()
+    result["result"]["contents"][0]["fields"]["InvoiceId"]["confidence"] = confidence
+    with pytest.raises(showcase.ShowcaseError, match="confidence"):
+        showcase.validate_extraction(result)
+
+
+def test_cu_rejects_wrong_invoice_identity_even_when_grounded():
+    result = extracted()
+    result["result"]["contents"][0]["fields"]["InvoiceId"]["valueString"] = "OTHER-INVOICE"
+    with pytest.raises(showcase.ShowcaseError, match="expected grounded synthetic invoice"):
+        showcase.validate_extraction(result)
+
+
+def test_cu_invoice_identity_must_occur_in_its_actual_text_span():
+    result = extracted()
+    result["result"]["contents"][0]["markdown"] = "UNRELATED-TEXT"
+    with pytest.raises(showcase.ShowcaseError, match="expected grounded synthetic invoice"):
+        showcase.validate_extraction(result)
+
+
+def test_cu_containers_need_no_invented_confidence_when_scalar_fields_are_grounded():
+    result = extracted()
+    fields = result["result"]["contents"][0]["fields"]
+    fields["Group"] = {
+        "type": "object", "valueObject": {"Nested": copy.deepcopy(fields["InvoiceId"])},
+        "spans": [{"offset": 0, "length": 14}],
+    }
+    showcase.validate_extraction(result)
 
 
 @pytest.mark.parametrize("damage", ["no-fields", "no-spans", "bad-span", "wrong-analyzer", "no-source"])

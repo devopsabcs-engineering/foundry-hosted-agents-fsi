@@ -239,34 +239,89 @@ def test_run_timeout_cancels_instead_of_leaving_an_unbounded_job(monkeypatch):
     monkeypatch.setattr(showcase.time, "monotonic", iter([0, 31]).__next__)
     with pytest.raises(TimeoutError, match="cancellation requested"):
         showcase.wait_for_run(client, "eval-id", SimpleNamespace(id="run-id", status="running"), 30)
-    client.evals.runs.cancel.assert_called_once_with(eval_id="eval-id", run_id="run-id")
+    client.evals.runs.cancel.assert_called_once_with(eval_id="eval-id", run_id="run-id", timeout=30)
 
 
-def test_red_team_requires_exact_reviewed_taxonomy_before_any_run(native_clients):
+@pytest.fixture
+def shadow_clients(native_clients):
     project, client, args = native_clients
-    args.taxonomy = "synthetic-policy"
-    args.approved_taxonomy_sha256 = "0" * 64
-    project.beta.evaluation_taxonomies.get.return_value.as_dict.return_value = {
-        "id": "taxonomy-1", "taxonomy_categories": [{"name": "premature-disclosure"}],
+    args.agent, args.agent_version, args.taxonomy, args.turns = "fsi-showcase-redteam-test", "2", "policy", 1
+    args.endpoint = args.staging_endpoint = "https://test.services.ai.azure.com/api/projects/fsi-staging"
+    args.source_agent, args.source_agent_version = "quote-agent", "7"
+    args.source_deployment_provenance = "release39527950931"
+    args.source_content_sha256 = None
+    definition = {
+        "kind": "hosted", "cpu": "1", "memory": "2Gi",
+        "container_configuration": {"image": "registry.test/quote@sha256:" + "d" * 64},
+        "environment_variables": {
+            "APPLICATION_MCP_URL": "https://fixtures.test/application/mcp",
+            "RULEBOOK_MCP_URL": "https://fixtures.test/rulebook/mcp",
+            "COSMOS_ENDPOINT": "https://live-state.test", "COSMOS_KEY": "secret-do-not-dump",
+            "QUEUE_CONNECTION_STRING": "secret-queue", "CASE_STORE_DB_PATH": "/live/cases.db",
+        },
     }
+    args.source_definition_sha256 = showcase.taxonomy_digest(definition)
+    isolated = json.loads(json.dumps(definition))
+    isolated["environment_variables"] = {
+        key: definition["environment_variables"][key] for key in ["APPLICATION_MCP_URL", "RULEBOOK_MCP_URL"]
+    } | {"CASE_STORE_DB_PATH": ":memory:"}
+    source = {
+        "id": "source-7", "name": args.source_agent, "version": "7", "definition": definition,
+        "metadata": {"source_revision": args.source_revision},
+    }
+    target = {
+        "id": "shadow-2", "name": args.agent, "version": "2", "definition": isolated, "status": "active",
+    }
+    project.agents.get_version.side_effect = lambda name, version: SimpleNamespace(
+        as_dict=lambda: source if name == args.source_agent else target
+    )
+    project.agents.create_version.return_value = SimpleNamespace(as_dict=lambda: target)
+    taxonomy = {
+        "id": "taxonomy-1", "name": "policy", "version": "1",
+        "taxonomy_input": {
+            "type": "agent", "target": {"type": "azure_ai_agent", "name": args.agent, "version": "2"},
+            "risk_categories": ["ProhibitedActions"],
+        },
+        "taxonomy_categories": [{
+            "id": "premature-disclosure", "name": "premature-disclosure",
+            "risk_category": "ProhibitedActions", "sub_categories": [],
+        }],
+    }
+    project.beta.evaluation_taxonomies.get.return_value.as_dict.return_value = taxonomy
+    project.beta.evaluation_taxonomies.create.return_value = SimpleNamespace(
+        id="taxonomy-1", as_dict=lambda: taxonomy,
+    )
+    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+    report = {
+        "id": "evalrun-native", "eval_id": "eval-native", "status": "completed", "error": None,
+        "result_counts": {"total": 1, "passed": 1, "failed": 0, "errored": 0},
+    }
+    run = SimpleNamespace(id=report["id"], status=report["status"], model_dump=lambda **kw: report)
+    client.evals.runs.create.return_value = run
+    client.evals.runs.cancel.return_value = SimpleNamespace(
+        id="evalrun-native", eval_id="eval-native", status="canceled",
+    )
+    item = {
+        "id": "item-1", "eval_id": "eval-native", "run_id": "evalrun-native",
+        "status": "completed", "sample": {"error": None},
+        "results": [{"name": "Prohibited Actions", "score": 0.0, "passed": True}],
+    }
+    client.evals.runs.output_items.list.return_value = [
+        SimpleNamespace(model_dump=lambda **kw: item),
+    ]
+    return project, client, args, source, target, taxonomy, report, item
+
+
+def test_red_team_requires_exact_reviewed_taxonomy_before_any_run(shadow_clients):
+    project, client, args, *_ = shadow_clients
+    args.approved_taxonomy_sha256 = "0" * 64
     with pytest.raises(ValueError, match="not reviewed"):
         showcase.red_team(project, client, args)
     client.evals.create.assert_not_called()
 
 
-def test_red_team_pins_target_and_bounded_native_generation(native_clients):
-    project, client, args = native_clients
-    args.agent, args.agent_version, args.taxonomy, args.turns = "synthetic-agent", "2", "policy", 1
-    taxonomy = {
-        "id": "taxonomy-1",
-        "taxonomy_input": {
-            "type": "agent", "target": {"type": "azure_ai_agent", "name": args.agent, "version": "2"},
-            "risk_categories": ["ProhibitedActions"],
-        },
-        "taxonomy_categories": [{"name": "premature-disclosure"}],
-    }
-    project.beta.evaluation_taxonomies.get.return_value.as_dict.return_value = taxonomy
-    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+def test_red_team_pins_target_and_bounded_native_generation(shadow_clients):
+    project, client, args, _, _, taxonomy, *_ = shadow_clients
     result = showcase.red_team(project, client, args)
     source = client.evals.runs.create.call_args.kwargs["data_source"]
     assert source["type"] == "azure_ai_red_team"
@@ -274,6 +329,386 @@ def test_red_team_pins_target_and_bounded_native_generation(native_clients):
     assert source["item_generation_params"]["num_turns"] == 1
     assert source["item_generation_params"]["attack_strategies"] == ["Base64"]
     assert result["reviewed_taxonomy_sha256"] == args.approved_taxonomy_sha256
+    assert result["summary"] == {
+        "counts": {"total": 1, "passed": 1, "failed": 0, "errored": 0},
+        "scan_completed": True, "report_complete": True, "no_violations": True,
+    }
+
+
+def test_shadow_creation_uses_supported_sdk_definition_and_never_mutates_baseline(shadow_clients):
+    from azure.ai.projects.models import HostedAgentDefinition
+
+    project, _, args, source, target, *_ = shadow_clients
+    original = json.loads(json.dumps(source))
+    evidence = showcase.shadow_preflight(project, args, create=True)
+    submitted = project.agents.create_version.call_args
+    assert submitted.args == (args.agent,)
+    assert isinstance(submitted.kwargs["definition"], HostedAgentDefinition)
+    assert submitted.kwargs["definition"].as_dict() == target["definition"]
+    assert submitted.kwargs["draft"] is True
+    assert source == original
+    assert evidence["baseline_modified"] is False and evidence["running"] is False
+    assert evidence["ready_for_native_scan"] is True
+    assert set(target["definition"]["environment_variables"]) == {
+        "APPLICATION_MCP_URL", "RULEBOOK_MCP_URL", "CASE_STORE_DB_PATH",
+    }
+    for path in args.output_dir.iterdir():
+        text = path.read_text()
+        assert "secret" not in text and "https://live-state.test" not in text
+        assert "https://fixtures.test" not in text
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("turns", 2), ("turns", True), ("timeout", 0), ("timeout", float("inf")),
+    ("source_agent_version", "latest"), ("agent_version", "latest"),
+    ("source_revision", "main"), ("source_definition_sha256", "not-a-hash"),
+    ("source_deployment_provenance", ""), ("source_deployment_provenance", "unreviewed provenance"),
+    ("agent", "quote-agent"), ("agent", "production-shadow"),
+    ("staging_endpoint", "https://different.services.ai.azure.com/api/projects/fsi-staging"),
+    ("endpoint", "https://test.services.ai.azure.com/api/projects/fsi-production"),
+])
+def test_invalid_bounds_rejected_before_remote_calls(shadow_clients, field, value):
+    project, client, args, *_ = shadow_clients
+    setattr(args, field, value)
+    with pytest.raises(ValueError):
+        showcase.red_team(project, client, args)
+    assert not project.mock_calls
+    assert not client.mock_calls
+
+
+def test_direct_call_fresh_output_guard_prevents_native_effects(shadow_clients):
+    project, client, args, *_ = shadow_clients
+    (args.output_dir / "previous.json").write_text("{}")
+    with pytest.raises(ValueError, match="new or empty"):
+        showcase.red_team(project, client, args)
+    assert not project.mock_calls and not client.mock_calls
+
+
+@pytest.mark.parametrize("change", ["source-hash", "target-env", "target-id", "target-version", "inactive"])
+def test_pinned_shadow_checks_reject_metadata_only_isolation(shadow_clients, change):
+    project, client, args, source, target, *_ = shadow_clients
+    if change == "source-hash":
+        source["definition"]["cpu"] = "2"
+    elif change == "target-env":
+        target["definition"]["environment_variables"]["COSMOS_ENDPOINT"] = "live"
+    elif change == "target-id":
+        target["id"] = source["id"]
+    elif change == "target-version":
+        target["version"] = "3"
+    else:
+        target["status"] = "creating"
+    with pytest.raises(ValueError):
+        showcase.red_team(project, client, args)
+    project.agents.create_version.assert_not_called()
+    client.evals.create.assert_not_called()
+
+
+def test_code_artifact_clone_is_explicitly_blocked_without_inventing_reuse(shadow_clients):
+    from azure.ai.projects.models import CodeConfiguration
+
+    assert "read-only" in CodeConfiguration.__doc__
+    project, client, args, source, *_ = shadow_clients
+    source["definition"].pop("container_configuration")
+    source["definition"]["code_configuration"] = {
+        "runtime": "python_3_13", "entry_point": ["python", "main.py"],
+        "dependency_resolution": "remote_build", "content_hash": "a" * 64,
+    }
+    args.source_content_sha256 = "a" * 64
+    args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
+    with pytest.raises(ValueError, match="content_hash is read-only"):
+        showcase.shadow_preflight(project, args, create=True)
+    project.agents.create_version.assert_not_called()
+    client.evals.create.assert_not_called()
+
+
+@pytest.mark.parametrize("drift", [None, "bundle", "runtime", "cosmos", "project", "toolbox", "source-pin"])
+def test_fresh_azd_code_shadow_requires_observed_bundle_runtime_and_route_equality(shadow_clients, drift):
+    project, client, args, source, target, *_ = shadow_clients
+    source.pop("metadata")
+    source["definition"].pop("container_configuration")
+    source["definition"]["code_configuration"] = {
+        "runtime": "python_3_13", "entry_point": ["python", "main.py"],
+        "dependency_resolution": "remote_build", "content_hash": "a" * 64,
+    }
+    source["definition"]["environment_variables"].update({
+        "AZURE_AI_PROJECT_ENDPOINT": args.endpoint, "FOUNDRY_TOOLBOX_VERSION": "1",
+        "AZURE_AI_MODEL_DEPLOYMENT_NAME": "gpt-4o-mini",
+        "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
+        "TOOLBOX_ENDPOINT": args.endpoint + "/toolboxes/quote-tools/versions/1/mcp?api-version=v1",
+    })
+    args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
+    args.source_content_sha256 = "a" * 64
+    target["definition"] = json.loads(json.dumps(source["definition"]))
+    target["definition"]["environment_variables"] = showcase.shadow_environment(
+        source["definition"]["environment_variables"], args.endpoint,
+    )
+    if drift == "bundle":
+        target["definition"]["code_configuration"]["content_hash"] = "b" * 64
+    elif drift == "runtime":
+        target["definition"]["code_configuration"]["entry_point"] = ["different.py"]
+    elif drift == "cosmos":
+        target["definition"]["environment_variables"]["COSMOS_ENDPOINT"] = "https://live.test"
+    elif drift == "project":
+        target["definition"]["environment_variables"]["AZURE_AI_PROJECT_ENDPOINT"] = "https://other.test"
+    elif drift == "toolbox":
+        target["definition"]["environment_variables"].pop("FOUNDRY_TOOLBOX_VERSION")
+    elif drift == "source-pin":
+        args.source_content_sha256 = "c" * 64
+    if drift:
+        with pytest.raises(ValueError):
+            showcase.red_team(project, client, args)
+        client.evals.create.assert_not_called()
+    else:
+        result = showcase.shadow_preflight(project, args)
+        assert result["ready_for_native_scan"] and not result["running"]
+        assert result["source_revision_evidence"].startswith("external-")
+        assert result["source_content_sha256"] == args.source_content_sha256
+        assert result["routing_settings_preserved"]
+        assert result["source_deployment_provenance"] == "release39527950931"
+    project.agents.create_version.assert_not_called()
+
+
+@pytest.mark.parametrize(("key", "value"), [
+    ("AZURE_AI_PROJECT_ENDPOINT", "https://test.services.ai.azure.com/api/projects/fsi-production"),
+    ("AZURE_OPENAI_ENDPOINT", "https://other.openai.azure.com/"),
+    ("APPLICATION_MCP_URL", "https://user:password@fixtures.test/mcp"),
+    ("RULEBOOK_MCP_URL", "https://fixtures.test/mcp?api-key=secret"),
+    ("FOUNDRY_TOOLBOX_VERSION", "latest"),
+    ("TOOLBOX_ENDPOINT", "https://other.services.ai.azure.com/api/projects/fsi-staging/toolboxes/tools/mcp?api-version=v1"),
+])
+def test_source_routing_configuration_is_validated_before_scan(shadow_clients, key, value):
+    project, client, args, source, *_ = shadow_clients
+    source["definition"]["environment_variables"][key] = value
+    args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
+    with pytest.raises(ValueError):
+        showcase.red_team(project, client, args)
+    client.evals.create.assert_not_called()
+
+
+def test_mutable_source_image_is_not_reused(shadow_clients):
+    project, _, args, source, *_ = shadow_clients
+    source["definition"]["container_configuration"]["image"] = "registry.test/quote:latest"
+    args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
+    with pytest.raises(ValueError, match="digest-pinned"):
+        showcase.shadow_preflight(project, args, create=True)
+    project.agents.create_version.assert_not_called()
+
+
+def test_registered_shadow_is_never_reported_as_running(shadow_clients):
+    project, _, args, _, target, *_ = shadow_clients
+    target["status"] = "creating"
+    with pytest.raises(ValueError, match="registered but infrastructure is not active"):
+        showcase.shadow_preflight(project, args, create=True)
+    registration = json.loads((args.output_dir / "shadow-registration.json").read_text())
+    preflight = json.loads((args.output_dir / "shadow-preflight.json").read_text())
+    assert registration["running"] is False and preflight["running"] is False
+    assert registration["agent_version"] == "2" and registration["status"] == "creating"
+    assert preflight["ready_for_native_scan"] is False
+
+
+def test_taxonomy_creation_uses_native_sdk_models_and_requires_review(shadow_clients):
+    from azure.ai.projects.models import EvaluationTaxonomy
+
+    project, _, args, *_ = shadow_clients
+    result = showcase.taxonomy_create(project, args)
+    submitted = project.beta.evaluation_taxonomies.create.call_args.kwargs["taxonomy"]
+    assert isinstance(submitted, EvaluationTaxonomy)
+    assert submitted.as_dict()["taxonomyInput"] == {
+        "type": "agent", "target": {"type": "azure_ai_agent", "name": args.agent, "version": "2"},
+        "riskCategories": ["ProhibitedActions"],
+    }
+    assert result["human_review_required"] is True and result["approved"] is False
+
+
+@pytest.mark.parametrize("change", ["name", "version", "target-type", "risks", "generated-risk", "missing"])
+def test_taxonomy_review_does_not_override_identity_or_category_gates(shadow_clients, change):
+    project, client, args, _, _, taxonomy, *_ = shadow_clients
+    if change == "name":
+        taxonomy["name"] = "different"
+    elif change == "version":
+        taxonomy["taxonomy_input"]["target"]["version"] = "3"
+    elif change == "target-type":
+        taxonomy["taxonomy_input"]["target"]["type"] = "other"
+    elif change == "risks":
+        taxonomy["taxonomy_input"]["risk_categories"] += ["Violence"]
+    elif change == "generated-risk":
+        taxonomy["taxonomy_categories"][0]["risk_category"] = "SelfHarm"
+    else:
+        taxonomy["taxonomy_categories"] = []
+    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+    with pytest.raises(ValueError):
+        showcase.red_team(project, client, args)
+    client.evals.create.assert_not_called()
+
+
+@pytest.mark.parametrize("confirmed", [True, False, None])
+def test_timeout_preserves_exact_cancellation_outcome(shadow_clients, monkeypatch, confirmed):
+    project, client, args, *_ = shadow_clients
+    run = client.evals.runs.create.return_value
+    run.status = "running"
+    monkeypatch.setattr(showcase.time, "monotonic", iter([0, 31]).__next__)
+    if confirmed is None:
+        client.evals.runs.cancel.side_effect = RuntimeError("authentic cancel failure")
+    else:
+        client.evals.runs.cancel.return_value = SimpleNamespace(
+            status="canceled" if confirmed else "running", id=run.id, eval_id="eval-native",
+        )
+    with pytest.raises(TimeoutError):
+        showcase.red_team(project, client, args)
+    evidence = json.loads((args.output_dir / "cancellation.json").read_text())
+    assert evidence["eval_id"] == "eval-native" and evidence["run_id"] == "evalrun-native"
+    assert evidence["confirmed"] is (confirmed is True)
+    assert (args.output_dir / "failure.json").exists()
+    assert (args.output_dir / "run-identity.json").exists()
+
+
+def test_scan_creation_failure_retains_native_evaluation_identity(shadow_clients):
+    project, client, args, *_ = shadow_clients
+    client.evals.runs.create.side_effect = RuntimeError("authentic scan service failure")
+    with pytest.raises(RuntimeError, match="authentic scan"):
+        showcase.red_team(project, client, args)
+    evidence = json.loads((args.output_dir / "failure.json").read_text())
+    assert evidence["eval_id"] == "eval-native" and "run_id" not in evidence
+    assert evidence["error"] == "authentic scan service failure"
+
+
+def test_authentic_native_api_failure_is_retained_without_success_fallback(shadow_clients):
+    import httpx
+    from openai import APIStatusError
+
+    project, client, args, *_ = shadow_clients
+    body = {"error": {"code": "TargetNotReady", "message": "Native hosted target unavailable"}}
+    response = httpx.Response(409, request=httpx.Request("POST", "https://native.test/evals"))
+    client.evals.runs.create.side_effect = APIStatusError("TargetNotReady", response=response, body=body)
+    with pytest.raises(APIStatusError):
+        showcase.red_team(project, client, args)
+    evidence = json.loads((args.output_dir / "failure.json").read_text())
+    assert evidence["service_error"] == body and evidence["eval_id"] == "eval-native"
+
+
+def test_polling_failure_preserves_run_identity_and_authentic_failure(shadow_clients, monkeypatch):
+    project, client, args, *_ = shadow_clients
+    client.evals.runs.create.return_value.status = "running"
+    client.evals.runs.retrieve.side_effect = RuntimeError("authentic polling failure")
+    monkeypatch.setattr(showcase.time, "sleep", lambda *_: None)
+    with pytest.raises(RuntimeError, match="authentic polling"):
+        showcase.red_team(project, client, args)
+    evidence = json.loads((args.output_dir / "failure.json").read_text())
+    assert evidence["run_id"] == "evalrun-native"
+    assert (args.output_dir / "run-created.json").exists()
+    assert json.loads((args.output_dir / "cancellation.json").read_text())["confirmed"] is True
+
+
+def test_polling_identity_mismatch_cancels_only_the_original_run(shadow_clients, monkeypatch):
+    project, client, args, *_ = shadow_clients
+    client.evals.runs.create.return_value.status = "running"
+    client.evals.runs.retrieve.return_value = SimpleNamespace(
+        id="unrelated-run", eval_id="eval-native", status="running",
+    )
+    monkeypatch.setattr(showcase.time, "sleep", lambda *_: None)
+    with pytest.raises(ValueError, match="different evaluation/run identity"):
+        showcase.red_team(project, client, args)
+    client.evals.runs.cancel.assert_called_once_with(
+        eval_id="eval-native", run_id="evalrun-native", timeout=30,
+    )
+
+
+def test_partial_report_pagination_failure_keeps_items_already_received(shadow_clients):
+    project, client, args, *_ = shadow_clients
+    first = client.evals.runs.output_items.list.return_value[0]
+
+    def pages():
+        yield first
+        raise RuntimeError("authentic report pagination failure")
+
+    client.evals.runs.output_items.list.return_value = pages()
+    with pytest.raises(RuntimeError, match="pagination"):
+        showcase.red_team(project, client, args)
+    assert (args.output_dir / "report-item-00000.json").exists()
+    assert (args.output_dir / "failure.json").exists()
+    assert not (args.output_dir / "results.json").exists()
+
+
+def test_terminal_run_failure_is_retained_as_structured_native_evidence(shadow_clients):
+    project, client, args, _, _, _, report, _ = shadow_clients
+    client.evals.runs.create.return_value.status = "failed"
+    report["status"], report["error"] = "failed", {"code": "native-error", "message": "Real failure"}
+    with pytest.raises(RuntimeError, match="did not complete"):
+        showcase.red_team(project, client, args)
+    assert json.loads((args.output_dir / "run-terminal.json").read_text()) == report
+
+
+def test_cancelled_response_for_different_run_does_not_confirm_cancellation(shadow_clients, monkeypatch):
+    project, client, args, *_ = shadow_clients
+    client.evals.runs.create.return_value.status = "running"
+    client.evals.runs.cancel.return_value = SimpleNamespace(
+        id="different-run", eval_id="eval-native", status="canceled",
+    )
+    monkeypatch.setattr(showcase.time, "monotonic", iter([0, 31]).__next__)
+    with pytest.raises(TimeoutError):
+        showcase.red_team(project, client, args)
+    assert json.loads((args.output_dir / "cancellation.json").read_text())["confirmed"] is False
+
+
+def test_native_camel_case_taxonomy_response_is_supported(shadow_clients):
+    project, client, args, _, _, taxonomy, *_ = shadow_clients
+    taxonomy["taxonomyInput"] = taxonomy.pop("taxonomy_input")
+    taxonomy["taxonomyInput"]["riskCategories"] = taxonomy["taxonomyInput"].pop("risk_categories")
+    taxonomy["taxonomyCategories"] = taxonomy.pop("taxonomy_categories")
+    category = taxonomy["taxonomyCategories"][0]
+    category["riskCategory"], category["subCategories"] = category.pop("risk_category"), category.pop("sub_categories")
+    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+    assert showcase.red_team(project, client, args)["summary"]["no_violations"] is True
+
+
+@pytest.mark.parametrize("change", [
+    "failed", "missing-items", "missing-counts", "count-mismatch", "item-error",
+    "run-error", "score-missing", "score-nan", "passed-missing", "foreign-run", "missing-metrics",
+    "malformed-metric", "malformed-error", "malformed-id", "errored-status", "duplicate-item",
+])
+def test_report_completeness_and_actual_policy_failure_are_not_success(shadow_clients, change):
+    project, client, args, _, _, _, run, item = shadow_clients
+    if change == "failed":
+        item["results"][0]["passed"] = False
+        run["result_counts"].update(passed=0, failed=1)
+    elif change == "missing-items":
+        client.evals.runs.output_items.list.return_value = []
+    elif change == "missing-counts":
+        run.pop("result_counts")
+    elif change == "count-mismatch":
+        run["result_counts"]["total"] = 2
+    elif change == "item-error":
+        item["sample"]["error"] = {"code": "native_error", "message": "Authentic failure"}
+    elif change == "run-error":
+        run["error"] = {"code": "native_error", "message": "Authentic failure"}
+    elif change == "score-missing":
+        item["results"][0].pop("score")
+    elif change == "score-nan":
+        item["results"][0]["score"] = float("nan")
+    elif change == "passed-missing":
+        item["results"][0].pop("passed")
+    elif change == "foreign-run":
+        item["run_id"] = "different-run"
+    elif change == "malformed-metric":
+        item["results"] = [None]
+    elif change == "malformed-error":
+        run["error"] = []
+    elif change == "malformed-id":
+        item["id"] = []
+    elif change == "errored-status":
+        item["status"] = "errored"
+    elif change == "duplicate-item":
+        client.evals.runs.output_items.list.return_value *= 2
+        run["result_counts"].update(total=2, passed=2)
+    else:
+        item.pop("results")
+    with pytest.raises(RuntimeError, match="incomplete, errored, or has policy violations"):
+        showcase.red_team(project, client, args)
+    result = json.loads((args.output_dir / "results.json").read_text())
+    assert result["summary"]["no_violations"] is False
+    if change == "failed":
+        assert result["summary"]["report_complete"] is True
+        assert result["summary"]["counts"]["failed"] == 1
 
 
 @pytest.mark.parametrize("operation", ["anything", "'; delete", "a" * 31, "A" * 32])
