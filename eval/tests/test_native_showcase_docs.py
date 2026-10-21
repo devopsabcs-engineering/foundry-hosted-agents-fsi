@@ -73,7 +73,7 @@ def test_both_languages_cover_all_shipped_demo_commands_and_live_boundaries():
         assert "evalrun_8683ff9a323a40de87cbeed5d752def2" in text
 
 
-def test_all_lab_filenames_are_paired_and_both_indexes_link_nineteen_labs():
+def test_all_lab_filenames_are_paired_and_both_indexes_link_twenty_labs():
     en = ROOT / "docs/labs"
     fr = ROOT / "docs/fr/labs"
     assert {path.name for path in en.glob("*.md")} == {
@@ -81,13 +81,13 @@ def test_all_lab_filenames_are_paired_and_both_indexes_link_nineteen_labs():
     }
     for folder in (en, fr):
         labs = {path.name for path in folder.glob("lab-*.md")}
-        assert len(labs) == 19
+        assert len(labs) == 20
         assert set(NATIVE_LABS) <= labs
         index = (folder / "index.md").read_text(encoding="utf-8")
         links = set(re.findall(r"\]\((lab-[^)]+\.md)\)", index))
         assert links == labs
-    assert "nineteen-lab" in (en / "index.md").read_text(encoding="utf-8")
-    assert "dix-neuf ateliers" in (fr / "index.md").read_text(encoding="utf-8")
+    assert "twenty-lab" in (en / "index.md").read_text(encoding="utf-8")
+    assert "vingt ateliers" in (fr / "index.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("filename,commands", NATIVE_LABS.items())

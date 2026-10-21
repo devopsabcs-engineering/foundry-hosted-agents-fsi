@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import sys
 import unicodedata
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
@@ -174,7 +174,9 @@ def test_powerpoint_contains_readable_bounded_slides_and_instructor_notes(langua
             notes = ET.fromstring(archive.read(f"ppt/notesSlides/notesSlide{number}.xml"))
             note_text = " ".join(node.text or "" for node in notes.findall(".//a:t", NS))
             assert len(note_text) > 200
-            assert "learn.microsoft.com" in note_text and "evaluation-guide.html" in note_text
+            links = [urlsplit(url) for url in re.findall(r"https://\S+", note_text)]
+            assert any(link.hostname == "learn.microsoft.com" for link in links)
+            assert any(link.path.endswith("/evaluation-guide.html") for link in links)
         all_text = " ".join(archive.read(name).decode() for name in slide_names)
         for token in ("Wilson", "COMPOSITION", "groundedness", "SystemError", "39527950931"):
             assert token in all_text
