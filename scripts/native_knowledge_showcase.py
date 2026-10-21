@@ -426,6 +426,21 @@ class Knowledge:
             raise ShowcaseError("Ingestion incomplete or failed; inspect Search indexing results")
         return result
 
+    def verify_corpus(self, documents):
+        fields = ("id", "title", "content", "language", "version", "sha256")
+        result = self.call("POST", f"indexes/{self.index}/docs/search", {
+            "search": "*", "top": len(documents) + 1, "count": True,
+            "select": ",".join(fields),
+        })
+        rows = result.get("value", [])
+        actual = {row.get("id"): {key: row.get(key) for key in fields} for row in rows}
+        expected = {document["id"]: document for document in documents}
+        if (result.get("@odata.count") != len(documents) or len(rows) != len(documents)
+                or len(actual) != len(rows) or actual != expected):
+            raise ShowcaseError("Search corpus is incomplete, changed, or contains unreviewed documents")
+        return {"verified_documents": len(documents),
+                "source_sha256": {doc["id"]: doc["sha256"] for doc in documents}}
+
     def query(self, question, language, documents):
         if not question.strip() or len(question) > 2000 or language not in ("en", "fr"):
             raise ShowcaseError("Provide a bounded question and en/fr language")
@@ -518,9 +533,10 @@ class ContentUnderstanding:
     def __init__(self, rest, cu_endpoint, model_deployments=None):
         self.rest = rest
         self.endpoint = endpoint(cu_endpoint, ".cognitiveservices.azure.com")
-        self.model_deployments = model_deployments or {}
+        self.model_deployments = {} if model_deployments is None else model_deployments
         if (not isinstance(self.model_deployments, dict)
-                or any(not isinstance(k, str) or not isinstance(v, str) or not v.strip()
+                or any(not isinstance(k, str) or not k.strip() or not isinstance(v, str)
+                       or not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", v)
                        for k, v in self.model_deployments.items())):
             raise ShowcaseError("CU model deployments must map model aliases to existing deployment names")
 
@@ -531,26 +547,47 @@ class ContentUnderstanding:
 
     def preflight(self):
         analyzer = self.call("GET", f"analyzers/{ANALYZER}")[0]
-        defaults = self.call("GET", "defaults")[0]
         models = analyzer.get("models", {})
-        mapping = {**defaults.get("modelDeployments", {}), **self.model_deployments}
+        if (not isinstance(models, dict) or not models
+                or any(not isinstance(alias, str) or not alias for alias in models.values())):
+            raise ShowcaseError("CU analyzer does not expose usable model aliases")
+        if any(alias not in models.values() for alias in self.model_deployments):
+            raise ShowcaseError("CU request contains an alias not used by this analyzer")
+        complete_override = all(self.model_deployments.get(alias) for alias in models.values())
+        defaults = None if complete_override else self.call("GET", "defaults")[0]
+        mapping = {**(defaults or {}).get("modelDeployments", {}), **self.model_deployments}
         if not models or any(not mapping.get(alias) for alias in models.values()):
             raise ShowcaseError("CU model aliases unavailable; supply --model-deployments for "
                                 "existing supported deployments. Resource defaults will not be changed")
-        return {"analyzer": analyzer, "defaults": defaults, "api_version": CU_API,
+        return {"analyzer": analyzer, "defaults": defaults, "defaults_read": not complete_override,
+                "api_version": CU_API,
                 "request_model_deployments": self.model_deployments,
                 "supported_models": analyzer.get("supportedModels", {}),
                 "deployment_model_compatibility": "Service validates existing model mappings at analyze time"}
 
-    def analyze(self, document=DOCUMENT, timeout=120, interval=2):
+    def analyze(self, document=DOCUMENT, timeout=120, interval=2, evidence_path=None):
         pdf = synthetic_pdf(document)
         if not 0 < timeout <= 600 or not 0 < interval <= 10:
             raise ShowcaseError("Invalid bounded polling timeout/interval")
-        self.preflight()
+        evidence = {"service": "Azure AI Content Understanding", "state": "preflight",
+                    "synthetic": True, "analyzer": ANALYZER, "api_version": CU_API,
+                    "document_sha256": hashlib.sha256(pdf).hexdigest(),
+                    "request_model_deployments": self.model_deployments}
+
+        def record():
+            if evidence_path is not None:
+                evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+
+        if evidence_path is not None:
+            with evidence_path.open("x", encoding="utf-8") as handle:
+                json.dump(evidence, handle, indent=2)
+        evidence["preflight"] = self.preflight()
         payload = {"inputs": [{"data": base64.b64encode(pdf).decode("ascii"),
                               "mimeType": "application/pdf", "name": "synthetic-repair-invoice.pdf"}]}
         if self.model_deployments:
             payload["modelDeployments"] = self.model_deployments
+        evidence["state"] = "submitting"
+        record()
         _, headers = self.call("POST", f"analyzers/{ANALYZER}:analyze", payload, (202,))
         operation = next((v for k, v in headers.items() if k.lower() == "operation-location"), "")
         parsed = urlsplit(operation)
@@ -558,27 +595,41 @@ class ContentUnderstanding:
                 or not re.fullmatch(r"/contentunderstanding/analyzerResults/[A-Za-z0-9-]+", parsed.path)
                 or parsed.query != f"api-version={CU_API}" or parsed.fragment):
             raise ShowcaseError("Missing or unsafe CU Operation-Location")
+        evidence["operation_location"] = operation
+        evidence["state"] = "polling"
+        record()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             result, _ = self.rest.call("GET", operation,
                                        "https://cognitiveservices.azure.com/.default")
             state = result.get("status")
             if state == "Succeeded":
+                evidence.update(state="result-received-not-yet-validated", native_result=result)
+                record()
                 validate_extraction(result)
-                return {"analyzer": ANALYZER, "api_version": CU_API,
-                        "operation_location": operation, "native_result": result,
-                        "warning": "Synthetic document observation only; never pricing or approval"}
+                evidence.update(
+                    state="Succeeded",
+                    warning="Synthetic document observation only; never pricing or approval",
+                )
+                record()
+                return evidence
             if state not in ("Running", "NotStarted"):
+                evidence.update(state="failed", native_result=result)
+                record()
                 raise ShowcaseError(f"CU operation failed or returned unknown status: {state}")
             time.sleep(min(interval, max(0, deadline - time.monotonic())))
+        evidence["state"] = "timed-out-operation-may-still-run"
+        record()
         raise ShowcaseError(f"CU polling timeout; operation may still be running: {operation}")
 
 
 def validate_extraction(result):
     analysis = result.get("result", {})
-    if analysis.get("analyzerId") != ANALYZER or analysis.get("apiVersion") != CU_API:
+    if (result.get("error") or analysis.get("analyzerId") != ANALYZER
+            or analysis.get("apiVersion") != CU_API):
         raise ShowcaseError("Unexpected analyzer or API in extraction result")
     grounded = False
+    invoice_verified = False
 
     def inspect(field, markdown):
         nonlocal grounded
@@ -590,7 +641,14 @@ def validate_extraction(result):
             if (type(offset) is not int or type(length) is not int or offset < 0
                     or length <= 0 or offset + length > len(markdown)):
                 raise ShowcaseError("Invalid CU grounding span")
-        if spans and field.get("source") and any(k.startswith("value") for k in field):
+        if spans and any(k.startswith("value") and k not in ("valueObject", "valueArray") for k in field):
+            confidence = field.get("confidence")
+            source = field.get("source")
+            if (isinstance(confidence, bool) or not isinstance(confidence, (int, float))
+                    or not math.isfinite(confidence) or not 0 <= confidence <= 1
+                    or not isinstance(source, str)
+                    or not re.fullmatch(r"D\([0-9]+(?:,[0-9]+(?:\.[0-9]+)?){8}\)", source)):
+                raise ShowcaseError("CU field lacks valid confidence or page-polygon grounding")
             grounded = True
         for child in field.get("valueObject", {}).values():
             inspect(child, markdown)
@@ -598,10 +656,19 @@ def validate_extraction(result):
             inspect(child, markdown)
 
     for content in analysis.get("contents", []):
-        for field in content.get("fields", {}).values():
+        for name, field in content.get("fields", {}).items():
             inspect(field, content.get("markdown", ""))
+            if (name == "InvoiceId" and field.get("valueString") == "SYN-REPAIR-001"
+                    and field.get("spans") and field.get("source")
+                    and "SYN-REPAIR-001" in "".join(
+                        content.get("markdown", "")[span["offset"]:span["offset"] + span["length"]]
+                        for span in field["spans"]
+                    )):
+                invoice_verified = True
     if not grounded:
         raise ShowcaseError("CU succeeded without structured fields and inspectable grounding")
+    if not invoice_verified:
+        raise ShowcaseError("CU result does not identify the expected grounded synthetic invoice")
 
 
 class DocumentIntelligence:
@@ -799,7 +866,7 @@ def main(argv=None):
                     parser.error("--cu-endpoint is required")
                 cu = ContentUnderstanding(rest, args.cu_endpoint, args.model_deployments)
                 result = cu.preflight() if args.command == "cu-preflight" else cu.analyze(
-                    args.document, args.poll_timeout)
+                    args.document, args.poll_timeout, evidence_path=args.output)
             else:
                 if not args.search_endpoint:
                     parser.error("--search-endpoint is required")

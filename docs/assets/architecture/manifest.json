@@ -33,8 +33,8 @@
       "source": "docs/architecture.md",
       "index": 5,
       "asset": "architecture-en-5.png",
-      "diagram_sha256": "79458a28aa5023e43c84ed0ccffb39a35401d780042af5f72e40e0c2fd29fef6",
-      "image_sha256": "2a95b3bba4d97519da28fab658245d9b5da5b7c4bd6b0342f3b58cf7277dec40"
+      "diagram_sha256": "4d4c043941572057779ae1de736181b4a667c294585153373ca9628e2238be13",
+      "image_sha256": "5a25cf69383a042827c97ba17476eddb7a8cc004b9076e28d95062b155397d2d"
     },
     {
       "source": "docs/architecture.md",
@@ -82,8 +82,8 @@
       "source": "docs/fr/architecture.md",
       "index": 5,
       "asset": "architecture-fr-5.png",
-      "diagram_sha256": "858741b653f4bff59ca90f316a70eede1e338f73757ee6334b469f3a6eaba17a",
-      "image_sha256": "2cb5c53a9eb385e90ace4ffce5c2e67b5874b54fcaef1d88ae5dc553d5cc14d1"
+      "diagram_sha256": "9bcda7cae7b402a0835106ec4f981b6c5561d0e4c53c9c31b5eea16cdc90f9ad",
+      "image_sha256": "6c1bbea9b3762baa0bd7b249bc13fcd97d807e1a5fd299d414d72c9893aa8eed"
     },
     {
       "source": "docs/fr/architecture.md",

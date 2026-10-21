@@ -28,6 +28,10 @@ param queryPrincipalIds array = []
 @allowed(['User', 'Group', 'ServicePrincipal'])
 param principalType string = 'User'
 
+@description('Query identity type; use ServicePrincipal for Foundry project managed identities.')
+@allowed(['User', 'Group', 'ServicePrincipal'])
+param queryPrincipalType string = principalType
+
 var operatorRoles = [for id in operatorPrincipalIds: {
   principalId: id
   principalType: principalType
@@ -40,7 +44,7 @@ var ingestionRoles = [for id in ingestionPrincipalIds: {
 }]
 var queryRoles = [for id in queryPrincipalIds: {
   principalId: id
-  principalType: principalType
+  principalType: queryPrincipalType
   roleDefinitionIdOrName: 'Search Index Data Reader'
 }]
 
