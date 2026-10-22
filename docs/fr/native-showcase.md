@@ -46,7 +46,7 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Magasin staging vérifié avec embedding approuvé; refus par rôle 403, pas une ACL par agent |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
-| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Corpus East US de six documents et valeurs minimal/extractive vérifiés ; IQ staging v1 récupère réellement par MCP, mais la validation bilingue comporte des échecs ; IQ production non promu |
+| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Corpus East US de six documents et valeurs minimal/extractive vérifiés ; IQ staging v2 a réussi 8/8 contrôles natifs bilingues de provenance et de format le 2026-10-22 ; IQ production attend son rôle de requête Search |
 | Service documentaire | Content Understanding GA avec alias de modèles par requête | Modèles dédiés `gpt-4.1` et `text-embedding-3-large` et extraction synthétique ancrée vérifiés en staging et production le 2026-10-21, sans modifier les valeurs par défaut |
 | Service documentaire préentraîné | Document Intelligence natif `prebuilt-invoice`, GA `2024-11-30` | Extraction réelle réussie : 1 page, 1 document, 8 champs structurés ancrés, sans nouveau modèle |
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
@@ -405,11 +405,22 @@ a reçu HTTP400 pour les huit cas et a été retiré ; ne l'associez pas à
 phase d'échec, accepte une récupération réellement vide seulement pour un refus
 hors corpus exact et produit du JSON compatible ASCII sous Windows.
 
-Des instructions persistées renforcées sont préparées pour une future version,
-pas appliquées au v1 déployé. Après approbation de l'artefact exact, créez une
-nouvelle version et un nouveau binding avant une validation native fraîche.
-Ne modifiez pas un ancien binding et n'utilisez pas l'ancien 6/8 comme preuve
-pour les nouvelles instructions. Les marqueurs source du scénario en font un
+La livraison partielle autorisée
+[PR 48](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/48)
+a fusionné en `7c5b1611fcc04da75c77fadd986816e0485f610b` avec l'arbre testé.
+Le 2026-10-22, les instructions persistées renforcées de
+`c5e1f93f2bfd463bdd1bbc3946c48a29b3c87d26` ont été déployées dans le nouveau
+`fsi-showcase-iq:2` staging avec un nouveau binding. Un lot natif complet
+a réussi 8/8 : approbation, scope, confidentialité et refus hors corpus exact
+en anglais et en français, chacun avec un véritable appel MCP terminé.
+Les échecs historiques v1 restent conservés, sans servir de preuve au v2.
+Le précontrôle production en lecture seule n'a trouvé aucun rôle direct
+`Search Index Data Reader` pour l'identité managée de son projet sur Search.
+Aucun compagnon production ni changement de permission n'a été effectué.
+Le rôle minimal, la promotion production et la validation native du clone de
+protocole sont reportés au
+[ticket 49](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49).
+Le parcours client v6/v7 reste inchangé. Les marqueurs source du scénario en font un
 contrôle de provenance et de format, pas une évaluation sémantique indépendante
 ni une preuve de fiabilité générale du modèle.
 
