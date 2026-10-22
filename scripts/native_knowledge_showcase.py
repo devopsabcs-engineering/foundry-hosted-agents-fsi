@@ -419,7 +419,7 @@ class Knowledge:
         for kind, name, payload in (("indexes", self.index, index),
                                     ("knowledgesources", self.source, source),
                                     ("knowledgebases", self.base, base)):
-            self.call("PUT", f"{kind}/{name}", payload, (200, 201),
+            self.call("PUT", f"{kind}/{name}", payload, (200, 201, 204),
                       api_version=MCP_API if kind == "knowledgebases" else SEARCH_API)
         return self.status()
 
@@ -893,7 +893,7 @@ def main(argv=None):
                     if not args.question:
                         parser.error("--question is required")
                     result = knowledge.query(args.question, args.language, documents)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=True, indent=2))
         return 0
     except (ShowcaseError, OSError, ValueError, KeyError, ImportError) as exc:
         print(f"Showcase failed: {exc}", file=sys.stderr)

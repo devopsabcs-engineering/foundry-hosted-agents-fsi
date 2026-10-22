@@ -463,6 +463,64 @@ def test_upsert_creates_native_index_source_and_base_without_model():
     assert calls[2].args[3]["outputMode"] == "extractiveData"
     assert "models" not in calls[2].args[3]
     assert "vectorSearch" not in calls[0].args[3]
+    assert all(c.args[4] == (200, 201, 204) for c in calls[:3])
+    assert all(c.args[4] == (200,) for c in calls[3:])
+
+
+@pytest.mark.parametrize("status", [200, 201, 204, 202, 400, 403, 500])
+def test_upsert_accepts_only_successful_resource_put_statuses(status):
+    rest = showcase.Rest(Mock())
+    rest.credential.get_token.return_value.token = "synthetic"
+
+    def reply(request, **kwargs):
+        result = Mock()
+        result.status = status if request.method == "PUT" else 200
+        result.read.return_value = b""
+        result.headers = {}
+        result.__enter__ = Mock(return_value=result)
+        result.__exit__ = Mock(return_value=False)
+        return result
+
+    rest.opener.open = Mock(side_effect=reply)
+    knowledge = showcase.Knowledge(rest, SEARCH)
+    if status in (200, 201, 204):
+        assert knowledge.upsert() == {
+            "indexes": {}, "knowledgesources": {}, "knowledgebases": {},
+        }
+        assert rest.opener.open.call_count == 6
+    else:
+        with pytest.raises(showcase.ShowcaseError, match=f"Unexpected HTTP {status}"):
+            knowledge.upsert()
+        assert rest.opener.open.call_count == 1
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_upsert_no_content_support_does_not_relax_other_methods(method):
+    rest = showcase.Rest(Mock())
+    rest.credential.get_token.return_value.token = "synthetic"
+    reply = Mock()
+    reply.status = 204
+    reply.__enter__ = Mock(return_value=reply)
+    reply.__exit__ = Mock(return_value=False)
+    rest.opener.open = Mock(return_value=reply)
+    with pytest.raises(showcase.ShowcaseError, match="Unexpected HTTP 204"):
+        showcase.Knowledge(rest, SEARCH).call(method, "synthetic")
+
+
+def test_cli_prints_native_unicode_on_legacy_windows_stdout(monkeypatch):
+    result = {"answer": "Préparation synthétique \u30101:0\u2020source\u3011"}
+    knowledge = Mock()
+    knowledge.query.return_value = result
+    monkeypatch.setattr(showcase, "Rest", Mock())
+    monkeypatch.setattr(showcase, "Knowledge", Mock(return_value=knowledge))
+    buffer = io.BytesIO()
+    stdout = io.TextIOWrapper(buffer, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", stdout)
+    assert showcase.main([
+        "query", "--search-endpoint", SEARCH, "--question", "Question synthétique",
+    ]) == 0
+    stdout.flush()
+    assert json.loads(buffer.getvalue().decode("cp1252")) == result
 
 
 def test_ingest_uploads_only_pinned_documents_and_checks_each_status(docs):

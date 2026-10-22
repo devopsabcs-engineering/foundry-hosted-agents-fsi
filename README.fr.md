@@ -103,8 +103,14 @@ Pour la démonstration client de la séance 2, consultez le
 ([anglais](docs/native-showcase.md)). Il distingue les preuves du
 déploiement restauré du RAG File Search natif et de la compétence opérateur
 réellement exécutés, des contrôles mémoire isolés et du rejeu de traces
-personnalisées. Foundry IQ, les prérequis Content Understanding et les travaux
-facultatifs de red team conservent leurs limites distinctes. Les juges natifs ont manqué un contrôle
+personnalisées. L'extraction de facture Content Understanding a réussi en staging
+et production. Foundry IQ récupère réellement par MCP, mais comporte des échecs
+de validation stricte ; le scan red team isolé et approuvé a échoué avant tout
+résultat noté. Aucun de ces deux parcours n'est présenté comme une réussite,
+et IQ production n'est pas promu. Un adaptateur de protocole distinct est testé
+hors ligne ; son nouvel artefact et sa nouvelle cible demandent une approbation
+de déploiement et une validation native distinctes, sans réutiliser l'approbation
+du scan original. Les juges natifs ont manqué un contrôle
 négatif connu; cette limite est documentée, sans faux succès de qualité.
 Conservez les deux environnements déployés.
 

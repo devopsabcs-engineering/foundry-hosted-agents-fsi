@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import sys
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -473,6 +476,147 @@ def test_code_shadow_reuploads_only_the_verified_original_native_zip(shadow_clie
         args.source_agent, agent_version=args.source_agent_version,
     )
     project.agents.create_version.assert_not_called()
+    client.evals.create.assert_not_called()
+
+
+@pytest.fixture
+def protocol_shadow_clients(shadow_clients, monkeypatch):
+    import redteam_protocol_package as protocol_package
+
+    project, client, args, source, target, taxonomy, *_ = shadow_clients
+    root = Path(__file__).resolve().parents[2]
+    entrypoint = (root / "scripts" / protocol_package.ENTRYPOINT).read_bytes()
+    monkeypatch.setattr(showcase, "reviewed_entrypoint", lambda *args: entrypoint)
+    monkeypatch.setattr(protocol_package, "reviewed_entrypoint", lambda *args: entrypoint)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name in ("main.py", "response_bridge.py", "graph.py"):
+            archive.writestr(name, (root / "src" / "quote-preparation-agent" / name).read_bytes())
+    original = buffer.getvalue()
+    args.agent = "fsi-showcase-redteam-protocol-quote-001"
+    args.protocol_revision = "b" * 40
+    args.protocol_entrypoint_sha256 = hashlib.sha256(entrypoint).hexdigest()
+    args.source_content_sha256 = hashlib.sha256(original).hexdigest()
+    derived, proof = protocol_package.build_package(
+        original, source_sha256=args.source_content_sha256,
+        protocol_revision=args.protocol_revision,
+        entrypoint_sha256=args.protocol_entrypoint_sha256,
+    )
+    args.protocol_content_sha256 = proof["target_content_sha256"]
+    source["definition"].pop("container_configuration")
+    source["definition"]["code_configuration"] = {
+        "runtime": "python_3_13", "entry_point": ["python", "main.py"],
+        "dependency_resolution": "remote_build", "content_hash": args.source_content_sha256,
+    }
+    args.source_definition_sha256 = showcase.taxonomy_digest(source["definition"])
+    target["name"] = args.agent
+    target["definition"] = json.loads(json.dumps(source["definition"]))
+    target["definition"]["environment_variables"] = showcase.shadow_environment(
+        source["definition"]["environment_variables"], args.endpoint,
+    )
+    target["definition"]["code_configuration"]["entry_point"][-1] = protocol_package.ENTRYPOINT
+    target["definition"]["code_configuration"]["content_hash"] = args.protocol_content_sha256
+    target["metadata"] = {
+        "source_revision": args.source_revision, "source_id": source["id"],
+        "protocol_revision": args.protocol_revision,
+        "protocol_entrypoint_sha256": args.protocol_entrypoint_sha256,
+        "source_content_sha256": args.source_content_sha256,
+    }
+    project.agents.download_code.return_value = iter([original])
+    project.agents.create_version_from_code.return_value = SimpleNamespace(as_dict=lambda: target)
+    taxonomy["taxonomy_input"]["target"]["name"] = args.agent
+    args.approved_taxonomy_sha256 = showcase.taxonomy_digest(taxonomy)
+    return project, client, args, source, target, original, derived
+
+
+def test_protocol_shadow_is_separately_pinned_without_weakening_original_fidelity(protocol_shadow_clients):
+    project, client, args, source, target, original, derived = protocol_shadow_clients
+    pristine = json.loads(json.dumps(source))
+    uploaded = []
+
+    def upload(*positional, **kwargs):
+        uploaded.append(kwargs["code"].read())
+        assert positional == (args.agent,)
+        assert kwargs["code_zip_sha256"] == args.protocol_content_sha256
+        assert kwargs["metadata"] == target["metadata"]
+        definition = kwargs["definition"].as_dict()
+        assert "content_hash" not in definition["code_configuration"]
+        assert definition["code_configuration"]["entry_point"] == ["python", showcase.ENTRYPOINT]
+        assert definition["environment_variables"]["CASE_STORE_DB_PATH"] == ":memory:"
+        return SimpleNamespace(as_dict=lambda: target)
+
+    project.agents.create_version_from_code.side_effect = upload
+    result = showcase.shadow_preflight(project, args, create=True)
+    assert uploaded == [derived] and derived != original
+    assert source == pristine
+    assert result["immutable_artifact_equality"] is False
+    assert result["source_content_sha256"] == hashlib.sha256(original).hexdigest()
+    assert result["protocol_correction"]["target_content_sha256"] == hashlib.sha256(derived).hexdigest()
+    assert result["ready_for_native_scan"] is True
+    assert result["baseline_modified"] is False
+    project.agents.create_version.assert_not_called()
+    client.evals.create.assert_not_called()
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("protocol_revision", None), ("protocol_revision", "main"), ("protocol_revision", True),
+    ("protocol_entrypoint_sha256", None), ("protocol_entrypoint_sha256", "wrong"),
+    ("protocol_content_sha256", None), ("protocol_content_sha256", 123),
+    ("agent", "fsi-showcase-redteam-quote-001"),
+])
+def test_protocol_bounds_fail_before_remote_calls(protocol_shadow_clients, field, value):
+    project, client, args, *_ = protocol_shadow_clients
+    setattr(args, field, value)
+    with pytest.raises(ValueError):
+        showcase.shadow_preflight(project, args, create=True)
+    assert not project.mock_calls and not client.mock_calls
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_protocol_names_cannot_silently_select_original_mode(protocol_shadow_clients, value):
+    project, _, args, *_ = protocol_shadow_clients
+    args.protocol_revision = args.protocol_entrypoint_sha256 = args.protocol_content_sha256 = value
+    with pytest.raises(ValueError, match="requires its full"):
+        showcase.shadow_preflight(project, args, create=True)
+    assert not project.mock_calls
+
+
+def test_protocol_package_cannot_claim_original_immutable_hash(protocol_shadow_clients):
+    project, _, args, *_ = protocol_shadow_clients
+    args.protocol_content_sha256 = args.source_content_sha256
+    with pytest.raises(ValueError, match="must not claim"):
+        showcase.shadow_preflight(project, args, create=True)
+    assert not project.mock_calls
+
+
+@pytest.mark.parametrize("drift", ["package", "entrypoint", "metadata", "source-archive"])
+def test_protocol_native_target_pins_reject_drift(protocol_shadow_clients, drift):
+    project, client, args, _, target, *_ = protocol_shadow_clients
+    if drift == "package":
+        target["definition"]["code_configuration"]["content_hash"] = "c" * 64
+    elif drift == "entrypoint":
+        target["definition"]["code_configuration"]["entry_point"][-1] = "main.py"
+    elif drift == "metadata":
+        target["metadata"]["protocol_revision"] = "d" * 40
+    else:
+        target["metadata"]["source_content_sha256"] = "e" * 64
+    with pytest.raises(ValueError, match="does not match"):
+        showcase.shadow_preflight(project, args)
+    project.agents.create_version_from_code.assert_not_called()
+    client.evals.create.assert_not_called()
+
+
+def test_wrong_protocol_package_pin_is_journaled_before_upload(protocol_shadow_clients):
+    project, client, args, *_ = protocol_shadow_clients
+    args.protocol_content_sha256 = "0" * 64
+    with pytest.raises(ValueError, match="separately reviewed target hash"):
+        showcase.shadow_preflight(project, args, create=True)
+    failure = json.loads((args.output_dir / "protocol-preparation-failure.json").read_text())
+    assert failure["ready_for_native_scan"] is False
+    assert failure["error_type"] == "ValueError"
+    assert (args.output_dir / "original-native-code.zip").exists()
+    assert not (args.output_dir / "protocol-native-code.zip").exists()
+    project.agents.create_version_from_code.assert_not_called()
     client.evals.create.assert_not_called()
 
 

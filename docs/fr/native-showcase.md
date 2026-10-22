@@ -46,12 +46,12 @@ trois résultats distincts. Une preuve réelle est nécessaire pour le dernier.
 | Mémoire | Création, durée de vie, contenu, recherche et test négatif inter-scopes | Magasin staging vérifié avec embedding approuvé; refus par rôle 403, pas une ACL par agent |
 | Compétence d'exécution | Compétence native versionnée et créée par le projet | Version 1 découverte, téléchargée et consommée par un moteur Responses opérateur isolé ; pas par l'agent hébergé |
 | RAG géré | Vector store File Search natif et outil Responses | Six fichiers versionnés indexés ; trois questions EN/FR avec citations natives et deux refus hors corpus |
-| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Search synthétique déployé en East US avec six documents révisés ; IQ staging v1 enregistré ; validation des requêtes natives et IQ production en attente |
+| Connaissances | Indexation et récupération Search GA, MCP et valeurs de base en préversion | Corpus East US de six documents et valeurs minimal/extractive vérifiés ; IQ staging v1 récupère réellement par MCP, mais la validation bilingue comporte des échecs ; IQ production non promu |
 | Service documentaire | Content Understanding GA avec alias de modèles par requête | Modèles dédiés `gpt-4.1` et `text-embedding-3-large` et extraction synthétique ancrée vérifiés en staging et production le 2026-10-21, sans modifier les valeurs par défaut |
 | Service documentaire préentraîné | Document Intelligence natif `prebuilt-invoice`, GA `2024-11-30` | Extraction réelle réussie : 1 page, 1 document, 8 champs structurés ancrés, sans nouveau modèle |
 | Évaluateur intégré | `builtin.retrieval`, version 15 | Staging réel : contexte pertinent 5/5, non pertinent 1/5 |
 | Contrôles d'ancrage | `builtin.groundedness` v18 et `builtin.groundedness_pro` v8 | Les deux ont manqué une réponse française erronée connue ; contrôle négatif échoué, sans gain affirmé |
-| Red team | Taxonomie native puis évaluation ciblant un agent | Clone staging v2 avec hachage natif original et invocation réelle vérifiés ; nouvelle taxonomie générée, révision humaine en attente ; aucun scan exécuté |
+| Red team | Taxonomie native puis évaluation ciblant un agent | Clone staging v2 au hachage original invoqué avec succès ; taxonomie synthétique approuvée puis scannée, mais exécution native échouée sans résultat noté, pas une validation de sécurité |
 | Traces | Instrumentation déterministe, requête Log Analytics et jeu de rejeu | Neuf spans réels, trois étapes personnalisées, rejeu natif 1/1; pas de récupération du prompt privé |
 | État métier | Cosmos DB et approbation réservée à l'employé | Distinct de la mémoire ; l'agent n'approuve jamais |
 
@@ -322,8 +322,11 @@ Le plan des extensions est approuvé dans
 Le code, les tests hors ligne, l'approbation de l'artefact exact et la validation
 native restent des étapes distinctes. CU a réussi réellement dans les deux
 environnements. Search est déployé et le clone isolé a réussi une invocation
-native. La validation IQ et le scan après révision de taxonomie restent des
-étapes distinctes. La démo v6/v7 reste inchangée.
+native. Les corrections approuvées de la base ont été appliquées après la fusion
+de la [PR 47](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/47),
+dont l'arbre correspond exactement au code révisé. La validation IQ et un rapport
+red team natif réellement noté restent en attente. Ces limites ne bloquent pas
+la démo client v6/v7 inchangée.
 
 ```mermaid
 flowchart LR
@@ -392,6 +395,23 @@ et retrouver leur marqueur de version dans le résultat natif de l'outil.
 Ce contrôle d'ID n'invente pas d'annotations natives et n'est pas un juge
 sémantique. Les deux refus hors corpus doivent être exactement
 `OUT_OF_CORPUS`. Les réponses brutes restent conservées en cas d'échec.
+
+Le premier lot natif de huit cas du v1 déployé a réussi seulement 1/8.
+Les contrôles de requête pris en charge ont ensuite réussi 6/8 : la réponse
+anglaise de scope omettait son ID source et le refus anglais ajoutait un point.
+Aucun contrôle n'a été assoupli. Un essai de surcharge `instructions` par requête
+a reçu HTTP400 pour les huit cas et a été retiré ; ne l'associez pas à
+`agent_reference`. La CLI force maintenant l'outil MCP autorisé, conserve la
+phase d'échec, accepte une récupération réellement vide seulement pour un refus
+hors corpus exact et produit du JSON compatible ASCII sous Windows.
+
+Des instructions persistées renforcées sont préparées pour une future version,
+pas appliquées au v1 déployé. Après approbation de l'artefact exact, créez une
+nouvelle version et un nouveau binding avant une validation native fraîche.
+Ne modifiez pas un ancien binding et n'utilisez pas l'ancien 6/8 comme preuve
+pour les nouvelles instructions. Les marqueurs source du scénario en font un
+contrôle de provenance et de format, pas une évaluation sémantique indépendante
+ni une preuve de fiabilité générale du modèle.
 
 ## Utiliser un service documentaire natif
 
@@ -693,6 +713,93 @@ réelle pour le bon run. Un délai azd arrête l'attente locale, pas forcément 
 build/déploiement Azure. Rapports incomplets, erreurs d'évaluateur et violations
 échouent explicitement. `scan_completed`, `report_complete` et `no_violations`
 sont distincts, jamais une approbation générale de sécurité.
+
+### Scan approuvé réel et blocage d'exécution
+
+La taxonomie initiale entièrement désactivée reste une preuve historique.
+La politique distincte `synthetic-quote-policy-shadow-v2`, version `2.0`,
+active trois contrôles synthétiques : divulgation prématurée du montant,
+contournement de l'approbation employé et accès aux dossiers hors atelier.
+Son SHA-256 natif exact est
+`c880c7c706775794f0cf998cf1637b55c27d6f809accb182dfb10582e790fc56`.
+L'approbation humaine a précédé son exécution bornée en staging seulement.
+
+L'évaluation `eval_071d7281d7e1468aa39c62616b5adcee`, run
+`evalrun_889cdf2fe1d84f11be5d089100164998`, a échoué avec
+`red_team_no_results`. Le journal natif détaillé indique trois objectifs
+incomplets et une erreur du callback `objective_target` :
+`AttributeError: 'NoneType' object has no attribute 'input_tokens'`.
+L'invocation Responses hébergée réussie conservée n'a pas d'objet `usage`.
+Aucun résultat d'attaque valide n'a été récupéré. Cet échec d'intégration
+ne démontre pas que la cible a résisté à toutes les attaques.
+
+Conservez le run échoué, les journaux natifs et la cible immuable originale.
+N'inventez pas de nombres de jetons, n'affaiblissez pas les empreintes source
+et ne répétez pas un scan facturé sans correction concrète. Une prise en charge
+côté service ou une correction de protocole révisée séparément est nécessaire
+avant de déclarer la validation red team native. Ne remplacez jamais la cible
+par l'agent de soumission en production.
+
+### Clone de protocole épinglé séparément
+
+Un adaptateur testé hors ligne est disponible dans
+[redteam_protocol_entrypoint.py](../../scripts/redteam_protocol_entrypoint.py).
+Il ne modifie ni le parcours métier ni le clone original. Il sérialise le même
+accusé de réception bilingue borné en chaîne JSON, indique la fin et ajoute un
+objet `usage` standard aux réponses non diffusées et à l'événement final diffusé.
+Le graphe original, la tarification, les contrôles d'approbation et les fichiers
+originaux restent inchangés.
+
+Zéro jeton du modèle propre est exact uniquement parce que cet adaptateur choisit
+explicitement le `default_model` original sans appel réseau et vérifie le hachage
+normalisé du graphe
+`bd25b1e5c627802521ff178fa5bfea20e42d3a3d1063b1fe9357ed48c76a83ee`.
+Toute modification de ce graphe bloque le démarrage et la préparation. Zéro ne
+décrit pas les modèles évaluateurs du service red team, l'utilisation de la
+plateforme ni les coûts. Ce clone déterministe ne constitue pas une preuve de
+sécurité pour un autre agent reposant sur un LLM.
+
+Préparez l'artefact dérivé localement avec
+[redteam_protocol_package.py](../../scripts/redteam_protocol_package.py).
+Fournissez le ZIP original obtenu par le SDK, son empreinte source révisée
+indépendamment, ainsi que la révision et le hachage de fichier de l'adaptateur
+révisés séparément. Exécutez depuis cette révision Git exacte :
+
+```powershell
+$protocolRevision = '<reviewed-full-Git-SHA>'
+$protocolEntrypointSha = '<reviewed-entrypoint-SHA-256>'
+$protocolPreparation = '.local\redteam\protocol-preparation-001'
+& .venv\Scripts\python.exe scripts\redteam_protocol_package.py --source-zip $reviewedOriginalZip --source-content-sha256 $observedNativeContentSha --protocol-revision $protocolRevision --protocol-entrypoint-sha256 $protocolEntrypointSha --output-dir $protocolPreparation
+if ($LASTEXITCODE -ne 0) { throw 'Protocol preparation failed; preserve original evidence' }
+$protocolProof = Get-Content "$protocolPreparation\protocol-preparation.json" -Raw | ConvertFrom-Json
+```
+
+La préparation ajoute un seul point d'entrée révisé, préserve chaque membre du
+ZIP original, refuse les archives dangereuses et consigne un hachage dérivé
+déterministe distinct. `immutable_artifact_equality` vaut explicitement false.
+Révisez le nouveau hachage et sa provenance avant toute approbation d'écriture
+cloud. Ne réemballez pas avec azd en supposant conserver le même hachage.
+
+Uniquement après approbation du déploiement de l'artefact exact :
+
+```powershell
+$protocolPins = @('--protocol-revision', $protocolRevision,
+                  '--protocol-entrypoint-sha256', $protocolEntrypointSha,
+                  '--protocol-content-sha256', $protocolProof.target_content_sha256)
+$protocolCommon = @('--endpoint', $endpoint, '--staging-endpoint', $endpoint,
+                     '--agent', 'fsi-showcase-redteam-protocol-quote-001',
+                     '--turns', '1', '--timeout', '120') + $sourcePins + $protocolPins
+& .venv\Scripts\python.exe eval\native_showcase_evaluation.py shadow-create @protocolCommon --output-dir "$evidence\protocol-registration-001"
+if ($LASTEXITCODE -ne 0) { throw 'Inspect recorded registration before any retry' }
+```
+
+Observez cette nouvelle version exacte ; reprenez `shadow-preflight` avec les
+mêmes trois empreintes de protocole et `--agent-version`, puis vérifiez une
+invocation Responses hébergée réelle. Un test local ou un enregistrement réussi
+ne constitue pas une validation native. Créez une taxonomie distincte visant ce
+nouveau clone, exportez et révisez son hachage natif persisté et obtenez
+l'approbation humaine du scan. L'approbation `c880c7c7` vise le clone original,
+pas cette nouvelle cible. Conservez le run échoué et les deux provenances.
 
 ## Suivi d'expériences et recommandation
 

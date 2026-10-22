@@ -319,6 +319,11 @@ index relabeled as IQ. CU uses complete per-request aliases and leaves account
 defaults unchanged. A pinned red-team shadow must prove private case storage
 before reviewed attacks. Source implementation and offline checks do not
 establish native runtime acceptance or security sign-off.
+CU extraction is verified in both environments. Staging IQ performs real MCP
+retrieval but has strict acceptance failures. The approved isolated red-team
+run failed before producing scored outcomes; missing token usage triggered
+a native callback error. Production IQ is not promoted and the baseline
+quote graph remains unchanged.
 
 ## Telemetry to native evaluation
 
