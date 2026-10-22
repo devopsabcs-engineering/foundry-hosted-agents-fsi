@@ -44,7 +44,7 @@ different claims. Only recorded live evidence establishes the last claim.
 | Memory | Native memory store, explicit TTL, list, seed, search and cross-scope negative test | Staging store verified with approved embedding; caller-role negative returned 403, not a per-agent ACL |
 | Runtime skill | Versioned project-authored native skill | Version 1 discovered, downloaded and consumed by an isolated operator Responses runtime; not attached to the hosted quote agent |
 | Managed RAG | Native File Search vector store and Responses tool | Six versioned files indexed; three EN/FR questions each have native citations; both out-of-corpus questions decline |
-| Knowledge | Azure AI Search GA indexing/retrieval plus preview MCP and knowledge-base defaults | Six-document East US corpus and minimal/extractive defaults verified; staging IQ v1 performs real MCP retrieval, but bilingual acceptance has failures; production IQ is not promoted |
+| Knowledge | Azure AI Search GA indexing/retrieval plus preview MCP and knowledge-base defaults | Six-document East US corpus and minimal/extractive defaults verified; staging IQ v2 passed 8/8 bilingual native provenance/format checks on 2026-10-22; production IQ awaits its Search query-role prerequisite |
 | Document service | Content Understanding GA invoice analyzer with per-request model aliases | Dedicated `gpt-4.1` and `text-embedding-3-large` deployments and grounded synthetic invoice extraction verified in staging and production on 2026-10-21; no account defaults changed |
 | Pretrained document service | Native Document Intelligence `prebuilt-invoice`, GA `2024-11-30` | Live extraction succeeded: 1 page, 1 document, 8 structured fields with grounding; no new models |
 | Built-in evaluator | `builtin.retrieval`, version 15 | Live staging relevant control scored 5/5; irrelevant control scored 1/5 |
@@ -66,9 +66,13 @@ acceptance are separate milestones. The existing v6/v7 demo is not replaced by
 these extensions. CU extraction passed live in both environments. Search is
 deployed and the isolated shadow passed native invocation. Approved KB corrections
 were applied after [PR 47](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/47)
-merged with the identical reviewed tree. IQ acceptance and a successfully scored
-native red-team report remain outstanding; neither blocks the unchanged v6/v7
-customer demo.
+merged with the identical reviewed tree. The authorized partial release
+[PR 48](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/48)
+merged as `7c5b1611fcc04da75c77fadd986816e0485f610b` with its tested tree.
+Staging IQ v2 now passes 8/8 native checks. Production IQ and a successfully
+scored native red-team report are deferred in
+[issue 49](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49).
+The unchanged v6/v7 customer demo remains available.
 
 ```mermaid
 flowchart LR
@@ -401,10 +405,17 @@ The CLI now forces the allowed MCP tool, records failed phases, accepts a
 genuinely empty retrieval only for an exact out-of-corpus refusal, and emits
 ASCII-safe JSON on Windows.
 
-Stronger persisted companion instructions are prepared for a future version,
-not applied to the deployed v1. After exact-artifact approval, create a new
-version and a new binding before fresh native acceptance. Do not edit an old
-binding or reuse the historical 6/8 observation as evidence for new instructions.
+On 2026-10-22, stronger persisted companion instructions from
+`c5e1f93f2bfd463bdd1bbc3946c48a29b3c87d26` were deployed as the new staging
+`fsi-showcase-iq:2`, with a fresh binding. One complete native batch passed
+8/8: approval, scope, privacy and exact out-of-corpus refusal in English and
+French, each with a genuine completed MCP call. Historical v1 failures above
+remain retained; they are not reused as proof for the new version.
+Production read-only preflight found no direct `Search Index Data Reader`
+grant for its project managed identity on the existing Search service.
+No production companion or permission change was made. Resume the reviewed
+least-privilege grant and full production acceptance under
+[issue 49](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49).
 Scenario source markers make this a provenance/format smoke check, not an
 independent semantic evaluation or a model-robustness claim.
 

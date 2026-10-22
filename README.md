@@ -97,10 +97,14 @@ For the session-2 customer demonstration, use the
 ([French](docs/fr/native-showcase.md)). It separates restored deployment
 evidence from verified native File Search RAG, operator skill consumption,
 isolated memory checks, and custom trace replay. Content Understanding invoice
-extraction passed in staging and production. Foundry IQ performs real MCP
-retrieval but has strict acceptance failures; the approved isolated red-team
-scan failed before producing scored results. Neither is presented as a pass,
-and production IQ remains unpromoted. A separate protocol-only shadow adapter is
+extraction passed in staging and production. On 2026-10-22, the new staging
+Foundry IQ companion `fsi-showcase-iq:2` passed all 8 bilingual native
+provenance/format checks with real MCP retrieval. Production IQ remains
+unpromoted because its Search query-role prerequisite is missing.
+The approved isolated red-team scan failed before producing scored results,
+not a safety pass. Deferred work is tracked in
+[issue 49](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49).
+A separate protocol-only shadow adapter is
 tested offline; its new artifact and target require separate deployment approval
 and native validation, not reuse of the original scan's approval.
 Native grounding judges missed a known negative control; the runbook records

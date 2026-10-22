@@ -104,10 +104,13 @@ Pour la démonstration client de la séance 2, consultez le
 déploiement restauré du RAG File Search natif et de la compétence opérateur
 réellement exécutés, des contrôles mémoire isolés et du rejeu de traces
 personnalisées. L'extraction de facture Content Understanding a réussi en staging
-et production. Foundry IQ récupère réellement par MCP, mais comporte des échecs
-de validation stricte ; le scan red team isolé et approuvé a échoué avant tout
-résultat noté. Aucun de ces deux parcours n'est présenté comme une réussite,
-et IQ production n'est pas promu. Un adaptateur de protocole distinct est testé
+et production. Le 2026-10-22, le nouveau compagnon Foundry IQ staging
+`fsi-showcase-iq:2` a réussi les 8 contrôles natifs bilingues de provenance
+et de format avec récupération MCP réelle. IQ production reste non promu :
+son rôle de requête Search manque. Le scan red team isolé approuvé a échoué
+avant tout résultat noté, sans validation de sécurité. Le travail reporté est
+suivi dans le [ticket 49](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49).
+Un adaptateur de protocole distinct est testé
 hors ligne ; son nouvel artefact et sa nouvelle cible demandent une approbation
 de déploiement et une validation native distinctes, sans réutiliser l'approbation
 du scan original. Les juges natifs ont manqué un contrôle
