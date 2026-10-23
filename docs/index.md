@@ -62,6 +62,12 @@ Continue with the [evaluation engineering guide](evaluation-guide.md) and
 [Lab 19](labs/lab-19-evaluation-engineering.md): ten exercises covering
 deterministic versus stochastic testing, the Foundry portal and SDK, independent
 datasets, judge calibration, uncertainty and stateful non-regression.
-The [34-slide English deck](assets/decks/foundry-evaluation-engineering-en.pptx)
+The [37-slide English deck](assets/decks/foundry-evaluation-engineering-en.pptx)
 and [French deck](assets/decks/foundry-evaluation-engineering-fr.pptx)
 include instructor notes for the 3–4 hour session.
+
+Follow the retained-run screenshots in Exercise 19.4 without starting a new run.
+For the separate portal practice path, download the authored synthetic
+[English JSONL](assets/datasets/portal-practice-en-CA.jsonl) or
+[French JSONL](assets/datasets/portal-practice-fr-CA.jsonl). These are controls,
+not captured agent responses; uploads and paid submissions need separate approval.

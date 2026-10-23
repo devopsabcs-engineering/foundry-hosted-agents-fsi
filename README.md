@@ -86,9 +86,22 @@ for a 3–4 hour progression from deterministic contracts to native model judges
 calibration, repeated trials and stateful regression checks.
 The [English PowerPoint](docs/assets/decks/foundry-evaluation-engineering-en.pptx)
 and [French PowerPoint](docs/assets/decks/foundry-evaluation-engineering-fr.pptx)
-contain 34 editable slides each with instructor notes. Rebuild both with
+contain 37 editable slides each with instructor notes. Rebuild both with
 `npm run build-evaluation-deck`. The [French guide](docs/fr/evaluation-guide.md)
 and [French lab](docs/fr/labs/lab-19-evaluation-engineering.md) cover the same exercises.
+
+The portal walkthrough includes retained-run overview/results screenshots and
+the Coherence, Groundedness and Task Adherence catalog captures. Start read-only;
+practice with the supplied [English JSONL](docs/assets/datasets/portal-practice-en-CA.jsonl)
+or [French JSONL](docs/assets/datasets/portal-practice-fr-CA.jsonl). These authored
+synthetic controls are not captured agent responses. Uploading or submitting a
+paid evaluation requires separate approval.
+
+GitHub Pages builds `docs/` from `main`; the wiki renders maintained guides and
+Lab 19 from those same sources after main-branch validation. PowerPoint sources
+live in `scripts/build-workshop-deck.js` and `scripts/build-evaluation-deck.js`.
+Publication needs a merged change and successful Pages/wiki jobs; documentation
+updates do not redeploy the agent.
 
 ## Try the web chatbot
 

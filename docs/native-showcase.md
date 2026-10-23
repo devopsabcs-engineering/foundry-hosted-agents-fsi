@@ -822,12 +822,17 @@ platform is installed by this showcase.
 & .venv\Scripts\python.exe -m pytest eval src\quote-preparation-agent\tests -q
 az bicep build --file infra\showcase.bicep --stdout
 npm run build-workshop-deck
+npm run build-evaluation-deck
 ```
 
 The [English deck](assets/decks/foundry-hosted-agents-workshop-fsi-en.pptx)
 and [French deck](assets/decks/foundry-hosted-agents-workshop-fsi-fr.pptx)
 use the same slide structure and distinguish local exercises from the restored
 Azure demo. Existing CI collects unit/evaluation results. Wiki publication keeps
+the guide and Lab 19 aligned with their maintained sources. Continue with the
+[evaluation guide](evaluation-guide.md) and [Lab 19](labs/lab-19-evaluation-engineering.md)
+for retained-run screenshots, authored practice JSONL and the dedicated evaluation
+decks. Wiki publication keeps
 its main-branch provenance guard; feature-branch evidence must not bypass it.
 Enhancement release requires Product Owner, Security Team and Tech Lead
 sign-off. Both web apps now pin PyJWT 2.15.1 rather than the vulnerable 2.12.1.

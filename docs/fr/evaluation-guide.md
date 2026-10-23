@@ -108,6 +108,14 @@ Des tentatives v6 terminées et échouées coexistent : vérifiez l'ID de l'essa
    | `en-CA` | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 |
    | `fr-CA` | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 |
 
+   [![Vue française v6 conservée avec un essai terminé, 15/15 globaux et 5/5 par métrique](../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)](../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)
+
+   Point de contrôle, capturé le 2026-10-23 de la définition française conservée
+   `eval_923cb34017c743a59089a36cb55d4e28`, sans nouvelle évaluation.
+   **15/15** compte cinq cas fois trois métriques. **100% / 5/5** est un taux
+   de réussite, pas une note ordinale de 5 pour chaque cas. Sélectionnez le
+   **lien du nom**, pas sa case ni **Add run**. Ouvrez une image en taille réelle.
+
 5. Développez **Run details**. Relevez IDs de définition (`eval_...`) et
    d'essai (`evalrun_...`), état, données, déploiement juge et configuration.
    Les critères sont `coherence`, `groundedness` et `task_adherence`.
@@ -139,12 +147,13 @@ Des tentatives v6 terminées et échouées coexistent : vérifiez l'ID de l'essa
     conservé. Gardez IDs et justifications et remplissez la fiche de
     l'[Exercice 19.4](labs/lab-19-evaluation-engineering.md#exercice-194-examiner-un-essai-réel-dans-le-portail).
 
-![Essai français v6 terminé avec trois résumés 5/5, cinq lignes et défilement horizontal](../assets/evidence/lab19-v6-run-results-2026-10-23.png)
+[![Essai français v6 terminé avec trois résumés 5/5, cinq lignes et défilement horizontal](../assets/evidence/lab19-v6-run-results-2026-10-23.png)](../assets/evidence/lab19-v6-run-results-2026-10-23.png)
 
 Figure 2. Essai conservé **français staging v6**
 `evalrun_db159f558fd847668d7bba275ba1a353`, définition
 `eval_923cb34017c743a59089a36cb55d4e28`, capturé le 2026-10-23 sans le relancer.
-Chaque résumé affiche **5/5**. Run details est replié pour montrer les cinq
+Chaque résumé affiche **5/5 cas réussis**, malgré les notes brutes **Pass: 4**
+de Coherence. Run details est replié pour montrer les cinq
 lignes et la barre horizontale. Ce sont les résultats de livraison conservés,
 pas ceux du jeu de pratique rédigé ci-dessous.
 

@@ -71,6 +71,12 @@ le [PowerPoint avec notes de formation](../../assets/decks/foundry-evaluation-en
 accompagnent cet atelier approfondi de 3 à 4 heures.
 Le programme complet couvre maintenant les ateliers 00–19.
 
+L'Exercice 19.4 inclut les captures conservées pour une inspection en lecture
+seule. La pratique portail distincte utilise les contrôles synthétiques rédigés
+[français](../../assets/datasets/portal-practice-fr-CA.jsonl) ou
+[anglais](../../assets/datasets/portal-practice-en-CA.jsonl), pas des réponses
+agent capturées. Téléversement et soumission payante exigent une autorisation.
+
 ## Étapes suivantes
 
 Commencez par l'[Atelier 00 : Configuration](lab-00-setup.md).

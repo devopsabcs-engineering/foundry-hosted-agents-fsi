@@ -41,7 +41,13 @@ def observer_example(path):
     return match.group(1)
 
 
+def markdown_prose(text):
+    return re.sub(r"^(`{3,}|~{3,})[^\n]*\n.*?^\1[ \t]*$", "", text,
+                  flags=re.MULTILINE | re.DOTALL)
+
+
 def anchors(text):
+    text = markdown_prose(text)
     result = set(re.findall(r'<a id="([^"]+)"', text))
     for heading in re.findall(r"^#{1,6} (.+)$", text, re.MULTILINE):
         clean = "".join(
@@ -53,18 +59,22 @@ def anchors(text):
     return result
 
 
-@pytest.mark.parametrize("path", LABS + GUIDES)
+@pytest.mark.parametrize("path", sorted({ROOT / "README.md", ROOT / "README.fr.md",
+                                        *(ROOT / "docs").rglob("*.md")}))
 def test_teaching_pages_have_metadata_and_resolving_links(path):
     text = path.read_text(encoding="utf-8")
     assert text.startswith("---\n")
     assert re.search(r"^title: .+", text, re.MULTILINE)
     assert re.search(r"^description: .+", text, re.MULTILINE)
+    text = markdown_prose(text)
     assert not re.search(r"^# ", text, re.MULTILINE)
     for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", text):
         if re.match(r"(?:https?://|mailto:)", target):
             continue
         filename, _, fragment = unquote(target).partition("#")
         destination = path.parent / filename if filename else path
+        if not destination.exists() and not destination.suffix:
+            destination = destination.with_suffix(".md")
         assert destination.exists(), (path, target)
         if fragment and destination.suffix == ".md":
             assert fragment in anchors(destination.read_text(encoding="utf-8")), (path, target)
@@ -218,11 +228,23 @@ def test_powerpoint_contains_readable_bounded_slides_and_instructor_notes(langua
         size = presentation.find("p:sldSz", NS)
         width, height = int(size.attrib["cx"]), int(size.attrib["cy"])
         slide_names = [name for name in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)]
-        assert len(slide_names) == 35
-        for number in range(1, 36):
+        slide_count = len(slide_names)
+        assert slide_count == 37
+        entry_points = [ROOT / f"README{'.fr' if language == 'fr' else ''}.md",
+                        ROOT / "docs" / ("fr" if language == "fr" else "") / "index.md"]
+        for entry_point in entry_points:
+            assert re.search(rf"\b{slide_count}(?: editable slides| diapositives|-slide)",
+                             entry_point.read_text(encoding="utf-8")), entry_point
+        screenshot_notes = {
+            "lab19-v6-evaluation-overview-2026-10-23.png": "eval_923cb34017c743a59089a36cb55d4e28",
+            "lab19-v6-run-results-2026-10-23.png": "evalrun_db159f558fd847668d7bba275ba1a353",
+            "foundry-evaluator-groundedness-v18-2026-10-23.png": "builtin.groundedness",
+        }
+        seen_screenshots = set()
+        for number in range(1, slide_count + 1):
             slide = ET.fromstring(archive.read(f"ppt/slides/slide{number}.xml"))
             texts = [text.text or "" for text in slide.findall(".//a:t", NS)]
-            assert any(f"{number} / 35" in text for text in texts)
+            assert any(f"{number} / {slide_count}" in text for text in texts)
             for transform in slide.findall(".//a:xfrm", NS):
                 offset = transform.find("a:off", NS)
                 extent = transform.find("a:ext", NS)
@@ -238,13 +260,37 @@ def test_powerpoint_contains_readable_bounded_slides_and_instructor_notes(langua
             links = [urlsplit(url) for url in re.findall(r"https://\S+", note_text)]
             assert any(link.hostname == "learn.microsoft.com" for link in links)
             assert any(link.path.endswith("/evaluation-guide.html") for link in links)
-            if number == 16:
-                assert slide.find(".//p:pic", NS) is not None
-                assert all(token in note_text for token in ("builtin.groundedness", "v18", "2026-10-23"))
-        screenshot = ROOT / "docs" / "assets" / "evidence" / "foundry-evaluator-groundedness-v18-2026-10-23.png"
+            for filename, identity in screenshot_notes.items():
+                if filename in note_text:
+                    seen_screenshots.add(filename)
+                    assert slide.find(".//p:pic", NS) is not None
+                    assert identity in note_text and "2026-10-23" in note_text
+        assert seen_screenshots == set(screenshot_notes)
         media_names = [name for name in archive.namelist() if name.startswith("ppt/media/") and name.endswith(".png")]
-        assert len(media_names) == 1
-        assert archive.read(media_names[0]) == screenshot.read_bytes()
+        assert len(media_names) == len(screenshot_notes)
+        assert {archive.read(name) for name in media_names} == {
+            (ROOT / "docs" / "assets" / "evidence" / filename).read_bytes()
+            for filename in screenshot_notes
+        }
         all_text = " ".join(archive.read(name).decode() for name in slide_names)
         for token in ("Wilson", "COMPOSITION", "groundedness", "SystemError", "39527950931"):
             assert token in all_text
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_overview_decks_link_current_evaluation_material_and_release_limits(language):
+    decks = ROOT / "docs" / "assets" / "decks"
+    with ZipFile(decks / f"foundry-hosted-agents-workshop-fsi-{language}.pptx") as archive:
+        assert archive.testzip() is None
+        slide_names = [name for name in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)]
+        assert len(slide_names) == 20
+        all_text = " ".join(archive.read(name).decode() for name in slide_names)
+        assert "8/8" in all_text and "37" in all_text
+        assert ("Lab 19" if language == "en" else "Atelier 19") in all_text
+        note_names = [name for name in archive.namelist() if re.fullmatch(r"ppt/notesSlides/notesSlide\d+\.xml", name)]
+        all_notes = " ".join(archive.read(name).decode() for name in note_names)
+        for token in ("39527950931", "2c3f13b", "fsi-showcase-iq:2", "/issues/49",
+                      "/labs/lab-19-evaluation-engineering", "/evaluation-guide.html",
+                      f"portal-practice-{'en' if language == 'en' else 'fr'}-CA.jsonl",
+                      f"foundry-evaluation-engineering-{language}.pptx"):
+            assert token in all_notes

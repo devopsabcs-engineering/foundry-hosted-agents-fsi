@@ -831,11 +831,15 @@ de données approuvés. Aucune plateforme externe n'est installée ici.
 & .venv\Scripts\python.exe -m pytest eval src\quote-preparation-agent\tests -q
 az bicep build --file infra\showcase.bicep --stdout
 npm run build-workshop-deck
+npm run build-evaluation-deck
 ```
 
 Les présentations [française](../assets/decks/foundry-hosted-agents-workshop-fsi-fr.pptx)
 et [anglaise](../assets/decks/foundry-hosted-agents-workshop-fsi-en.pptx) partagent
 la même structure et distinguent les exercices locaux de la démo Azure.
+Poursuivez avec le [guide d'évaluation](evaluation-guide.md) et
+l'[Atelier 19](labs/lab-19-evaluation-engineering.md) pour les captures conservées,
+les JSONL synthétiques rédigés et les présentations d'évaluation distinctes.
 La publication wiki conserve son contrôle de provenance de la branche main ;
 ne le contournez pas depuis une branche de fonctionnalité. La livraison des
 ajouts requiert les approbations Produit, Sécurité et Responsable technique.

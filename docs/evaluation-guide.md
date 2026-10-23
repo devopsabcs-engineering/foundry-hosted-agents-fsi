@@ -111,6 +111,14 @@ Evaluation tab. Completed and failed v6 attempts coexist: verify the run ID.
    | `en-CA` | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 |
    | `fr-CA` | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 |
 
+   [![Retained French v6 overview with a completed run, 15/15 overall and 5/5 per metric](assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)](assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)
+
+   Overview checkpoint, captured on 2026-10-23 from retained French definition
+   `eval_923cb34017c743a59089a36cb55d4e28`, without another evaluation.
+   **15/15** counts five items times three metrics. **100% / 5/5** is a pass
+   rate/count, not a raw ordinal score of 5 for every item. Select the run's
+   **name link**, not its checkbox or **Add run**. Select an image for full size.
+
 5. Expand **Run details**. Record the definition/evaluation ID (`eval_...`),
    run ID (`evalrun_...`), status, dataset, judge deployment and evaluator
    configuration. The three criteria are `coherence`, `groundedness` and
@@ -145,12 +153,13 @@ Evaluation tab. Completed and failed v6 attempts coexist: verify the run ID.
     `results.json`. Preserve the run identity and reasons. Complete the
     worksheet in [Exercise 19.4](labs/lab-19-evaluation-engineering.md#exercise-194-inspect-a-real-run-in-the-portal).
 
-![Completed French v6 run with three 5/5 metric summaries, five result rows and the horizontal scrollbar](assets/evidence/lab19-v6-run-results-2026-10-23.png)
+[![Completed French v6 run with three 5/5 metric summaries, five result rows and the horizontal scrollbar](assets/evidence/lab19-v6-run-results-2026-10-23.png)](assets/evidence/lab19-v6-run-results-2026-10-23.png)
 
 Figure 2. Retained **French staging v6** run
 `evalrun_db159f558fd847668d7bba275ba1a353`, definition
 `eval_923cb34017c743a59089a36cb55d4e28`, captured on 2026-10-23 without rerunning
-it. All three summaries show **5/5**. Run details is collapsed to expose all
+it. All three summaries show **5/5 passed items**, although Coherence includes
+raw **Pass: 4** rows. Run details is collapsed to expose all
 five rows and the horizontal scrollbar. These are retained release results,
 not results for the authored practice dataset below.
 

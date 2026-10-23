@@ -4,7 +4,7 @@ import sys
 import re
 import json
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 
@@ -22,7 +22,7 @@ def test_actual_docs_render_with_wiki_peer_and_absolute_repository_links(source)
     if not source.endswith("sidebar.md"):
         assert "https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/blob/main/" in result
     links = [urlsplit(target) for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", result)]
-    if not source.endswith("sidebar.md"):
+    if not source.endswith("sidebar.md") and "/labs/" not in source:
         assert any(link.scheme == "https" and link.hostname == "learn.microsoft.com" for link in links)
     assert "](../" not in result and "](fr/" not in result
 
@@ -88,15 +88,30 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
     assert f"]({peer})" in rendered
 
 
-@pytest.mark.parametrize("source", ["docs/evaluation-guide.md", "docs/fr/evaluation-guide.md"])
+@pytest.mark.parametrize("source", [
+    "docs/evaluation-guide.md", "docs/fr/evaluation-guide.md",
+    "docs/labs/lab-19-evaluation-engineering.md", "docs/fr/labs/lab-19-evaluation-engineering.md",
+])
 def test_evaluation_guide_images_stay_local_to_wiki(source):
     text = (wiki.ROOT / source).read_text(encoding="utf-8")
     rendered = wiki.render(source, text, "owner/repo")
-    images = re.findall(r"!\[[^\]]*\]\((?:\.\./)?assets/evidence/([^\s)]+)\)", text)
+    images = re.findall(r"!\[[^\]]*\]\((?:\.\./)*assets/evidence/([^\s)]+)\)", text)
     assert images
     for name in images:
         assert name in wiki.SCREENSHOTS
-        assert f"](assets/evidence/{name})" in rendered
+        assert rendered.count(f"](assets/evidence/{name})") == text.count(f"evidence/{name})")
+
+
+@pytest.mark.parametrize("source", wiki.PAGES)
+def test_dataset_and_deck_links_download_repository_assets(source):
+    text = (wiki.ROOT / source).read_text(encoding="utf-8")
+    rendered = wiki.render(source, text, "owner/repo")
+    base = f"https://github.com/owner/repo/blob/main/{source}"
+    for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", text):
+        absolute = urljoin(base, target)
+        if "/docs/assets/" in absolute and absolute.endswith((".pptx", ".jsonl")):
+            expected = absolute.replace("/blob/main/", "/raw/refs/heads/main/", 1)
+            assert f"]({expected})" in rendered
 
 
 @pytest.mark.parametrize("repository", ["https://evil.test", "../repo", "owner/repo/other"])
@@ -118,6 +133,7 @@ def test_all_maintained_wiki_pages_are_source_backed():
         "Workflows", "Release-Evidence", "Native-Foundry-Showcase",
         "Native-Foundry-Showcase-FR", "Native-Foundry-Evidence",
         "Native-Foundry-Evidence-FR", "Evaluation-Engineering", "Evaluation-Engineering-FR",
+        "Lab-19-Evaluation-Engineering", "Lab-19-Evaluation-Engineering-FR",
     }
 
 
