@@ -98,6 +98,14 @@ Attendu : cinq cas convertis par langue, IDs, question, contexte indépendant et
 langue. `expected.status` est une métadonnée de fixture, pas une preuve que
 l'accusé natif a vérifié la persistance.
 
+Ces fichiers `.json` sont des **tableaux d'entrée SDK**, sans réponse capturée;
+ce ne sont pas des téléversements portail. Pour apprendre le wizard sans appel
+agent, utilisez les jeux distincts de trois lignes
+[français](../../assets/datasets/portal-practice-fr-CA.jsonl) ou
+[anglais](../../assets/datasets/portal-practice-en-CA.jsonl) et le
+[parcours de téléversement](../evaluation-guide.md#b-téléverser-un-jeu-prêt-à-utiliser).
+Ces exemples rédigés ne sont pas une preuve réelle pour l'Exercice 19.4.
+
 Proposez deux lignes sur la fiche : fausse approbation élégante et mention
 obligatoire absente. Faites revoir vérité/attendu par un humain. Ne modifiez
 pas silencieusement le jeu de livraison et n'utilisez pas des faits produits
@@ -105,14 +113,76 @@ par le candidat comme oracle. Concevez une réserve de nouveaux cas limites.
 
 ## Exercice 19.4: Examiner un essai réel dans le portail
 
-Suivez les [dix étapes du portail](../evaluation-guide.md#pas-à-pas-dans-le-portail-foundry).
-Ouvrez staging et une évaluation demandeur existante. Sans nouveau budget,
-utilisez les [IDs de livraison](../showcase-evidence.md#livraison-approuvée-actuelle).
+L'exercice est **en lecture seule**. Ne sélectionnez pas Create, Submit,
+Publish ou Automatic Evaluation, et n'exécutez pas l'Exercice 19.5 pour remplir
+une liste vide. Aucun nouvel appel agent/juge n'est nécessaire.
 
-Pour une ligne, notez mappings question/contexte/réponse, langue,
-nom/version évaluateur, note, réussite et justification. Task adherence reçoit
-des messages de tâche, pas une chaîne quelconque. Attendu : distinguer essai
-natif complet et panne du service, et nommer le comportement observable jugé.
+1. Ouvrez [Microsoft Foundry](https://ai.azure.com), projet
+    `proj-desjardins-quote-preparation-staging`, compte
+    `aif-desjardins-quote-preparation-staging`, pas le compte de production `-poc`.
+2. Si **Agents > quote-preparation-agent > Evaluation** affiche
+    **No evaluations found**, sélectionnez **Optimize > Evaluations** dans la
+    **barre latérale gauche**, pas l'onglet de l'agent. Effacez les filtres.
+3. Cherchez `Hosted CI quote-preparation-agent`, ouvrez la définition puis
+    l'essai `quote-preparation-agent:6` si la liste est séparée. Vérifiez l'ID :
+
+    | Langue | Vrai essai approuvé | Lignes / métriques attendues |
+    | --- | --- | --- |
+    | Anglais | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 / 3 par ligne |
+    | Français | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 / 3 par ligne |
+
+4. Développez **Run details**, puis examinez **Detailed metrics result**.
+    Faites défiler horizontalement les notes/justifications et ouvrez une ligne
+    ou cellule si l'interface le permet. Utilisez le
+    [tableau de mapping et les captures](../evaluation-guide.md#a-retrouver-et-examiner-un-vrai-essai-conservé)
+    du guide. Pour les entrées non exposées, consultez le `captured.json` et la
+    définition du même essai.
+5. Copiez la fiche suivante dans vos notes locales. Relevez les vraies valeurs,
+    pas une paraphrase de leur sens.
+
+```text
+Projet / compte :
+ID de definition (eval_...) :
+ID d'essai (evalrun_...) / etat :
+Version agent observee / date de preuve :
+Identite/empreinte du jeu :
+ID du cas / langue :
+query originale :
+evaluation_query (entree coherence/groundedness) :
+context independant :
+response dans la langue choisie :
+task_query, messages systeme/utilisateur :
+output_items, messages de reponse :
+Deploiement juge / version effective :
+Nom/version/seuil evaluateur (ou indisponible) :
+coherence : note / reussite / justification :
+groundedness : note / reussite / justification :
+task_adherence : note / reussite / justification :
+Erreurs, lignes exclues ou non notees :
+Source : URL portail ou chemin d'artefact correspondant :
+Ce que cette ligne prouve / ne prouve pas :
+```
+
+![Essai français v6 conservé avec trois résumés 5/5, cinq lignes et barre horizontale](../../assets/evidence/lab19-v6-run-results-2026-10-23.png)
+
+Capture du 2026-10-23 de l'essai conservé **français staging v6**
+`evalrun_db159f558fd847668d7bba275ba1a353`, sans le relancer. Run details est
+replié pour montrer les cinq lignes. Vérifiez votre ID avant de relever les
+notes; cette capture ne prouve rien pour un autre essai ou le jeu de pratique.
+
+Attendu : cinq cas uniques terminés, chacun noté sur `coherence`, `groundedness`
+et `task_adherence`, sans métrique absente/erronée. Task adherence reçoit des
+tableaux de messages. Expliquez pourquoi une bonne note d'accusé ne prouve ni
+calcul, ni persistance, ni approbation employé. Voir la
+[provenance de livraison](../showcase-evidence.md#livraison-approuvée-actuelle).
+
+Si l'essai reste introuvable, utilisez le
+[repli vers artefacts/report URL](../evaluation-guide.md#a-retrouver-et-examiner-un-vrai-essai-conservé).
+Demandez les artefacts au responsable sans élargir les permissions ni utiliser
+la production. Sans accès, consignez **bloqué**. Le
+[parcours B](../evaluation-guide.md#b-téléverser-un-jeu-prêt-à-utiliser) reste
+disponible après approbation des coûts juge, mais doit être nommé pratique
+synthétique, pas exécution réelle de l'agent.
 
 ## Exercice 19.5: Exécuter le petit essai natif EN/FR
 
