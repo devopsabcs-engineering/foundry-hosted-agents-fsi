@@ -88,6 +88,17 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
     assert f"]({peer})" in rendered
 
 
+@pytest.mark.parametrize("source", ["docs/evaluation-guide.md", "docs/fr/evaluation-guide.md"])
+def test_evaluation_guide_images_stay_local_to_wiki(source):
+    text = (wiki.ROOT / source).read_text(encoding="utf-8")
+    rendered = wiki.render(source, text, "owner/repo")
+    images = re.findall(r"!\[[^\]]*\]\((?:\.\./)?assets/evidence/([^\s)]+)\)", text)
+    assert images
+    for name in images:
+        assert name in wiki.SCREENSHOTS
+        assert f"](assets/evidence/{name})" in rendered
+
+
 @pytest.mark.parametrize("repository", ["https://evil.test", "../repo", "owner/repo/other"])
 def test_rejects_untrusted_repository_link_base(repository):
     with pytest.raises(ValueError, match="owner/name"):

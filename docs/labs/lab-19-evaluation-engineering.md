@@ -174,6 +174,11 @@ Captured on 2026-10-23 from the retained **French staging v6** run
 collapsed to show all five rows. Verify your run ID before recording scores;
 this screenshot is not evidence for a different run or the practice dataset.
 
+Compare the three metrics with the guide's
+[built-in evaluator catalog screenshots](../evaluation-guide.md#built-in-evaluator-catalog).
+Check the input forms and score scales. Do not fill in a retained run's
+missing evaluator version from a current catalog screenshot.
+
 Expected: the approved run has five unique completed items, each scored on
 `coherence`, `groundedness` and `task_adherence`, with no missing/errored metric.
 Task adherence consumes message arrays, not an arbitrary question string.

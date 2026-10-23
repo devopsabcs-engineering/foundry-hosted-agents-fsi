@@ -333,6 +333,63 @@ Ne téléversez pas de jeton, dossier privé, configuration brute ou chaîne de
 connexion. Les preuves restent dans `.local` ignoré par Git, avec conservation
 et suppression définies.
 
+## Catalogue des évaluateurs intégrés
+
+Ces trois évaluateurs Microsoft prêts à l'emploi sont ceux du parcours natif
+de l'Atelier 19, pas des évaluateurs personnalisés. Pour examiner leurs
+définitions sans exécuter d'évaluation :
+
+1. Sélectionnez **Build > Optimize > Evaluations** dans le projet staging.
+2. Ouvrez **Evaluator catalog** et cherchez `Coherence`, `Groundedness`, puis
+   `Task-Adherence`. Ouvrez l'élément **builtin**, pas **Create evaluator**.
+3. Vérifiez **Current version**, **What does it need as input?** et
+   **Score range**. Comparez ces définitions aux mappings de votre essai.
+
+| Nom au catalogue | ID natif | Version affichée le 2026-10-23 | Échelle du catalogue | Question de l'atelier |
+| --- | --- | --- | --- | --- |
+| Coherence-Evaluator | `builtin.coherence` | 13 | Ordinale 1-5 | L'accusé est-il logiquement compréhensible? |
+| Groundedness-Evaluator | `builtin.groundedness` | 18 | Ordinale 1-5 | Les faits indépendants fournis soutiennent-ils les affirmations? |
+| Task-Adherence-Evaluator-(Preview) | `builtin.task_adherence` | 17 | Booléenne | La réponse respecte-t-elle la tâche demandeur bornée et les instructions? |
+
+Le catalogue affiche **Code-based** pour ces éléments. Ce libellé ne rend pas
+les appels juge de l'atelier gratuits ou déterministes. Le code configure un
+déploiement juge; consulter le catalogue ne l'invoque pas.
+
+### Coherence
+
+![Catalogue intégré Coherence v13, entrées query/response ou messages et échelle ordinale 1-5](../assets/evidence/foundry-evaluator-coherence-v13-2026-10-23.png)
+
+Capture staging du 2026-10-23. Le catalogue accepte `query` et `response`, ou
+`messages`. L'atelier mappe `evaluation_query` et `response` dans la langue
+choisie. Une réponse cohérente peut néanmoins inventer un prix ou une approbation.
+
+### Groundedness
+
+![Catalogue intégré Groundedness v18, choix d'entrées dont response/context et échelle ordinale 1-5](../assets/evidence/foundry-evaluator-groundedness-v18-2026-10-23.png)
+
+Capture staging du 2026-10-23. Le catalogue propose plusieurs formes d'entrée,
+dont `response` avec `context`. L'atelier mappe `evaluation_query`, le
+`context` indépendant et `response` dans la langue choisie. Ne copiez jamais
+la réponse candidate dans le contexte fiable. La même capture figure dans la
+[présentation française de l'Atelier 19](../assets/decks/foundry-evaluation-engineering-fr.pptx).
+
+### Task adherence
+
+![Catalogue intégré Task Adherence en préversion v17, entrées query/response ou messages et échelle booléenne](../assets/evidence/foundry-evaluator-task-adherence-v17-2026-10-23.png)
+
+Capture staging du 2026-10-23. Le catalogue accepte `query` et `response`, ou
+`messages`, mais le parcours natif vérifié utilise les messages système et
+utilisateur `task_query`, puis les messages de réponse `output_items`
+normalisés par langue. Ne remplacez pas ce mapping par le texte aplati du
+jeu de pratique. L'échelle booléenne n'est pas celle de 1 à 5 des autres
+évaluateurs. Examinez note, indicateur de réussite, seuil et justification.
+
+Ces captures décrivent des définitions, pas une évaluation réussie. Les
+versions **latest** sont celles observées à la capture, pas une preuve des
+versions utilisées par l'essai v6 conservé. Consignez séparément les versions
+effectives évaluateur/modèle, ou indiquez qu'elles sont indisponibles. Aucune
+de ces métriques ne prouve calcul, exécution d'outils, persistance ou autorisation.
+
 ## Pas à pas avec le SDK natif du dépôt
 
 L'[Atelier 19](labs/lab-19-evaluation-engineering.md) fournit les commandes

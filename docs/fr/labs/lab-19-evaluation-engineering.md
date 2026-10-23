@@ -170,6 +170,11 @@ Capture du 2026-10-23 de l'essai conservé **français staging v6**
 replié pour montrer les cinq lignes. Vérifiez votre ID avant de relever les
 notes; cette capture ne prouve rien pour un autre essai ou le jeu de pratique.
 
+Comparez les métriques aux
+[captures du catalogue des évaluateurs intégrés](../evaluation-guide.md#catalogue-des-évaluateurs-intégrés).
+Vérifiez formes d'entrée et échelles. Ne complétez pas une version manquante
+de l'essai conservé à partir d'une capture actuelle du catalogue.
+
 Attendu : cinq cas uniques terminés, chacun noté sur `coherence`, `groundedness`
 et `task_adherence`, sans métrique absente/erronée. Task adherence reçoit des
 tableaux de messages. Expliquez pourquoi une bonne note d'accusé ne prouve ni

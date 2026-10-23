@@ -58,6 +58,16 @@ SCREENSHOTS = (
     "revision-production-completed-en.png",
     "revision-production-completed-fr.png",
     "foundry-production-agent-v7.png",
+    "lab19-project-evaluations-2026-10-23.png",
+    "lab19-v6-run-results-2026-10-23.png",
+    "lab19-dataset-target-2026-10-23.png",
+    "lab19-practice-upload-2026-10-23.png",
+    "lab19-practice-preview-2026-10-23.png",
+    "lab19-groundedness-mapping-2026-10-23.png",
+    "lab19-practice-review-2026-10-23.png",
+    "foundry-evaluator-coherence-v13-2026-10-23.png",
+    "foundry-evaluator-groundedness-v18-2026-10-23.png",
+    "foundry-evaluator-task-adherence-v17-2026-10-23.png",
 )
 
 

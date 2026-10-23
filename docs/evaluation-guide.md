@@ -347,6 +347,63 @@ Do not copy tokens, private case details, raw environment settings or connection
 strings into uploads, screenshots or source control. Keep evaluation artifacts
 under ignored `.local`, with an explicit retention policy.
 
+## Built-in evaluator catalog
+
+These are the three Microsoft out-of-box evaluators used by the native Lab 19
+runner, not custom evaluators. To inspect their definitions without running
+anything:
+
+1. Select **Build > Optimize > Evaluations** in the staging project.
+2. Open **Evaluator catalog** and search for `Coherence`, `Groundedness`, then
+   `Task-Adherence`. Open the matching **builtin** asset, not **Create evaluator**.
+3. Check **Current version**, **What does it need as input?** and **Score range**.
+   Compare the definitions below with the mappings in your run's configuration.
+
+| Catalog name | Native evaluator ID | Version shown on 2026-10-23 | Catalog score range | Lab question |
+| --- | --- | --- | --- | --- |
+| Coherence-Evaluator | `builtin.coherence` | 13 | Ordinal 1-5 | Is the acknowledgement logically understandable? |
+| Groundedness-Evaluator | `builtin.groundedness` | 18 | Ordinal 1-5 | Are its claims supported by independently supplied facts? |
+| Task-Adherence-Evaluator-(Preview) | `builtin.task_adherence` | 17 | Boolean | Does it follow the bounded applicant task and instructions? |
+
+The catalog shows **Code-based** for these assets. That label does not make
+this lab's configured judge calls free or deterministic. The runner supplies
+a judge deployment; inspecting the catalog does not invoke it.
+
+### Coherence
+
+![Coherence built-in catalog v13 showing query/response or messages inputs and ordinal 1-5 score](assets/evidence/foundry-evaluator-coherence-v13-2026-10-23.png)
+
+Captured in staging on 2026-10-23. The catalog accepts `query` and `response`,
+or `messages`. This lab maps `evaluation_query` and the selected-locale
+`response`. A coherent answer can still invent an approval or price.
+
+### Groundedness
+
+![Groundedness built-in catalog v18 showing input alternatives including response/context and ordinal 1-5 score](assets/evidence/foundry-evaluator-groundedness-v18-2026-10-23.png)
+
+Captured in staging on 2026-10-23. The catalog lists alternative input forms,
+including `response` plus `context`. This lab maps `evaluation_query`,
+independent `context` and the selected-locale `response`. Never copy the
+candidate answer into trusted context. The same capture appears in the
+[English Lab 19 deck](assets/decks/foundry-evaluation-engineering-en.pptx).
+
+### Task adherence
+
+![Task Adherence preview built-in catalog v17 showing query/response or messages inputs and Boolean score](assets/evidence/foundry-evaluator-task-adherence-v17-2026-10-23.png)
+
+Captured in staging on 2026-10-23. The catalog accepts `query` and `response`,
+or `messages`, but this lab's verified native path uses `task_query`
+system/user messages and locale-normalized `output_items` response messages.
+Do not substitute the flat practice upload's text-only mapping. The Boolean
+catalog scale is not the other evaluators' 1-5 scale; inspect each returned
+score, pass flag, threshold and reason.
+
+These screenshots document catalog definitions, not a successful evaluation.
+The visible **latest** versions are capture-time observations, not evidence
+that the retained v6 run used those versions. Record a run's effective
+evaluator/model versions separately, or mark them unavailable. None of these
+three metrics proves arithmetic, tool execution, persistence or authorization.
+
 ## Step by step with the repository's native SDK path
 
 Use [Lab 19](labs/lab-19-evaluation-engineering.md) for runnable PowerShell
