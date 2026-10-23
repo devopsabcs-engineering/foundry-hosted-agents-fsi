@@ -381,7 +381,10 @@ Préparez une table référence/candidat appariée par cas, langue et essai :
 note, réussite et type de défaut arbitré humainement. Figez données/état,
 grille, versions juge/évaluateur. Un jeu différent ne prouve pas un gain.
 
-Calculez sans coût l'intervalle Wilson illustratif à 95 % :
+Calculez sans coût un **intervalle de confiance bilatéral de Wilson à 95 %**
+illustratif pour une probabilité de réussite. Choisissez une métrique binaire
+réussite/échec, une langue et un essai. L'exemple suppose cinq cas réussis sur
+cinq (`k = 5`, `n = 5`); il ne lit pas automatiquement vos résultats.
 
 ```powershell
 @'
@@ -395,10 +398,55 @@ print(f"{k}/{n}: [{center-half:.3f}, {center+half:.3f}]")
 '@ | & $python -
 ```
 
-Attendu environ `[0.566, 1.000]`. Les notes corrélées ne sont pas de nouveaux
-cas indépendants. Pour une expérience élargie, analyse appariée par cas ou
-rééchantillonnage par grappes; cinq cas et une capture 100 % ne garantissent
-pas la fiabilité de production.
+Sortie attendue, arrondie à trois décimales :
+
+```text
+5/5: [0.566, 1.000]
+```
+
+### Interpréter l'intervalle de Wilson
+
+Oui, il s'agit d'un **intervalle de confiance**, pas d'une autre note juge.
+
+* Le taux de réussite observé est **5/5 = 100 %** sur ces cinq cas.
+* L'intervalle va d'environ **56,6 % à 100 %** pour la probabilité de réussite
+    inconnue, sous les hypothèses ci-dessous. Sa largeur exprime l'incertitude
+    avec seulement cinq observations. Le taux mesuré n'est pas de 56,6 %; cet
+    intervalle ne décrit pas non plus les notes brutes de 1 à 5 du juge.
+* Le niveau de **confiance de 95 %** décrit la procédure : sur des échantillons
+    indépendants répétés de la même population, elle vise à couvrir la vraie
+    probabilité de réussite environ 95 % du temps. La couverture de Wilson est
+    approximative, pas exacte. Ce n'est ni une probabilité de 95 % que le paramètre
+    fixe appartienne à cet intervalle particulier, ni la promesse que 95 % des
+    prochaines requêtes réussiront.
+
+Wilson évite l'intervalle trompeur de largeur nulle que donne la formule
+normale simple de Wald lorsque tous les cas réussissent. Cinq réussites sont
+utiles, mais ne prouvent pas une probabilité de réussite réelle de 100 %.
+
+Le modèle binomial suppose des cas indépendants avec une probabilité de
+réussite commune. Généraliser exige aussi un échantillon représentatif de la
+population cible dans les mêmes conditions d'évaluation. Les cinq cas
+synthétiques choisis pour l'atelier ne sont **pas un échantillon aléatoire de
+production** : ce calcul est pédagogique, pas une affirmation de confiance en
+production. Réévaluer ces cas ne crée pas de nouveaux cas indépendants;
+regrouper trois métriques ne justifie pas non plus `n = 15`. Pour une expérience
+élargie, utilisez des cas représentatifs, une analyse appariée par cas ou un
+rééchantillonnage par grappes pour les dépendances. Une capture à 100 % ne
+garantit pas la fiabilité de production.
+
+### Références sur l'intervalle de Wilson
+
+* [NIST : Qu'est-ce qu'un intervalle de confiance? (anglais)](https://www.itl.nist.gov/div898/handbook/prc/section1/prc14.htm)
+    explique la confiance par échantillonnage répété et les intervalles
+    unilatéraux ou bilatéraux.
+* [NIST : Intervalles pour une proportion binomiale (anglais)](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm)
+    donne la formule de Wilson, ses avantages sur l'intervalle normal simple
+    et une méthode binomiale exacte distincte.
+* [SciPy : BinomTestResult.proportion_ci (anglais)](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.BinomTestResult.proportion_ci.html)
+    permet une contre-vérification avec `method="wilson"`, sans correction de
+    continuité. La valeur par défaut `"exact"` utilise une autre méthode. Cette
+    lecture est facultative; l'exemple ci-dessus ne nécessite pas SciPy.
 
 ## Exercice 19.9: Ajouter preuves avec état et trajectoires
 
