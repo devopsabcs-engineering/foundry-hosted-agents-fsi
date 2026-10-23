@@ -388,7 +388,10 @@ including raw score, pass flag and human-adjudicated failure type.
 Freeze dataset/state, rubric/evaluator and judge-model versions.
 Do not compare a changed dataset against the old one as a quality improvement.
 
-Calculate the illustrative 95% Wilson interval without paid calls:
+Calculate an illustrative **two-sided 95% Wilson score confidence interval**
+for a pass probability, without paid calls. Choose one binary pass/fail metric,
+one locale and one trial; the example assumes five passing cases out of five
+(`k = 5`, `n = 5`). It does not read your trial results automatically.
 
 ```powershell
 @'
@@ -402,10 +405,52 @@ print(f"{k}/{n}: [{center-half:.3f}, {center+half:.3f}]")
 '@ | & $python -
 ```
 
-Expected approximately `[0.566, 1.000]`. Explain why correlated repeated grades
-are not independent new cases. Use case-level paired analysis or cluster
-resampling for a larger experiment; neither this five-case example nor a
-100% screenshot establishes a production reliability guarantee.
+Expected output, rounded to three decimals:
+
+```text
+5/5: [0.566, 1.000]
+```
+
+### Interpret the Wilson interval
+
+Yes, this is a **confidence interval**, not another evaluator score.
+
+* The observed pass rate is **5/5 = 100%** on these five cases.
+* The interval runs from about **56.6% to 100%** for the unknown pass
+    probability, under the sampling assumptions below. Its width shows how much
+    uncertainty remains with only five observations. It does not mean that the
+    measured pass rate was 56.6%, or describe the range of raw 1-5 judge scores.
+* **95% confidence** describes the interval-building procedure: over repeated
+    independent samples from the same population, it aims to cover the true pass
+    probability about 95% of the time. Wilson coverage is approximate, not exact.
+    It does not assign a 95% probability to the fixed parameter being inside this
+    particular interval, or promise that 95% of future requests will pass.
+
+Wilson avoids the misleading zero-width interval that the simple normal/Wald
+formula produces when every observed case passes. Five successes are useful
+evidence, but they are not proof of a 100% underlying pass probability.
+
+The binomial model assumes independent cases with a common pass probability;
+generalizing also requires a sample representative of the target population
+under the same evaluation conditions. These five curated synthetic workshop
+cases are **not a random production sample**, so treat this as a teaching
+calculation, not a production confidence claim. Regrading them does not create
+new independent cases; neither does pooling three metrics into `n = 15`.
+For a larger experiment, use representative cases and case-level paired
+analysis or cluster resampling for dependencies. A 100% screenshot alone is
+not a production reliability guarantee.
+
+### Wilson interval references
+
+* [NIST: What are confidence intervals?](https://www.itl.nist.gov/div898/handbook/prc/section1/prc14.htm)
+    explains repeated-sampling confidence and one-sided versus two-sided intervals.
+* [NIST: Confidence intervals for a binomial proportion](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm)
+    gives the Wilson formula, its advantages over the simple normal interval,
+    and a separate exact-binomial method.
+* [SciPy: BinomTestResult.proportion_ci](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.BinomTestResult.proportion_ci.html)
+    documents a software cross-check with `method="wilson"` (no continuity
+    correction). Its default is `"exact"`, which is a different method. This is
+    optional reading; the example above does not require SciPy.
 
 ## Exercise 19.9: Add stateful and trajectory evidence
 
