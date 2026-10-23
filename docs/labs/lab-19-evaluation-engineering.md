@@ -126,14 +126,23 @@ Use the retained successful release; no new agent/judge calls are required.
     **No evaluations found**, select **Optimize > Evaluations** in the **left
     sidebar**. That opens the project list, not the agent-scoped tab. Clear
     search/date/target filters.
-3. Search `Hosted CI quote-preparation-agent`, open the matching definition,
-    and select its `quote-preparation-agent:6` run if shown. Match one of the
-    recorded IDs, not only the name:
+3. Search `Hosted CI quote-preparation-agent` and open the matching definition.
+    In **Evaluation runs**, locate the **Completed** `quote-preparation-agent:6`
+    run. Match one of the recorded IDs, not only the name:
 
     | Language | Approved real run | Expected items / metrics |
     | --- | --- | --- |
     | English | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 / 3 per item |
     | French | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 / 3 per item |
+
+    [![Evaluation definition overview with one completed French v6 run, 15/15 overall checks and 5/5 per metric](../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)](../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)
+
+    Captured on 2026-10-23 from the retained French staging definition
+    `eval_923cb34017c743a59089a36cb55d4e28`, without starting another run.
+    **Overall score** shows 15/15 passed checks: five items times three metrics.
+    The per-metric **100% / 5/5** summaries count passed items; they do not mean
+    every raw ordinal score is 5. Select the run's **name link**, not its
+    checkbox or **Add run**, to open the next screen.
 
 4. Expand **Run details**, then inspect **Detailed metrics result**. Scroll
     horizontally to see all scores and reason columns. Open one row or
@@ -141,6 +150,17 @@ Use the retained successful release; no new agent/judge calls are required.
     [input-mapping table and screenshots](../evaluation-guide.md#a-open-and-inspect-an-existing-real-run)
     to find each field. Use matching `captured.json`/definition artifacts
     for any inputs not exposed in your portal build.
+
+    [![Retained French v6 run showing three 5/5 metric summaries, five rows and the horizontal scrollbar](../assets/evidence/lab19-v6-run-results-2026-10-23.png)](../assets/evidence/lab19-v6-run-results-2026-10-23.png)
+
+    Captured on 2026-10-23 from the retained **French staging v6** run
+    `evalrun_db159f558fd847668d7bba275ba1a353`, without rerunning it. Run details
+    is collapsed in this image to show all five rows. Coherence includes
+    **Pass: 4** rows even though its summary is **100% / 5/5**. Use the horizontal
+    scrollbar for `task_adherence` and its reasons. Verify your run ID before
+    recording scores; these images are not evidence for another run or the
+    practice dataset. Select either image to inspect it at full size.
+
 5. Copy the following worksheet into your local notes and complete it for
     one row. Copy the actual strings/arrays, not a paraphrase of their meaning.
 
@@ -166,13 +186,6 @@ Errors, skipped/unscored items:
 Evidence source: portal URL or matching artifact path:
 What this row proves / does not prove:
 ```
-
-![Retained French v6 run showing three 5/5 metric summaries, five rows and the horizontal scrollbar](../assets/evidence/lab19-v6-run-results-2026-10-23.png)
-
-Captured on 2026-10-23 from the retained **French staging v6** run
-`evalrun_db159f558fd847668d7bba275ba1a353`, without rerunning it. Run details is
-collapsed to show all five rows. Verify your run ID before recording scores;
-this screenshot is not evidence for a different run or the practice dataset.
 
 Compare the three metrics with the guide's
 [built-in evaluator catalog screenshots](../evaluation-guide.md#built-in-evaluator-catalog).

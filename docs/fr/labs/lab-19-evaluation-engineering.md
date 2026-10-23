@@ -123,13 +123,23 @@ une liste vide. Aucun nouvel appel agent/juge n'est nécessaire.
 2. Si **Agents > quote-preparation-agent > Evaluation** affiche
     **No evaluations found**, sélectionnez **Optimize > Evaluations** dans la
     **barre latérale gauche**, pas l'onglet de l'agent. Effacez les filtres.
-3. Cherchez `Hosted CI quote-preparation-agent`, ouvrez la définition puis
-    l'essai `quote-preparation-agent:6` si la liste est séparée. Vérifiez l'ID :
+3. Cherchez `Hosted CI quote-preparation-agent` et ouvrez la définition.
+    Dans **Evaluation runs**, repérez l'essai `quote-preparation-agent:6` à
+    l'état **Completed**. Vérifiez l'ID, pas seulement le nom :
 
     | Langue | Vrai essai approuvé | Lignes / métriques attendues |
     | --- | --- | --- |
     | Anglais | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 / 3 par ligne |
     | Français | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 / 3 par ligne |
+
+    [![Vue de la définition avec un essai français v6 terminé, 15/15 contrôles globaux et 5/5 par métrique](../../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)](../../assets/evidence/lab19-v6-evaluation-overview-2026-10-23.png)
+
+    Capture du 2026-10-23 de la définition conservée en staging français
+    `eval_923cb34017c743a59089a36cb55d4e28`, sans démarrer un nouvel essai.
+    **Overall score** affiche 15/15 contrôles réussis : cinq cas fois trois
+    métriques. Les résumés **100% / 5/5** comptent les cas réussis; ils ne
+    signifient pas que chaque note ordinale vaut 5. Sélectionnez le **lien du
+    nom** de l'essai, pas sa case ni **Add run**, pour ouvrir l'écran suivant.
 
 4. Développez **Run details**, puis examinez **Detailed metrics result**.
     Faites défiler horizontalement les notes/justifications et ouvrez une ligne
@@ -137,6 +147,18 @@ une liste vide. Aucun nouvel appel agent/juge n'est nécessaire.
     [tableau de mapping et les captures](../evaluation-guide.md#a-retrouver-et-examiner-un-vrai-essai-conservé)
     du guide. Pour les entrées non exposées, consultez le `captured.json` et la
     définition du même essai.
+
+    [![Essai français v6 conservé avec trois résumés 5/5, cinq lignes et barre horizontale](../../assets/evidence/lab19-v6-run-results-2026-10-23.png)](../../assets/evidence/lab19-v6-run-results-2026-10-23.png)
+
+    Capture du 2026-10-23 de l'essai conservé **français staging v6**
+    `evalrun_db159f558fd847668d7bba275ba1a353`, sans le relancer. Run details est
+    replié dans l'image pour montrer les cinq lignes. Coherence comprend des
+    lignes **Pass: 4** malgré son résumé **100% / 5/5**. Faites défiler
+    horizontalement pour voir `task_adherence` et ses justifications. Vérifiez
+    votre ID avant de relever les notes; ces images ne prouvent rien pour un
+    autre essai ou le jeu de pratique. Sélectionnez une image pour l'afficher
+    en taille réelle.
+
 5. Copiez la fiche suivante dans vos notes locales. Relevez les vraies valeurs,
     pas une paraphrase de leur sens.
 
@@ -162,13 +184,6 @@ Erreurs, lignes exclues ou non notees :
 Source : URL portail ou chemin d'artefact correspondant :
 Ce que cette ligne prouve / ne prouve pas :
 ```
-
-![Essai français v6 conservé avec trois résumés 5/5, cinq lignes et barre horizontale](../../assets/evidence/lab19-v6-run-results-2026-10-23.png)
-
-Capture du 2026-10-23 de l'essai conservé **français staging v6**
-`evalrun_db159f558fd847668d7bba275ba1a353`, sans le relancer. Run details est
-replié pour montrer les cinq lignes. Vérifiez votre ID avant de relever les
-notes; cette capture ne prouve rien pour un autre essai ou le jeu de pratique.
 
 Comparez les métriques aux
 [captures du catalogue des évaluateurs intégrés](../evaluation-guide.md#catalogue-des-évaluateurs-intégrés).
