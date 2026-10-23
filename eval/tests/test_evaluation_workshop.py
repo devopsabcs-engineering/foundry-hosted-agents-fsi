@@ -218,11 +218,11 @@ def test_powerpoint_contains_readable_bounded_slides_and_instructor_notes(langua
         size = presentation.find("p:sldSz", NS)
         width, height = int(size.attrib["cx"]), int(size.attrib["cy"])
         slide_names = [name for name in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)]
-        assert len(slide_names) == 34
-        for number in range(1, 35):
+        assert len(slide_names) == 35
+        for number in range(1, 36):
             slide = ET.fromstring(archive.read(f"ppt/slides/slide{number}.xml"))
             texts = [text.text or "" for text in slide.findall(".//a:t", NS)]
-            assert any(f"{number} / 34" in text for text in texts)
+            assert any(f"{number} / 35" in text for text in texts)
             for transform in slide.findall(".//a:xfrm", NS):
                 offset = transform.find("a:off", NS)
                 extent = transform.find("a:ext", NS)
@@ -238,6 +238,13 @@ def test_powerpoint_contains_readable_bounded_slides_and_instructor_notes(langua
             links = [urlsplit(url) for url in re.findall(r"https://\S+", note_text)]
             assert any(link.hostname == "learn.microsoft.com" for link in links)
             assert any(link.path.endswith("/evaluation-guide.html") for link in links)
+            if number == 16:
+                assert slide.find(".//p:pic", NS) is not None
+                assert all(token in note_text for token in ("builtin.groundedness", "v18", "2026-10-23"))
+        screenshot = ROOT / "docs" / "assets" / "evidence" / "foundry-evaluator-groundedness-v18-2026-10-23.png"
+        media_names = [name for name in archive.namelist() if name.startswith("ppt/media/") and name.endswith(".png")]
+        assert len(media_names) == 1
+        assert archive.read(media_names[0]) == screenshot.read_bytes()
         all_text = " ".join(archive.read(name).decode() for name in slide_names)
         for token in ("Wilson", "COMPOSITION", "groundedness", "SystemError", "39527950931"):
             assert token in all_text
