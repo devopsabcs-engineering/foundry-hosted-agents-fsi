@@ -67,8 +67,8 @@ const SLIDES = [
     fr: ['Évaluation cloud native de bout en bout', ['Convertir source EN / FR', 'Capturer les vraies réponses', 'Créer définition/essai; délai borné', 'Récupérer chaque ligne et les IDs'], "Le dépôt utilise AIProjectClient.get_openai_client et evals.create / evals.runs.create. Rejeter les corps d'erreur HTTP200 et langues absentes avant le juge. Garder captures et échecs dans des répertoires nouveaux."],
   },
   {
-    en: ['Portal walk-through: choose, map, inspect', ['Confirm staging project, tenant, running version and cost cap.', 'Choose agent invocation or an uploaded captured-response dataset.', 'Map query / context / response; select supported evaluators.', 'Check completion, errors, individual reasons and export lineage.'], 'Use the guide’s ten portal steps. The new agent UI has an Evaluation tab; project-level Evaluate is also documented. Labels and hosted/custom-agent support vary by portal generation and preview capability. Use the verified SDK if mapping or repetition cannot be expressed; do not invent a button.'],
-    fr: ['Portail : choisir, mapper, inspecter', ['Confirmer staging, locataire, version active et plafond de coût.', 'Choisir appel agent ou jeu de réponses déjà capturées.', 'Mapper question / contexte / réponse et évaluateurs disponibles.', 'Vérifier complétude, erreurs, raisons et export de provenance.'], "Suivre les dix étapes du guide. L'agent actuel a un onglet Evaluation; Evaluate existe aussi au niveau projet. Libellés et compatibilité varient selon l'expérience/préversion. Utiliser le SDK vérifié si le portail ne peut exprimer le protocole."],
+    en: ['Portal walk-through: choose, map, inspect', ['Open the project-level Optimize > Evaluations list.', 'Read-only: match retained run ID, status and five items.', 'Practice: use supplied flat JSONL and independent context.', 'Review criteria; stop before Submit without paid-call approval.'], 'Use the guide’s separate read-only and practice paths. An empty agent-scoped Evaluation tab does not mean the project has no native runs. Inspect the retained staging v6 run without invoking a judge. Practice files are authored synthetic controls, not captured agent responses. Use the verified SDK if mapping or repetition cannot be expressed; do not invent a button.'],
+    fr: ['Portail : choisir, mapper, inspecter', ['Ouvrir Optimize > Evaluations au niveau du projet.', 'Lecture seule : vérifier ID, état et cinq lignes conservées.', 'Pratique : JSONL aplati fourni et contexte indépendant.', 'Revoir les critères; pas de Submit sans autorisation de coût.'], "Suivre les parcours distincts de lecture seule et de pratique. Un onglet agent Evaluation vide ne signifie pas que le projet n'a aucun essai natif. Examiner staging v6 sans appel juge. Les jeux de pratique sont des contrôles synthétiques rédigés, pas des réponses agent capturées. Utiliser le SDK vérifié si nécessaire."],
   },
   {
     en: ['Do not mix API generations', ['Projects SDK + native Evals is this repository’s cloud path.', 'azure-ai-evaluation has a separate local evaluate() API.', 'Built-ins, code graders and prompt rubrics have different schemas.', 'Preview, region and evaluator-version limits still apply.'], 'The working release uses projects2.6.0, openai3.6.0 and identity1.25.3. Do not claim the parallel evaluation SDK is deprecated without authoritative evidence. Check installed versions and current official docs before adapting samples. The workshop does not upgrade production dependencies.'],
@@ -81,6 +81,16 @@ const SLIDES = [
   {
     en: ['Three metrics, three different questions', ['Coherence: is this acknowledgement logically understandable?', 'Groundedness: is it supported by independent provided facts?', 'Task adherence: does it follow the bounded applicant task?', 'None of these proves calculator, tool, persistence or RBAC behavior.'], 'A perfectly coherent false statement may pass coherence. Require no-premium and no-approval policies independently. Inspect the selected metric’s returned score, pass threshold and reason rather than assuming every built-in uses the same scale.'],
     fr: ['Trois métriques, trois questions', ['Coherence : l’accusé est-il logiquement compréhensible?', 'Groundedness : les faits indépendants le soutiennent-ils?', 'Task adherence : respecte-t-il la tâche demandeur bornée?', 'Aucune ne prouve calcul, outils, persistance ou RBAC.'], "Une affirmation fausse mais cohérente peut réussir coherence. Exiger séparément absence de prix et d'approbation. Inspecter note, seuil et justification propres à la métrique, sans supposer une échelle universelle."],
+  },
+  {
+    kind: 'screenshot',
+    image: {
+      file: 'foundry-evaluator-groundedness-v18-2026-10-23.png',
+      width: 1483, height: 927,
+      crop: { x: 270, y: 500, w: 1210, h: 335 },
+    },
+    en: ['Groundedness: inspect the input contract', ['Staging catalog v18 | 2026-10-23 | Definition, not run results', 'Use independent trusted context, never the candidate answer.'], 'Genuine Microsoft Foundry builtin.groundedness catalog v18, captured in staging on 2026-10-23. Cropped only to enlarge the description, supported input alternatives and ordinal 1-5 score. The full screenshot is linked from the image and the guide. The catalog includes response/context, query/response or messages alternatives. This lab maps evaluation_query, independent context and the selected-locale response. Coherence v13 also shows ordinal 1-5; Task Adherence preview v17 shows Boolean. Catalog versions are capture-time observations, not effective versions proved for the retained v6 run. Inspection did not submit an evaluation or invoke a judge.'],
+    fr: ['Groundedness : examiner les entrées', ['Catalogue staging v18 | 2026-10-23 | Définition, pas résultat', 'Utiliser un contexte fiable indépendant, jamais la réponse candidate.'], "Vraie capture du catalogue Microsoft Foundry builtin.groundedness v18, prise en staging le 2026-10-23. Recadrée pour agrandir description, formes d'entrée et note ordinale de 1 à 5. L'image et le guide donnent accès à la capture complète. Le catalogue propose response/context, query/response ou messages. L'atelier mappe evaluation_query, context indépendant et response dans la langue choisie. Coherence v13 affiche aussi 1 à 5; Task Adherence en préversion v17 est booléen. Les versions du catalogue ne prouvent pas les versions effectives de l'essai v6 conservé. Aucune évaluation soumise ni aucun appel juge pour cette capture."],
   },
   {
     en: ['Bilingual evaluation is not one averaged score', ['Convert one source into independent EN and FR runs.', 'Keep the selected locale’s text as a string, not a bilingual map.', 'Inspect locale-specific failures and disclaimer requirements.', 'A global average can hide a French-only regression.'], 'The capture normalizer flattens the bilingual content map for task-adherence inputs. Missing locale is an error, not a silent language fallback. Compare the same slice and independent truth in each language. Formatting differences alone are not semantic quality failures.'],
@@ -179,6 +189,18 @@ function renderSlide(pptx, entry, language, index) {
   if (cover) {
     items.forEach((item, i) => addText(slide, item, 0.65, 3.2 + i * 0.75, 11.9, 0.6, { fontSize: 22, color: 'DDEEFF' }));
     addText(slide, language === 'en' ? 'EXACT CONTRACTS  /  CALIBRATED JUDGES  /  DEFENSIBLE DECISIONS' : 'CONTRATS EXACTS  /  JUGES CALIBRÉS  /  DÉCISIONS JUSTIFIÉES', 0.65, 5.7, 12, 0.7, { fontSize: 14, color: '91CEFF' });
+  } else if (entry.kind === 'screenshot') {
+    const { image } = entry;
+    const scale = 12.1 / image.crop.w;
+    slide.addImage({
+      path: path.join(ROOT, 'docs', 'assets', 'evidence', image.file),
+      x: 0.6, y: 2.05, w: image.width * scale, h: image.height * scale,
+      sizing: { type: 'crop', x: image.crop.x * scale, y: image.crop.y * scale, w: 12.1, h: image.crop.h * scale },
+      altText: language === 'en' ? 'Groundedness catalog: input alternatives and ordinal 1-5 score.' : 'Catalogue Groundedness : entrées possibles et note ordinale de 1 à 5.',
+      hyperlink: { url: `${BASE}/assets/evidence/${image.file}` },
+    });
+    addText(slide, items[0], 0.6, 5.65, 12.1, 0.45, { fontSize: 16, color: C.muted });
+    addText(slide, items[1], 0.6, 6.15, 12.1, 0.5, { fontSize: 20, bold: true });
   } else if (entry.kind === 'compare') {
     items.forEach((column, i) => {
       const [heading, ...lines] = column.split('|');
