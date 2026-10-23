@@ -91,10 +91,24 @@ l'[Atelier 19](docs/fr/labs/lab-19-evaluation-engineering.md) proposent
 calibration, essais répétés et régression avec état.
 Les [PowerPoint français](docs/assets/decks/foundry-evaluation-engineering-fr.pptx)
 et [anglais](docs/assets/decks/foundry-evaluation-engineering-en.pptx)
-contiennent chacun 34 diapositives modifiables et des notes de formation.
+contiennent chacun 37 diapositives modifiables et des notes de formation.
 Régénérez-les avec `npm run build-evaluation-deck`.
 Le [guide anglais](docs/evaluation-guide.md) et
 le [lab anglais](docs/labs/lab-19-evaluation-engineering.md) présentent les mêmes exercices.
+
+Le parcours portail inclut les vues d'ensemble et de résultats conservés ainsi
+que les captures du catalogue Coherence, Groundedness et Task Adherence.
+Commencez en lecture seule, puis utilisez les contrôles synthétiques rédigés
+[français](docs/assets/datasets/portal-practice-fr-CA.jsonl) ou
+[anglais](docs/assets/datasets/portal-practice-en-CA.jsonl), pas des réponses agent
+capturées. Téléverser ou soumettre une évaluation payante exige une autorisation
+distincte.
+
+GitHub Pages construit `docs/` depuis `main`; le wiki reprend les guides et
+l'Atelier 19 des mêmes sources après validation de main. Les présentations sont
+générées par `scripts/build-workshop-deck.js` et `scripts/build-evaluation-deck.js`.
+La publication exige une fusion et des tâches Pages/wiki réussies; modifier la
+documentation ne redéploie pas l'agent.
 
 ## Essayer l'interface de clavardage
 

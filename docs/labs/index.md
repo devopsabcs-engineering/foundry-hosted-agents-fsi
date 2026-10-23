@@ -69,6 +69,12 @@ Use the [step-by-step guide](../evaluation-guide.md) and
 [PowerPoint with instructor notes](../assets/decks/foundry-evaluation-engineering-en.pptx)
 for the 3–4 hour deep lab. The complete curriculum now spans Labs 00–19.
 
+Exercise 19.4 includes retained-run screenshots for read-only inspection.
+The separate portal practice uses supplied authored synthetic
+[English JSONL](../assets/datasets/portal-practice-en-CA.jsonl) or
+[French JSONL](../assets/datasets/portal-practice-fr-CA.jsonl), not captured agent
+responses. Uploads and paid submissions require separate approval.
+
 ## Next Steps
 
 Start with [Lab 00: Setup](lab-00-setup.md).

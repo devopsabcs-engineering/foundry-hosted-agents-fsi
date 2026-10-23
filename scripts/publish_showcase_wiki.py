@@ -23,6 +23,8 @@ PAGES = {
     "docs/wiki/release-evidence.md": ("Release-Evidence", "Release evidence"),
     "docs/evaluation-guide.md": ("Evaluation-Engineering", "Evaluation engineering"),
     "docs/fr/evaluation-guide.md": ("Evaluation-Engineering-FR", "Ingénierie des évaluations"),
+    "docs/labs/lab-19-evaluation-engineering.md": ("Lab-19-Evaluation-Engineering", "Lab 19 - Evaluation engineering"),
+    "docs/fr/labs/lab-19-evaluation-engineering.md": ("Lab-19-Evaluation-Engineering-FR", "Atelier 19 - Ingénierie des évaluations"),
 }
 DIAGRAMS = {
     "docs/architecture.md": ("architecture-en", 7),
@@ -59,6 +61,7 @@ SCREENSHOTS = (
     "revision-production-completed-fr.png",
     "foundry-production-agent-v7.png",
     "lab19-project-evaluations-2026-10-23.png",
+    "lab19-v6-evaluation-overview-2026-10-23.png",
     "lab19-v6-run-results-2026-10-23.png",
     "lab19-dataset-target-2026-10-23.png",
     "lab19-practice-upload-2026-10-23.png",
@@ -85,22 +88,25 @@ def render(source: str, text: str, repository: str) -> str:
         f"https://github.com/{repository}/blob/main/{path}": page
         for path, (page, _) in PAGES.items()
     }
+    asset_base = f"https://github.com/{repository}/blob/main/docs/assets/"
 
     def link(match):
-        target = match.group(2)
+        target = match.group(1)
         if not target.startswith(("#", "https://", "http://", "mailto:")):
             target = urljoin(base, target)
             path, separator, fragment = target.partition("#")
             target = page_links.get(path, path) + separator + fragment
+            if path.startswith(asset_base) and path.endswith((".pptx", ".jsonl")):
+                target = path.replace("/blob/main/", "/raw/refs/heads/main/", 1) + separator + fragment
             for filename in SCREENSHOTS:
                 if target == f"https://github.com/{repository}/blob/main/docs/assets/evidence/{filename}":
                     target = f"assets/evidence/{filename}"
             for filename in DIAGRAM_IMAGES:
                 if target == f"https://github.com/{repository}/blob/main/docs/assets/architecture/{filename}":
                     target = f"assets/architecture/{filename}"
-        return f"[{match.group(1)}]({target})"
+        return f"({target})"
 
-    body = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", link, body)
+    body = re.sub(r"(?<=\])\(([^)\s]+)\)", link, body)
     return f"# {PAGES[source][1]}\n\n{body.rstrip()}\n"
 
 

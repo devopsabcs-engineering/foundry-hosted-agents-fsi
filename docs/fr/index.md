@@ -66,6 +66,12 @@ Poursuivez avec le [guide d'ingénierie des évaluations](evaluation-guide.md)
 et l'[Atelier 19](labs/lab-19-evaluation-engineering.md) : dix exercices
 sur tests déterministes/stochastiques, portail et SDK Foundry, jeux indépendants,
 calibration des juges, incertitude et non-régression avec état.
-Les [34 diapositives françaises](../assets/decks/foundry-evaluation-engineering-fr.pptx)
+Les [37 diapositives françaises](../assets/decks/foundry-evaluation-engineering-fr.pptx)
 et [anglaises](../assets/decks/foundry-evaluation-engineering-en.pptx)
 incluent les notes de formation pour une séance de 3 à 4 heures.
+
+Suivez les captures conservées de l'Exercice 19.4 sans lancer un nouvel essai.
+Pour le parcours de pratique distinct, téléchargez les contrôles synthétiques
+rédigés [français](../assets/datasets/portal-practice-fr-CA.jsonl) ou
+[anglais](../assets/datasets/portal-practice-en-CA.jsonl), pas des réponses agent
+capturées. Téléversement et soumission payante exigent une autorisation distincte.

@@ -19,6 +19,17 @@ historical author-only descriptions.
 * [Evaluation engineering guide](../evaluation-guide.md) | [Guide des évaluations](../fr/evaluation-guide.md)
 * [Deep Lab 19](../labs/lab-19-evaluation-engineering.md) | [Atelier 19](../fr/labs/lab-19-evaluation-engineering.md)
 * [English evaluation PowerPoint](../assets/decks/foundry-evaluation-engineering-en.pptx) | [PowerPoint français](../assets/decks/foundry-evaluation-engineering-fr.pptx)
+* [English practice JSONL](../assets/datasets/portal-practice-en-CA.jsonl) | [JSONL de pratique français](../assets/datasets/portal-practice-fr-CA.jsonl)
+
+Lab 19 and the 37-slide evaluation decks share the retained-run overview,
+detailed-results and evaluator-catalog walkthrough. Practice datasets are authored
+synthetic controls, not captured agent responses. Read-only inspection needs no
+new evaluation; uploads and paid submissions require separate approval.
+
+L'Atelier 19 et les présentations d'évaluation de 37 diapositives partagent les
+captures conservées et le catalogue des évaluateurs. Les jeux de pratique sont
+des contrôles synthétiques rédigés, pas des réponses agent capturées. Aucun nouvel
+essai pour la lecture seule; téléversement et soumission payante à autoriser.
 
 ## Deployed baseline
 

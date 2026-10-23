@@ -169,7 +169,7 @@ do not create a hand-authored trace and label it live.
 5. In Evaluations, inspect individual criteria and the overall passing-item
    count. The advisory judge is not the deterministic release gate.
 
-The [actual portal captures](../showcase-evidence.md#authenticated-staging-foundry-agent)
+The [actual portal captures](../showcase-evidence.md#authenticated-foundry-staging-agent)
 show the earlier blank v3 response investigation and the corrected v4 response.
 The [evaluation capture](../showcase-evidence.md#honest-evaluation-results) preserves
 failed judge criteria rather than presenting workflow success as a judge pass.

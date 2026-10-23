@@ -314,14 +314,14 @@ const SHOWCASE_SLIDES = [
         'Native generation succeeded: 8 examples downloaded; local fixtures are not a generation job',
         'Built-in retrieval evaluator v15: relevant control 5/5, irrelevant control 1/5 in staging',
         'Both native grounding judges missed a bad control; no quality pass or optimization claimed',
-        'Review the exact prohibited-actions taxonomy before a bounded native red-team run',
+        'Approved native red-team scan failed before scoring; this is not a safety pass',
         'Trace deterministic stages and policy hashes; never invent LLM tokens or model spans',
       ],
       fr: [
         'Génération native réussie : 8 exemples téléchargés ; une donnée locale n’est pas un job natif',
         'Évaluateur retrieval intégré v15 : contexte pertinent 5/5, non pertinent 1/5 en staging',
         'Les deux juges d’ancrage ont manqué le contrôle erroné ; ni succès qualité ni gain affirmé',
-        'Réviser la taxonomie exacte avant un red team natif et borné',
+        'Le scan red team natif approuvé a échoué avant notation ; aucun succès sécurité',
         'Tracer les étapes déterministes et le hachage ; ne pas inventer de jetons ou d’appels LLM',
       ],
     },
@@ -344,6 +344,50 @@ const SHOWCASE_SLIDES = [
       ],
     },
   },
+  {
+    kicker: { en: 'Session 2 / Current evidence', fr: 'Séance 2 / Preuves actuelles' },
+    title: { en: 'Verified and Deferred Are Different', fr: 'Vérifié et différé restent distincts' },
+    bullets: {
+      en: [
+        'Retained quote release: staging v6 and production v7; documentation does not redeploy it',
+        'Isolated staging IQ companion v2: 8/8 bilingual checks; production remains unpromoted',
+        'Native Content Understanding invoice extraction passed in staging and production',
+        'Protocol-only red-team shadow passes offline tests, not native acceptance or scan approval',
+      ],
+      fr: [
+        'Livraison conservée : staging v6 et production v7 ; la documentation ne la redéploie pas',
+        'Compagnon IQ staging v2 isolé : 8/8 contrôles bilingues ; production non promue',
+        'Extraction de facture Content Understanding native réussie en staging et production',
+        'Clone red team protocolaire testé hors ligne, sans acceptation native ni autorisation de scan',
+      ],
+    },
+    notes: {
+      en: 'Retained release 39527950931 attempt 2, source 2c3f13b. Staging IQ is fsi-showcase-iq:2, not the quote agent. Production IQ is blocked by a missing Search query role. The original approved native red-team scan failed before scoring. Its approval does not authorize the new protocol shadow. Deferred work: https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49\nEvidence: https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/showcase-evidence.html',
+      fr: 'Livraison conservée 39527950931, tentative 2, source 2c3f13b. IQ staging est fsi-showcase-iq:2, pas l’agent de soumission. Le rôle de requête Search manque pour IQ production. Le scan red team natif approuvé a échoué avant notation; son autorisation ne couvre pas le nouveau clone protocolaire. Travail différé : https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/49\nPreuves : https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/fr/showcase-evidence.html',
+    },
+  },
+  {
+    kicker: { en: 'Lab 19 / Evaluation engineering', fr: 'Atelier 19 / Ingénierie des évaluations' },
+    title: { en: 'Continue with the Evaluation Deep Lab', fr: 'Poursuivre avec l’atelier d’évaluation' },
+    bullets: {
+      en: [
+        'Complete curriculum: local Labs 00-09, pilot 10-14, native 15-18 and evaluation Lab 19',
+        'Read-only portal walkthrough: overview, detailed results and three built-in evaluator captures',
+        'Use supplied EN/FR synthetic JSONL controls; uploads and paid submissions need approval',
+        'Dedicated evaluation decks: 37 editable slides per language, with instructor notes',
+      ],
+      fr: [
+        'Programme complet : bases 00-09, pilote 10-14, natif 15-18 et évaluation à l’Atelier 19',
+        'Portail en lecture seule : vue d’ensemble, résultats et trois évaluateurs intégrés',
+        'Contrôles JSONL synthétiques EN/FR fournis ; téléversement et soumission payante à autoriser',
+        'Présentations d’évaluation distinctes : 37 diapositives modifiables par langue et notes',
+      ],
+    },
+    notes: {
+      en: 'Allow 3-4 hours for ten exercises. The practice rows are authored synthetic controls, not captured agent responses. Retained screenshots prove only their identified run.\nGuide: https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/evaluation-guide.html\nLab: https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/labs/lab-19-evaluation-engineering\nDataset: https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/assets/datasets/portal-practice-en-CA.jsonl\nDeck: https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/assets/decks/foundry-evaluation-engineering-en.pptx',
+      fr: 'Prévoir 3 à 4 heures pour dix exercices. Les contrôles synthétiques rédigés ne sont pas des réponses agent capturées. Les captures ne prouvent que l’essai identifié.\nGuide : https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/fr/evaluation-guide.html\nAtelier : https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/fr/labs/lab-19-evaluation-engineering\nDonnées : https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/assets/datasets/portal-practice-fr-CA.jsonl\nPrésentation : https://devopsabcs-engineering.github.io/foundry-hosted-agents-fsi/assets/decks/foundry-evaluation-engineering-fr.pptx',
+    },
+  },
 ];
 
 const TITLE_SLIDE = {
@@ -361,8 +405,8 @@ const AGENDA_SLIDE = {
   kicker: { en: 'Agenda', fr: 'Programme' },
   title: { en: 'Local Foundations, Hosted Demo, Native Showcase', fr: 'Bases locales, démo hébergée et fonctions natives' },
   bullets: {
-    en: LAB_SLIDES.map((lab) => `${lab.kicker.en} \u2014 ${lab.title.en}`),
-    fr: LAB_SLIDES.map((lab) => `${lab.kicker.fr} \u2014 ${lab.title.fr}`),
+    en: [...LAB_SLIDES.map((lab) => `${lab.kicker.en} \u2014 ${lab.title.en}`), 'Labs 10-14: controlled pilot surfaces', 'Labs 15-18: isolated native showcase', 'Lab 19: evaluation engineering deep lab'],
+    fr: [...LAB_SLIDES.map((lab) => `${lab.kicker.fr} \u2014 ${lab.title.fr}`), 'Ateliers 10-14 : pilote contrôlé', 'Ateliers 15-18 : fonctions natives isolées', 'Atelier 19 : évaluation approfondie'],
   },
 };
 
@@ -414,6 +458,7 @@ function buildDeck(lang) {
     header(slide, { kicker: lab.kicker[lang], title: lab.title[lang] });
     bullets(slide, lab.bullets[lang]);
     footer(slide, lang === 'en' ? 'Desjardins Bilingual Hosted Agents Workshop' : 'Atelier bilingue Desjardins sur les agents hébergés');
+    if (lab.notes) slide.addNotes(lab.notes[lang]);
   }
 
   const closingSlide = newSlide(pptx);

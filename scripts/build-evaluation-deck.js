@@ -71,6 +71,28 @@ const SLIDES = [
     fr: ['Portail : choisir, mapper, inspecter', ['Ouvrir Optimize > Evaluations au niveau du projet.', 'Lecture seule : vérifier ID, état et cinq lignes conservées.', 'Pratique : JSONL aplati fourni et contexte indépendant.', 'Revoir les critères; pas de Submit sans autorisation de coût.'], "Suivre les parcours distincts de lecture seule et de pratique. Un onglet agent Evaluation vide ne signifie pas que le projet n'a aucun essai natif. Examiner staging v6 sans appel juge. Les jeux de pratique sont des contrôles synthétiques rédigés, pas des réponses agent capturées. Utiliser le SDK vérifié si nécessaire."],
   },
   {
+    kind: 'screenshot',
+    image: {
+      file: 'lab19-v6-evaluation-overview-2026-10-23.png',
+      width: 1483, height: 927,
+      crop: { x: 236, y: 235, w: 1225, h: 250 },
+      alt: { en: 'Completed retained run: 15/15 checks overall and 5/5 per metric.', fr: 'Essai conservé terminé : 15/15 contrôles globaux et 5/5 par métrique.' },
+    },
+    en: ['Portal checkpoint: open the completed run', ['French staging v6 | 2026-10-23 | Read-only retained evidence', 'Select the run name, not its checkbox or Add run.'], 'Exercise 19.4 step 3. Genuine retained French staging definition eval_923cb34017c743a59089a36cb55d4e28. Match run evalrun_db159f558fd847668d7bba275ba1a353. Overall 15/15 means five items times three metrics; 100% / 5/5 is a pass count, not a raw ordinal score of 5 for every item. No evaluation was submitted for this capture. Open the linked full image for project navigation and provenance.'],
+    fr: ['Point portail : ouvrir l’essai terminé', ['Staging français v6 | 2026-10-23 | Preuve conservée en lecture seule', 'Sélectionner le nom, pas la case ni Add run.'], 'Exercice 19.4, étape 3. Vraie définition staging française conservée eval_923cb34017c743a59089a36cb55d4e28. Vérifier l’essai evalrun_db159f558fd847668d7bba275ba1a353. 15/15 signifie cinq cas fois trois métriques; 100% / 5/5 compte les réussites, pas une note ordinale de 5 pour chaque cas. Aucune évaluation soumise pour cette capture. L’image complète liée montre navigation et provenance.'],
+  },
+  {
+    kind: 'screenshot',
+    image: {
+      file: 'lab19-v6-run-results-2026-10-23.png',
+      width: 1112, height: 695,
+      crop: { x: 205, y: 325, w: 890, h: 255 },
+      alt: { en: 'Five retained result rows include Coherence Pass: 4 and Pass: 5.', fr: 'Les cinq lignes conservées incluent Coherence Pass: 4 et Pass: 5.' },
+    },
+    en: ['Portal checkpoint: inspect scores and reasons', ['French staging v6 | 2026-10-23 | Five retained result rows', 'Pass: 4 can coexist with a 100% / 5/5 pass-rate summary.'], 'Exercise 19.4 step 4. Genuine retained run evalrun_db159f558fd847668d7bba275ba1a353, not a practice upload result. Coherence includes raw ordinal 4 and 5 scores, all passed. Groundedness shows 5; Task Adherence uses Boolean scores. Scroll horizontally for task_adherence and reasons. Run details was collapsed to fit all five rows. Inspect mapped inputs in the matching captured.json and definition if the portal does not expose them. No agent or judge calls were made.'],
+    fr: ['Point portail : examiner notes et raisons', ['Staging français v6 | 2026-10-23 | Cinq lignes conservées', 'Pass: 4 peut coexister avec un résumé de réussites 100% / 5/5.'], 'Exercice 19.4, étape 4. Vrai essai conservé evalrun_db159f558fd847668d7bba275ba1a353, pas un résultat du jeu de pratique. Coherence comprend des notes ordinales de 4 et 5, toutes réussies. Groundedness affiche 5; Task Adherence est booléen. Faire défiler pour task_adherence et les raisons. Run details est replié pour montrer les cinq cas. Utiliser captured.json et la définition du même essai pour les entrées non exposées. Aucun appel agent ou juge effectué.'],
+  },
+  {
     en: ['Do not mix API generations', ['Projects SDK + native Evals is this repository’s cloud path.', 'azure-ai-evaluation has a separate local evaluate() API.', 'Built-ins, code graders and prompt rubrics have different schemas.', 'Preview, region and evaluator-version limits still apply.'], 'The working release uses projects2.6.0, openai3.6.0 and identity1.25.3. Do not claim the parallel evaluation SDK is deprecated without authoritative evidence. Check installed versions and current official docs before adapting samples. The workshop does not upgrade production dependencies.'],
     fr: ['Ne pas mélanger les générations d’API', ['Projects SDK et Evals natif : parcours cloud du dépôt.', 'azure-ai-evaluation expose un evaluate() local distinct.', 'Évaluateurs intégrés, code et grilles ont des schémas différents.', 'Préversion, région et version restent des limites.'], "La livraison utilise projects2.6.0, openai3.6.0, identity1.25.3. Ne pas déclarer l'autre SDK obsolète sans preuve officielle. Vérifier versions installées et documentation avant adaptation. Aucun changement de dépendance de production."],
   },
@@ -88,6 +110,7 @@ const SLIDES = [
       file: 'foundry-evaluator-groundedness-v18-2026-10-23.png',
       width: 1483, height: 927,
       crop: { x: 270, y: 500, w: 1210, h: 335 },
+      alt: { en: 'Groundedness catalog: input alternatives and ordinal 1-5 score.', fr: 'Catalogue Groundedness : entrées possibles et note ordinale de 1 à 5.' },
     },
     en: ['Groundedness: inspect the input contract', ['Staging catalog v18 | 2026-10-23 | Definition, not run results', 'Use independent trusted context, never the candidate answer.'], 'Genuine Microsoft Foundry builtin.groundedness catalog v18, captured in staging on 2026-10-23. Cropped only to enlarge the description, supported input alternatives and ordinal 1-5 score. The full screenshot is linked from the image and the guide. The catalog includes response/context, query/response or messages alternatives. This lab maps evaluation_query, independent context and the selected-locale response. Coherence v13 also shows ordinal 1-5; Task Adherence preview v17 shows Boolean. Catalog versions are capture-time observations, not effective versions proved for the retained v6 run. Inspection did not submit an evaluation or invoke a judge.'],
     fr: ['Groundedness : examiner les entrées', ['Catalogue staging v18 | 2026-10-23 | Définition, pas résultat', 'Utiliser un contexte fiable indépendant, jamais la réponse candidate.'], "Vraie capture du catalogue Microsoft Foundry builtin.groundedness v18, prise en staging le 2026-10-23. Recadrée pour agrandir description, formes d'entrée et note ordinale de 1 à 5. L'image et le guide donnent accès à la capture complète. Le catalogue propose response/context, query/response ou messages. L'atelier mappe evaluation_query, context indépendant et response dans la langue choisie. Coherence v13 affiche aussi 1 à 5; Task Adherence en préversion v17 est booléen. Les versions du catalogue ne prouvent pas les versions effectives de l'essai v6 conservé. Aucune évaluation soumise ni aucun appel juge pour cette capture."],
@@ -196,7 +219,7 @@ function renderSlide(pptx, entry, language, index) {
       path: path.join(ROOT, 'docs', 'assets', 'evidence', image.file),
       x: 0.6, y: 2.05, w: image.width * scale, h: image.height * scale,
       sizing: { type: 'crop', x: image.crop.x * scale, y: image.crop.y * scale, w: 12.1, h: image.crop.h * scale },
-      altText: language === 'en' ? 'Groundedness catalog: input alternatives and ordinal 1-5 score.' : 'Catalogue Groundedness : entrées possibles et note ordinale de 1 à 5.',
+      altText: image.alt[language],
       hyperlink: { url: `${BASE}/assets/evidence/${image.file}` },
     });
     addText(slide, items[0], 0.6, 5.65, 12.1, 0.45, { fontSize: 16, color: C.muted });
@@ -229,7 +252,8 @@ function renderSlide(pptx, entry, language, index) {
   const lab = `${BASE}/${language === 'fr' ? 'fr/' : ''}labs/lab-19-evaluation-engineering`;
   addText(slide, language === 'en' ? 'Synthetic training only | Guide + Lab 19' : 'Formation synthétique | Guide et Atelier 19', 0.6, 7.02, 10.7, 0.23, { fontSize: 10, color: cover ? 'DDEEFF' : C.muted, hyperlink: { url: guide } });
   addText(slide, `${index + 1} / ${SLIDES.length}`, 11.5, 7.02, 1.2, 0.23, { fontSize: 10, align: 'right', color: cover ? 'DDEEFF' : C.muted });
-  slide.addNotes(`${notes}\n\nGuide: ${guide}\nLab 19: ${lab}\nSource: ${SOURCES[index % SOURCES.length]}`);
+  const imageSource = entry.image ? `\nScreenshot: ${BASE}/assets/evidence/${entry.image.file}` : '';
+  slide.addNotes(`${notes}\n\nGuide: ${guide}\nLab 19: ${lab}\nSource: ${SOURCES[index % SOURCES.length]}${imageSource}`);
 }
 
 for (const language of ['en', 'fr']) {
