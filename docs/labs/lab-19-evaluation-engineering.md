@@ -99,6 +99,14 @@ Expected: five converted records per locale with IDs, query, independent
 context and locale. The source `expected.status` is fixture metadata; it is
 not by itself an assertion that the native acknowledgement proved persistence.
 
+These `.json` files are **SDK input arrays**, not portal response uploads;
+they do not contain captured `response` text yet. To practice the portal wizard
+without invoking the agent, use the separate three-row
+[English JSONL](../assets/datasets/portal-practice-en-CA.jsonl) or
+[French JSONL](../assets/datasets/portal-practice-fr-CA.jsonl) and the guide's
+[upload and mapping steps](../evaluation-guide.md#b-upload-a-ready-made-practice-dataset).
+Those authored examples are not real-run evidence for Exercise 19.4.
+
 Write two **proposed** extra rows in your worksheet: a polished false approval
 and a missing-disclaimer answer. Human-review their truth/expected behavior.
 Do not silently add candidate-generated facts to the oracle or modify the
@@ -107,16 +115,78 @@ paraphrases of the same five inputs.
 
 ## Exercise 19.4: Inspect a real run in the portal
 
-Follow the [ten portal steps](../evaluation-guide.md#step-by-step-in-the-foundry-portal).
-Find the retained staging project and inspect an existing applicant evaluation.
-Use the [successful release run IDs](../showcase-evidence.md#current-approved-release)
-if you have no new invocation budget.
+This exercise is **read-only**: do not select Create, Submit, Publish or
+Automatic Evaluation, and do not run Exercise 19.5 merely to fill an empty list.
+Use the retained successful release; no new agent/judge calls are required.
 
-For one row record the mapped query/context/response, locale, evaluator name
-and version, score, pass flag and reason. For task adherence inspect the
-task-message structure rather than treating its input as an arbitrary string.
-Expected: you can distinguish a complete native run from a service failure and
-state exactly which observable behavior is being judged.
+1. Open [Microsoft Foundry](https://ai.azure.com) and select project
+    `proj-desjardins-quote-preparation-staging`. Confirm the account is
+    `aif-desjardins-quote-preparation-staging`, not the production `-poc` account.
+2. If you are on **Agents > quote-preparation-agent > Evaluation** and see
+    **No evaluations found**, select **Optimize > Evaluations** in the **left
+    sidebar**. That opens the project list, not the agent-scoped tab. Clear
+    search/date/target filters.
+3. Search `Hosted CI quote-preparation-agent`, open the matching definition,
+    and select its `quote-preparation-agent:6` run if shown. Match one of the
+    recorded IDs, not only the name:
+
+    | Language | Approved real run | Expected items / metrics |
+    | --- | --- | --- |
+    | English | `evalrun_985de95ac8e742be88c6172d8a4098d6` | 5 / 3 per item |
+    | French | `evalrun_db159f558fd847668d7bba275ba1a353` | 5 / 3 per item |
+
+4. Expand **Run details**, then inspect **Detailed metrics result**. Scroll
+    horizontally to see all scores and reason columns. Open one row or
+    score/reason cell if supported. Follow the guide's
+    [input-mapping table and screenshots](../evaluation-guide.md#a-open-and-inspect-an-existing-real-run)
+    to find each field. Use matching `captured.json`/definition artifacts
+    for any inputs not exposed in your portal build.
+5. Copy the following worksheet into your local notes and complete it for
+    one row. Copy the actual strings/arrays, not a paraphrase of their meaning.
+
+```text
+Project / account:
+Evaluation definition ID (eval_...):
+Run ID (evalrun_...) / status:
+Observed agent version label / evidence date:
+Dataset identity/hash:
+Case id / locale:
+Original query:
+evaluation_query (coherence/groundedness input):
+Independent context:
+Selected-locale response:
+task_query system/user messages:
+output_items response messages:
+Judge deployment / effective model version:
+Evaluator name / version / threshold (or unavailable):
+coherence: score / pass flag / reason:
+groundedness: score / pass flag / reason:
+task_adherence: score / pass flag / reason:
+Errors, skipped/unscored items:
+Evidence source: portal URL or matching artifact path:
+What this row proves / does not prove:
+```
+
+![Retained French v6 run showing three 5/5 metric summaries, five rows and the horizontal scrollbar](../assets/evidence/lab19-v6-run-results-2026-10-23.png)
+
+Captured on 2026-10-23 from the retained **French staging v6** run
+`evalrun_db159f558fd847668d7bba275ba1a353`, without rerunning it. Run details is
+collapsed to show all five rows. Verify your run ID before recording scores;
+this screenshot is not evidence for a different run or the practice dataset.
+
+Expected: the approved run has five unique completed items, each scored on
+`coherence`, `groundedness` and `task_adherence`, with no missing/errored metric.
+Task adherence consumes message arrays, not an arbitrary question string.
+Explain why a good acknowledgement score does not prove arithmetic, persistence
+or employee approval. See [release provenance](../showcase-evidence.md#current-approved-release).
+
+If the project list is still empty or the run is unavailable, follow the guide's
+[retained-artifact/report URL fallback](../evaluation-guide.md#a-open-and-inspect-an-existing-real-run).
+Ask the release custodian for the matching artifacts rather than broadening
+permissions or using production. If access remains unavailable, record this
+exercise as **blocked**. You can still learn the wizard with
+[practice path B](../evaluation-guide.md#b-upload-a-ready-made-practice-dataset)
+after judge-cost approval, but label it synthetic practice, not a real agent run.
 
 ## Exercise 19.5: Run the minimal native EN/FR experiment
 
