@@ -125,9 +125,10 @@ decisions. Use approved synthetic evaluation data for any later experiments.
 ## Single-VM Azure pilot
 
 > [!WARNING]
-> Authored infrastructure only. No Langfuse instance has been provisioned or
-> verified live by this change. Synthetic data only. Do not modify the retained
-> staging/production resources or bypass the repository's deployment gates.
+> The separately approved synthetic pilot is deployed and its guest-local health
+> was verified. [Runtime evidence and access limitations](langfuse-pilot-evidence.md)
+> distinguish those checks from operator SSH, UI onboarding, and OTLP ingestion.
+> Do not modify retained staging/production resources or bypass deployment gates.
 
 The standalone [Bicep template](../infra/langfuse-pilot.bicep) creates a VM,
 network, NSG, NIC, and static public IPv4 in a separate resource group. It is not

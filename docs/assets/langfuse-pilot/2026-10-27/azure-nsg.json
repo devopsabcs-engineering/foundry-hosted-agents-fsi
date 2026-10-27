@@ -1,0 +1,8 @@
+{
+  "name": "langfuse-synthetic-pilot-nsg",
+  "provisioningState": "Succeeded",
+  "rules": [],
+  "subnets": [
+    "/subscriptions/64c3d212-40ed-4c6d-a825-6adfbdf25dad/resourceGroups/RG-LANGFUSE-SYNTHETIC-PILOT/providers/Microsoft.Network/virtualNetworks/LANGFUSE-SYNTHETIC-PILOT-VNET/subnets/PILOT"
+  ]
+}
