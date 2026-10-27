@@ -182,7 +182,7 @@ def test_real_otlp_http_export_preserves_identity_without_payload(monkeypatch):
     class Receiver(BaseHTTPRequestHandler):
         def do_POST(self):
             body = self.rfile.read(int(self.headers["Content-Length"]))
-            received.append((self.path, dict(self.headers), body))
+            received.append((self.path, self.headers, body))
             self.send_response(200)
             self.send_header("Content-Type", "application/x-protobuf")
             self.send_header("Content-Length", "0")
@@ -213,6 +213,7 @@ def test_real_otlp_http_export_preserves_identity_without_payload(monkeypatch):
         path, headers, body = received[0]
         assert path == "/api/public/otel/v1/traces"
         assert headers["Authorization"] == "Basic " + base64.b64encode(b"pk-test:sk-test").decode()
+        assert headers["authorization"] == headers["Authorization"]
         assert headers["x-langfuse-ingestion-version"] == "4"
         assert b"applicant-secret" not in body
         message = ExportTraceServiceRequest.FromString(body)

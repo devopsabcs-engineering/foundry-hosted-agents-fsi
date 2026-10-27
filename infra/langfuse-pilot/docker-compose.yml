@@ -56,7 +56,9 @@ services:
     depends_on: *dependencies
     ports:
       - 127.0.0.1:3000:3000
-    environment: *environment
+    environment:
+      <<: *environment
+      HOSTNAME: 0.0.0.0
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/public/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s
