@@ -9,6 +9,10 @@ node_modules/
 # Scratch directory the lab instructions use for the local SQLite case store.
 .local/
 
+# Local-only Langfuse pilot credentials.
+infra/langfuse-pilot/.env
+infra/langfuse-pilot/.env.*
+
 # Resumable AI workflow state and research working papers.
 .copilot-tracking/
 

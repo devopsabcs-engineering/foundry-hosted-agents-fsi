@@ -103,6 +103,17 @@ live in `scripts/build-workshop-deck.js` and `scripts/build-evaluation-deck.js`.
 Publication needs a merged change and successful Pages/wiki jobs; documentation
 updates do not redeploy the agent.
 
+## Optional Langfuse pilot
+
+The [Langfuse and Foundry integration guide](docs/langfuse-integration.md)
+compares native tracing, evaluation, monitoring, and trace-to-dataset workflows
+with Langfuse's complementary prompt, annotation, and experiment workflows.
+An optional metadata-only OTLP exporter reuses the hosted agent's existing
+provider without replacing Foundry/Application Insights. Export is off by default.
+The standalone Azure single-VM pilot is synthetic-data-only, accessed through
+an SSH tunnel, and requires separate deployment and cost approval. These authored
+files are not evidence of a deployed or operational Langfuse instance.
+
 ## Try the web chatbot
 
 For the session-2 customer demonstration, use the

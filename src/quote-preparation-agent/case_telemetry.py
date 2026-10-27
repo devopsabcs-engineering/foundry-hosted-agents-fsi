@@ -26,6 +26,9 @@ class HostedTracing:
             # when the host has already installed its authenticated pipeline.
             self.tracer = provider.get_tracer("azure.ai.agentserver.core.server.base")
             self.init_tracing_internal()
+        from langfuse_telemetry import configure_langfuse_export
+
+        configure_langfuse_export(trace.get_tracer_provider(), self.get_agent_identifier())
         self._workflow_tracing_initialized = True
 
     def init_tracing_internal(self, exporter_endpoint=None, app_insights_conn_str=None):
