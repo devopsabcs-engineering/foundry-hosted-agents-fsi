@@ -1,0 +1,26 @@
+[
+  {
+    "caller": "da847d8c-ee71-44de-b462-6775e7d649a7",
+    "operation": "Microsoft.Network/networkSecurityGroups/write",
+    "status": "Succeeded",
+    "time": "2026-10-27T23:27:51.7089173Z"
+  },
+  {
+    "caller": "admin@MngEnvMCAP675646.onmicrosoft.com",
+    "operation": "Microsoft.Network/networkSecurityGroups/securityRules/write",
+    "status": "Succeeded",
+    "time": "2026-10-27T23:10:54.0520579Z"
+  },
+  {
+    "caller": "da847d8c-ee71-44de-b462-6775e7d649a7",
+    "operation": "Microsoft.Network/networkSecurityGroups/write",
+    "status": "Succeeded",
+    "time": "2026-10-27T19:28:55.2259541Z"
+  },
+  {
+    "caller": "admin@MngEnvMCAP675646.onmicrosoft.com",
+    "operation": "Microsoft.Network/networkSecurityGroups/write",
+    "status": "Succeeded",
+    "time": "2026-10-27T18:52:53.858781Z"
+  }
+]

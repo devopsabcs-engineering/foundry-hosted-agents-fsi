@@ -1,0 +1,21 @@
+{
+  "location": "eastus2",
+  "name": "langfuse-synthetic-pilot",
+  "passwordAuthenticationDisabled": true,
+  "powerState": "VM running",
+  "privateIps": "10.90.0.4",
+  "provisioningState": "Updating",
+  "publicIps": "20.96.32.65",
+  "security": {
+    "securityType": "TrustedLaunch",
+    "uefiSettings": {
+      "secureBootEnabled": true,
+      "vTpmEnabled": true
+    }
+  },
+  "tags": {
+    "environment": "disposable-nonproduction",
+    "purpose": "langfuse-synthetic-pilot"
+  },
+  "vmSize": "Standard_D4s_v6"
+}
