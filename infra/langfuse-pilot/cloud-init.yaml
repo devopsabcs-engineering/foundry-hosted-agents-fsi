@@ -1,0 +1,34 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - openssl
+write_files:
+  - path: /opt/langfuse-pilot/docker-compose.yml
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: __COMPOSE_BASE64__
+  - path: /opt/langfuse-pilot/start.sh
+    owner: root:root
+    permissions: '0700'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      cd /opt/langfuse-pilot
+      umask 077
+      if [ ! -s .env ]; then
+        secret_file=$(mktemp /opt/langfuse-pilot/.env.XXXXXX)
+        for key in POSTGRES_PASSWORD CLICKHOUSE_PASSWORD MINIO_ROOT_PASSWORD REDIS_AUTH NEXTAUTH_SECRET SALT ENCRYPTION_KEY; do
+          printf '%s=%s\n' "$key" "$(openssl rand -hex 32)" >> "$secret_file"
+        done
+        mv "$secret_file" .env
+      fi
+      chmod 600 .env
+      systemctl enable --now docker
+      docker compose --env-file .env config --quiet
+      docker compose --env-file .env up -d --wait --wait-timeout 600
+runcmd:
+  - [bash, /opt/langfuse-pilot/start.sh]

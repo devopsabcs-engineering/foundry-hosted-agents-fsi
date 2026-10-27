@@ -154,6 +154,14 @@ jobs:
       - name: az bicep install
         run: az bicep install
 
+      - name: Validate synthetic Langfuse pilot Compose configuration
+        run: |
+          set -euo pipefail
+          for KEY in POSTGRES_PASSWORD CLICKHOUSE_PASSWORD MINIO_ROOT_PASSWORD REDIS_AUTH NEXTAUTH_SECRET SALT ENCRYPTION_KEY; do
+            export "$KEY=offline-validation-only"
+          done
+          docker compose -f infra/langfuse-pilot/docker-compose.yml config --quiet
+
       - name: az bicep build (main template and every module; compile-only, no login, no apply)
         id: bicep-build
         run: |

@@ -10,12 +10,13 @@ import pytest
 
 
 @pytest.mark.parametrize("existing_provider", [False, True])
-def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
+@pytest.mark.parametrize("langfuse_enabled", [False, True])
+def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider, langfuse_enabled):
     env = {
         key: value for key, value in os.environ.items()
         if not key.startswith((
             "OTEL_", "APPLICATIONINSIGHTS_", "AZURE_AI_", "AGENT_",
-            "LANGSMITH_", "LANGCHAIN_",
+            "LANGSMITH_", "LANGCHAIN_", "LANGFUSE_",
         ))
     }
     env["ENABLE_APPLICATION_INSIGHTS_LOGGER"] = "false"
@@ -28,6 +29,7 @@ def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
 
         sys.path.insert(0, sys.argv[1])
         import main
+        import langfuse_telemetry
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -40,6 +42,15 @@ def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
 
         existing = sys.argv[2] == "True"
         exported = InMemorySpanExporter()
+        langfuse_exported = InMemorySpanExporter()
+        langfuse_enabled = sys.argv[3] == "True"
+        if langfuse_enabled:
+            os.environ.update({
+                "LANGFUSE_TRACING_ENABLED": "true",
+                "LANGFUSE_HOST": "https://langfuse.example.test",
+                "LANGFUSE_PUBLIC_KEY": "pk-test",
+                "LANGFUSE_SECRET_KEY": "sk-test",
+            })
         providers = []
         adapters = []
 
@@ -76,6 +87,21 @@ def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
                     root_context = root.get_span_context()
                     asyncio.run(invoke_graph(streaming))
                 spans = exported.get_finished_spans()
+                trace.get_tracer_provider().force_flush()
+                if langfuse_enabled:
+                    copies = langfuse_exported.get_finished_spans()
+                    by_id = {span.context.span_id: span for span in copies}
+                    assert root_context.span_id in by_id
+                    for span in spans:
+                        if span.name.startswith("quote."):
+                            copy = by_id[span.context.span_id]
+                            assert copy.context.trace_id == span.context.trace_id
+                            assert copy.parent.span_id == span.parent.span_id
+                            assert copy.name == span.name
+                            assert not copy.events and not copy.links
+                            assert dict(copy.resource.attributes) == {
+                                "service.name": "quote-preparation-agent"
+                            }
                 stages = [span for span in spans if span.name.startswith("quote.")]
                 assert [span.name for span in stages] == [
                     "quote.INTAKE", "quote.REFERENCE_LOOKUP", "quote.COMPOSITION",
@@ -103,6 +129,12 @@ def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
             )
             callback.on_chain_error(RuntimeError("applicant-secret"), run_id=callback_run)
             assert callback._content_recording is False
+            assert otlp.call_count == (1 if langfuse_enabled else 0)
+            if langfuse_enabled:
+                assert otlp.call_args.kwargs["endpoint"] == (
+                    "https://langfuse.example.test/api/public/otel/v1/traces"
+                )
+                assert otlp.call_args.kwargs["headers"]["x-langfuse-ingestion-version"] == "4"
             assert not monitor.called, "SDK callback created a second telemetry pipeline"
             assert len(providers) == (0 if existing else 1)
             assert trace.get_tracer_provider() is (provider if existing else providers[0])
@@ -136,13 +168,15 @@ def test_sdk_and_workflow_share_one_payload_safe_provider(existing_provider):
             patch.object(LangGraphAdapter, "run", run),
             patch.object(AzureAIOpenTelemetryTracer, "_configure_azure_monitor") as monitor,
             patch.object(main, "build_graph", lambda: build_graph(repository=ApprovalRepository(":memory:"))),
+            patch.object(langfuse_telemetry, "OTLPSpanExporter", return_value=langfuse_exported) as otlp,
         ):
             main.serve()
         assert len(adapters) == 1
         trace.get_tracer_provider().shutdown()
     """)
     result = subprocess.run(
-        [sys.executable, "-c", script, str(Path(__file__).resolve().parents[1]), str(existing_provider)],
+        [sys.executable, "-c", script, str(Path(__file__).resolve().parents[1]),
+         str(existing_provider), str(langfuse_enabled)],
         env=env, capture_output=True, text=True, timeout=120, check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr

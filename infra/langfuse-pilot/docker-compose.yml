@@ -1,0 +1,148 @@
+name: langfuse-synthetic-pilot
+
+x-runtime: &runtime
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+x-environment: &environment
+  NEXTAUTH_URL: http://localhost:3000
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?required}
+  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?required}@postgres:5432/postgres
+  SALT: ${SALT:?required}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?required}
+  TELEMETRY_ENABLED: 'false'
+  LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: 'false'
+  LANGFUSE_IN_APP_AGENT_ENABLED: 'false'
+  AUTH_DISABLE_SIGNUP: ${AUTH_DISABLE_SIGNUP:-false}
+  CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: langfuse
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?required}
+  CLICKHOUSE_CLUSTER_ENABLED: 'false'
+  REDIS_HOST: redis
+  REDIS_PORT: '6379'
+  REDIS_AUTH: ${REDIS_AUTH:?required}
+  REDIS_TLS_ENABLED: 'false'
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?required}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_BATCH_EXPORT_ENABLED: 'false'
+
+x-dependencies: &dependencies
+  postgres:
+    condition: service_healthy
+  clickhouse:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  minio:
+    condition: service_healthy
+
+services:
+  langfuse-web:
+    <<: *runtime
+    image: docker.langfuse.com/langfuse/langfuse:4.70.1@sha256:71b04842ecff8fe0dd15c7bbb1acd6e0555735e393a8108c43feb4b8d0adf9e6
+    mem_limit: 3g
+    depends_on: *dependencies
+    ports:
+      - 127.0.0.1:3000:3000
+    environment: *environment
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/public/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+
+  langfuse-worker:
+    <<: *runtime
+    image: docker.langfuse.com/langfuse/langfuse-worker:4.70.1@sha256:3976a73de84a29999ff4573398e240127b8a92012421ce5eec61cd57f087d8ca
+    mem_limit: 3g
+    depends_on: *dependencies
+    environment: *environment
+
+  postgres:
+    <<: *runtime
+    image: docker.io/postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    mem_limit: 1g
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: postgres
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -U, postgres]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  clickhouse:
+    <<: *runtime
+    image: docker.io/clickhouse/clickhouse-server:25.12@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6
+    user: '101:101'
+    mem_limit: 4g
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?required}
+      TZ: UTC
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test: [CMD, wget, --spider, -q, http://localhost:8123/ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    <<: *runtime
+    image: docker.io/redis:7@sha256:bd28fff4b665fdf1b73e8b5b73ec05d2f858f4fa3c8ea0d7c9bc09f7f6bf7039
+    mem_limit: 512m
+    environment:
+      REDISCLI_AUTH: ${REDIS_AUTH:?required}
+    command: [sh, -c, 'exec redis-server --requirepass "$$REDISCLI_AUTH" --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    <<: *runtime
+    image: cgr.dev/chainguard/minio@sha256:a1d2b3516a41296510f7fb49184c18b88287fa8f35cf3ce5c047289053b94964
+    mem_limit: 1g
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && exec minio server --address ":9000" /data'
+    environment:
+      MINIO_ROOT_USER: langfuse
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: [CMD, mc, ready, local]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  postgres-data:
+  clickhouse-data:
+  clickhouse-logs:
+  redis-data:
+  minio-data:
