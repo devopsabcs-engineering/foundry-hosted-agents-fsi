@@ -16,6 +16,12 @@ Run Command returned a healthy application and six running containers.
 This establishes runtime existence, not successful operator SSH, UI onboarding,
 or end-to-end OpenTelemetry ingestion.
 
+At `2026-10-27T23:53:37Z`, a guest-local Playwright capture also verified the
+desktop sign-in, desktop sign-up, and mobile sign-in pages. The actual screenshots
+were transferred through authenticated Azure management, checked against their
+VM-generated SHA256 values, and visually inspected. This establishes rendered
+UI existence without claiming a working operator SSH tunnel.
+
 The implementation was merged in [PR 63](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/63)
 at commit `42c627cddba2cc14743f8120322634227d1f7366`.
 The [protected release](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
@@ -63,6 +69,15 @@ Container image IDs matched the six digest-pinned images in that source.
 The worker's running state must not be described as a passing worker health check.
 No secrets, expanded container environments, or private SSH keys were captured.
 
+A fresh [raw runtime response](assets/langfuse-pilot/2026-10-27/runtime-response.json)
+at `2026-10-28T00:03:21Z` confirmed the same six running containers, zero restarts,
+five passing health checks, the worker without a configured health check,
+loopback-only publication, protected environment file permissions, healthy
+application version, and unchanged Compose SHA256. Disk usage was then 11%
+with approximately 111 GiB available; available memory was 12,887 MiB.
+The dated asset directory groups this evidence session, including its checks
+after midnight; timestamps inside each response remain authoritative.
+
 ## SSH access blocker
 
 Operator attempts using the existing private key and strict verification against
@@ -94,14 +109,67 @@ path. Restoring the rule alone is not proven to resolve the connection reset.
 
 ## UI proof status
 
-A temporary Playwright browser capture was launched inside the VM against
-`http://127.0.0.1:3000`. Completion and screenshot transfer are not yet verified.
-No screenshot is presented as proof until its actual bytes, SHA256, nonblank
-pixels, and visible Langfuse content have been checked.
+A temporary Playwright 1.61.1 / Chromium 149.0.7827.55 browser ran inside the VM
+against `http://127.0.0.1:3000`. The
+[capture manifest](assets/langfuse-pilot/2026-10-27/ui-evidence.json) records
+timestamps, URLs, HTTP status, branded page titles, viewport sizes, image sizes,
+SHA256 values, observed form fields, and nonblank pixel measurements.
 
-Management-channel browser evidence, when available, proves guest-local UI
-rendering. It does not prove a functioning workstation SSH tunnel. Visiting the
-sign-up page does not create an account or project.
+All three pages returned HTTP 200. No page errors, failed requests, or HTTP error
+responses were observed during this capture. The application health request also
+returned HTTP 200 with `{"status":"OK","version":"4.70.1"}`.
+
+| View | Viewport | Image size | Captured UTC |
+| --- | --- | --- | --- |
+| Desktop sign-in | 1440 x 1000 | 8,158 bytes | `23:53:39.182` |
+| Desktop sign-up | 1440 x 1000 | 8,230 bytes | `23:53:40.534` |
+| Mobile sign-in | 390 x 844 | 6,282 bytes | `23:53:41.553` |
+
+### Desktop sign-in
+
+![Langfuse desktop sign-in page with email and password fields](assets/langfuse-pilot/2026-10-27/sign-in-desktop.webp)
+
+### Desktop sign-up
+
+![Langfuse desktop sign-up page with name, email, and password fields](assets/langfuse-pilot/2026-10-27/sign-up-desktop.webp)
+
+### Mobile sign-in
+
+![Langfuse mobile sign-in page with readable form fields and no overlapping controls](assets/langfuse-pilot/2026-10-27/sign-in-mobile.webp)
+
+### Provenance and scope
+
+The 19,696-byte transfer archive contained only these three images and their
+manifest. Its locally verified SHA256 matched the VM-generated value:
+
+```text
+2522e259f8680d62aaa755e31b568acc6d88f60b300a8f77151c3395baf40abd
+```
+
+Each extracted image's size and SHA256 also matched its manifest entry, and all
+three images were visually inspected. The browser container used image digest
+`sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48`.
+Only empty forms and their built-in example placeholders were captured; no
+credentials were entered or account-creation forms submitted.
+
+Management-channel browser evidence proves guest-local UI rendering. It does
+not prove a functioning workstation SSH tunnel. Visiting the sign-up page does
+not create an account or project.
+
+## Diagnostic cleanup
+
+The [guest cleanup response](assets/langfuse-pilot/2026-10-27/cleanup-response.json)
+at `2026-10-28T00:04:44Z` confirmed removal of the temporary browser image and
+the task-owned guest evidence directory after verified local transfer. The
+bounded capture removed its browser container. All six application containers
+remained running, and the post-cleanup health response remained
+`{"status":"OK","version":"4.70.1"}`.
+
+The completed `langfuse-evidence-inspect` and `langfuse-evidence-recover` managed
+Run Command resources were deleted; the subsequent command-resource listing
+was empty. The VM, application containers, data volumes, protected environment
+file, network rules, and SSH keys were retained. No public ingress or identity
+permissions were added for evidence capture.
 
 ## Remaining limitations
 

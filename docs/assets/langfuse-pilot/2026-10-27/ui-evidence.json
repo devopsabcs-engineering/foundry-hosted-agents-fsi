@@ -1,0 +1,119 @@
+{
+  "capturedAtUtc": "2026-10-27T23:53:37.852Z",
+  "access": "VM host network, loopback HTTP; Azure Run Command orchestration",
+  "browser": "149.0.7827.55",
+  "playwright": "1.61.1",
+  "screenshots": [
+    {
+      "file": "sign-in-desktop.webp",
+      "capturedAtUtc": "2026-10-27T23:53:39.182Z",
+      "url": "http://127.0.0.1:3000/auth/sign-in",
+      "status": 200,
+      "title": "Sign in | Langfuse",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 8158,
+      "sha256": "2f8a5e57af1a2e1158dec5ed856879fbee8d7b62eb253bc481f2c5699adf608d",
+      "bodyText": "Sign in to your account\nEmail\nPassword (forgot password?)\nSign in\n\nNo account yet? Sign up",
+      "inputs": [
+        {
+          "type": "text",
+          "name": "email",
+          "placeholder": "jsdoe@example.com"
+        },
+        {
+          "type": "password",
+          "name": "password",
+          "placeholder": ""
+        }
+      ],
+      "pixelStandardDeviations": [
+        12.133459861672698,
+        12.247017983088012,
+        11.925067248958285
+      ],
+      "uiValidated": true
+    },
+    {
+      "file": "sign-up-desktop.webp",
+      "capturedAtUtc": "2026-10-27T23:53:40.534Z",
+      "url": "http://127.0.0.1:3000/auth/sign-up",
+      "status": 200,
+      "title": "Sign up | Langfuse",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 8230,
+      "sha256": "f582db8b49c2a5ff0831fd0417e8fc209027ad77a74fb8d3268f3fe092bc845d",
+      "bodyText": "Create new account\nName\nEmail\nPassword\nSign up\n\nAlready have an account? Sign in",
+      "inputs": [
+        {
+          "type": "text",
+          "name": "name",
+          "placeholder": "Jane Doe"
+        },
+        {
+          "type": "text",
+          "name": "email",
+          "placeholder": "jsdoe@example.com"
+        },
+        {
+          "type": "password",
+          "name": "password",
+          "placeholder": ""
+        }
+      ],
+      "pixelStandardDeviations": [
+        21.99286156397295,
+        22.019997089862606,
+        21.846364087539662
+      ],
+      "uiValidated": true
+    },
+    {
+      "file": "sign-in-mobile.webp",
+      "capturedAtUtc": "2026-10-27T23:53:41.553Z",
+      "url": "http://127.0.0.1:3000/auth/sign-in",
+      "status": 200,
+      "title": "Sign in | Langfuse",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "bytes": 6282,
+      "sha256": "75396c727f7f7b51f0816e63cd4a6730d465dd8ad2ca597eef350d0b7fead5f0",
+      "bodyText": "Sign in to your account\nEmail\nPassword (forgot password?)\nSign in\n\nNo account yet? Sign up",
+      "inputs": [
+        {
+          "type": "text",
+          "name": "email",
+          "placeholder": "jsdoe@example.com"
+        },
+        {
+          "type": "password",
+          "name": "password",
+          "placeholder": ""
+        }
+      ],
+      "pixelStandardDeviations": [
+        23.005584268685315,
+        23.22816572121571,
+        22.6049684244709
+      ],
+      "uiValidated": true
+    }
+  ],
+  "health": {
+    "status": 200,
+    "body": {
+      "status": "OK",
+      "version": "4.70.1"
+    }
+  },
+  "pageErrors": [],
+  "failedRequests": [],
+  "failedResponses": []
+}
