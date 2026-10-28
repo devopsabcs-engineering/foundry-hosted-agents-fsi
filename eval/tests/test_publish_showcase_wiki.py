@@ -22,7 +22,7 @@ def test_actual_docs_render_with_wiki_peer_and_absolute_repository_links(source)
     if not source.endswith("sidebar.md"):
         assert "https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/blob/main/" in result
     links = [urlsplit(target) for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", result)]
-    if not source.endswith("sidebar.md") and "/labs/" not in source:
+    if not source.endswith(("sidebar.md", "langfuse-pilot-evidence.md")) and "/labs/" not in source:
         assert any(link.scheme == "https" and link.hostname == "learn.microsoft.com" for link in links)
     assert "](../" not in result and "](fr/" not in result
 
@@ -88,6 +88,40 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
     assert f"]({peer})" in rendered
 
 
+def test_langfuse_gallery_publishes_all_six_images_without_changing_bytes(tmp_path):
+    assert wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"]) == 0
+    evidence = (tmp_path / "Langfuse-Pilot-Evidence.md").read_text(encoding="utf-8")
+    assert (tmp_path / "Langfuse-and-Foundry.md").is_file()
+    assert "](Langfuse-and-Foundry)" in evidence
+    assert "Production export remains disabled" in (
+        tmp_path / "Langfuse-and-Foundry.md"
+    ).read_text(encoding="utf-8")
+    expected_images = {
+        "2026-10-27/sign-in-desktop.webp",
+        "2026-10-27/sign-up-desktop.webp",
+        "2026-10-27/sign-in-mobile.webp",
+        "2026-10-28/project-desktop.webp",
+        "2026-10-28/trace-desktop.webp",
+        "2026-10-28/project-mobile.webp",
+    }
+    images = re.findall(r"!\[[^\]]*\]\(assets/langfuse-pilot/([^\s)]+)\)", evidence)
+    assert len(images) == 6 and set(images) == expected_images
+    for image in images:
+        expected = (wiki.ROOT / "docs/assets/langfuse-pilot" / image).read_bytes()
+        assert expected.startswith(b"RIFF") and expected[8:12] == b"WEBP"
+        assert (tmp_path / "assets/langfuse-pilot" / image).read_bytes() == expected
+    assert "blob/main/docs/assets/langfuse-pilot/2026-10-28/ingestion-evidence.json" in evidence
+    assert "Operator SSH and tunnel access remain blocked" in evidence
+    assert not (tmp_path / "assets/langfuse-pilot/2026-10-28/ingestion-evidence.json").exists()
+
+
+@pytest.mark.parametrize("source", ["docs/wiki/home.md", "docs/wiki/sidebar.md"])
+def test_langfuse_wiki_navigation_opens_authenticated_gallery(source):
+    rendered = wiki.render(source, (wiki.ROOT / source).read_text(encoding="utf-8"), "owner/repo")
+    assert "](Langfuse-and-Foundry)" in rendered
+    assert "](Langfuse-Pilot-Evidence#authenticated-project-and-trace-views)" in rendered
+
+
 @pytest.mark.parametrize("source", [
     "docs/evaluation-guide.md", "docs/fr/evaluation-guide.md",
     "docs/labs/lab-19-evaluation-engineering.md", "docs/fr/labs/lab-19-evaluation-engineering.md",
@@ -134,6 +168,7 @@ def test_all_maintained_wiki_pages_are_source_backed():
         "Native-Foundry-Showcase-FR", "Native-Foundry-Evidence",
         "Native-Foundry-Evidence-FR", "Evaluation-Engineering", "Evaluation-Engineering-FR",
         "Lab-19-Evaluation-Engineering", "Lab-19-Evaluation-Engineering-FR",
+        "Langfuse-and-Foundry", "Langfuse-Pilot-Evidence",
     }
 
 

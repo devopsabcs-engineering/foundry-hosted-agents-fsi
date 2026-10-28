@@ -31,6 +31,20 @@ captures conservées et le catalogue des évaluateurs. Les jeux de pratique sont
 des contrôles synthétiques rédigés, pas des réponses agent capturées. Aucun nouvel
 essai pour la lecture seule; téléversement et soumission payante à autoriser.
 
+## Langfuse synthetic pilot
+
+Open the [authenticated screenshot gallery](../langfuse-pilot-evidence.md#authenticated-project-and-trace-views)
+for the desktop project, persisted synthetic trace, and mobile project captured
+on `2026-10-28`. The [full pilot evidence](../langfuse-pilot-evidence.md) also
+includes the earlier sign-in/sign-up views, capture manifests, ingestion records,
+and cleanup/deallocation evidence. The [integration guide](../langfuse-integration.md)
+compares Langfuse with Foundry, Application Insights, and Azure Monitor.
+
+These are retained guest-local screenshots, not a live workstation connection.
+The pilot is deallocated between approved demonstration windows; operator SSH,
+secure password retrieval, signup hardening, and remote backend correlation
+remain outstanding. Production Langfuse export remains disabled.
+
 ## Deployed baseline
 
 Release [39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
