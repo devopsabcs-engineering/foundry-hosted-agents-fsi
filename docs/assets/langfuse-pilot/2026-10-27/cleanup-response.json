@@ -1,0 +1,10 @@
+{
+  "value": [
+    {
+      "code": "ProvisioningState/succeeded",
+      "displayStatus": "Provisioning succeeded",
+      "level": "Info",
+      "message": "Enable succeeded: \n[stdout]\n2026-10-28T00:04:44Z\nRemoved temporary browser image\nRemoved task-owned guest evidence directory after verified transfer\nlangfuse-synthetic-pilot-langfuse-web-1 running Up 5 hours (healthy)\nlangfuse-synthetic-pilot-langfuse-worker-1 running Up 5 hours\nlangfuse-synthetic-pilot-postgres-1 running Up 5 hours (healthy)\nlangfuse-synthetic-pilot-redis-1 running Up 5 hours (healthy)\nlangfuse-synthetic-pilot-clickhouse-1 running Up 5 hours (healthy)\nlangfuse-synthetic-pilot-minio-1 running Up 5 hours (healthy)\n{\"status\":\"OK\",\"version\":\"4.70.1\"}\n\n[stderr]\n"
+    }
+  ]
+}
