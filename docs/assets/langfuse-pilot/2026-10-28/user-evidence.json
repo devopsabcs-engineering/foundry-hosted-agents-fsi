@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-10-28T14:46:42.237219+00:00",
+  "humanAccountCreated": true,
+  "approvedUserCount": 1,
+  "organizationOwnerMembershipVerified": true,
+  "projectInExistingOrganization": true,
+  "projectId": "fsi-synthetic-otel-pilot",
+  "health": {
+    "status": "OK",
+    "version": "4.70.1"
+  },
+  "initializationEnvironmentRemoved": true,
+  "baselineFilesUnchanged": true,
+  "credentialFile": "/opt/langfuse-pilot/.synthetic-user.env",
+  "credentialMode": "600",
+  "credentialOwner": "root:root",
+  "credentialsDisclosed": false,
+  "networkChanged": false,
+  "productionExportEnabled": false,
+  "operatorSshVerified": false
+}

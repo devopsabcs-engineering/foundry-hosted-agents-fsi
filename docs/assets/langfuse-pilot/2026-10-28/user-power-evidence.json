@@ -1,0 +1,25 @@
+{
+  "observedAtUtc": "2026-10-28T15:22:31.6968471Z",
+  "subscription": "64c3d212-40ed-4c6d-a825-6adfbdf25dad",
+  "instanceView": {
+    "name": "langfuse-synthetic-pilot",
+    "resourceGroup": "rg-langfuse-synthetic-pilot",
+    "statuses": [
+      {
+        "code": "ProvisioningState/succeeded",
+        "displayStatus": "Provisioning succeeded",
+        "level": "Info",
+        "time": "2026-10-28T15:21:38.2666207+00:00"
+      },
+      {
+        "code": "PowerState/deallocated",
+        "displayStatus": "VM deallocated",
+        "level": "Info"
+      }
+    ]
+  },
+  "operatingMode": "on-demand, manually started for approved demonstrations or maintenance",
+  "shutdownControlsModified": false,
+  "networkChanged": false,
+  "productionExportEnabled": false
+}

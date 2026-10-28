@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-10-28T12:37:36.594932+00:00",
+  "health": {
+    "status": "OK",
+    "version": "4.70.1"
+  },
+  "services": [
+    {
+      "service": "clickhouse",
+      "running": true,
+      "health": "healthy",
+      "restartCount": 0,
+      "published": []
+    },
+    {
+      "service": "langfuse-web",
+      "running": true,
+      "health": "healthy",
+      "restartCount": 0,
+      "published": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "3000"
+        }
+      ]
+    },
+    {
+      "service": "langfuse-worker",
+      "running": true,
+      "health": null,
+      "restartCount": 0,
+      "published": []
+    },
+    {
+      "service": "minio",
+      "running": true,
+      "health": "healthy",
+      "restartCount": 0,
+      "published": []
+    },
+    {
+      "service": "postgres",
+      "running": true,
+      "health": "healthy",
+      "restartCount": 0,
+      "published": []
+    },
+    {
+      "service": "redis",
+      "running": true,
+      "health": "healthy",
+      "restartCount": 0,
+      "published": []
+    }
+  ],
+  "temporaryClientContainersRemoved": true,
+  "temporaryClientImageRemoved": true,
+  "guestProbeDirectoryRemoved": true,
+  "initializationEnvironmentRemoved": true,
+  "pilotCredentials": {
+    "path": "/opt/langfuse-pilot/.synthetic-project.env",
+    "mode": "600",
+    "owner": "root:root"
+  },
+  "applicationSecretsRetained": true,
+  "applicationVolumesRetained": true,
+  "humanAccountCreated": false,
+  "networkChanged": false,
+  "productionExportEnabled": false
+}
