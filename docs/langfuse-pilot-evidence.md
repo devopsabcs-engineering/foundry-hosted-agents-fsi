@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Langfuse pilot runtime evidence
-description: Timestamped Azure inventory, guest runtime observations, and access limitations for the synthetic Langfuse pilot.
+description: Timestamped runtime, UI, synthetic OTLP ingestion, cleanup, and on-demand operation evidence for the isolated Langfuse pilot.
 nav_order: 24
 ---
 
@@ -13,8 +13,17 @@ Langfuse 4.70.1 is deployed on the isolated Azure VM
 `langfuse-synthetic-pilot` in `rg-langfuse-synthetic-pilot`, East US 2.
 At `2026-10-27T23:15:53Z`, a guest script executed through authenticated Azure
 Run Command returned a healthy application and six running containers.
-This establishes runtime existence, not successful operator SSH, UI onboarding,
-or end-to-end OpenTelemetry ingestion.
+That initial check established runtime existence only. Subsequent synthetic
+verification created an organization, project, and protected API keys without
+creating a human account. At `2026-10-28T01:27:54Z`, authenticated read-back
+returned four persisted observations emitted by the repository's actual OTLP
+exporter. This verifies VM-local synthetic ingestion, not remote Foundry delivery
+or matching Azure backend receipt.
+
+After an approved manual startup, cleanup and health checks passed at
+`2026-10-28T12:37:36Z`. The VM was then deliberately deallocated and that state
+was verified at `12:39:22 UTC`. It is an on-demand demonstration pilot, not an
+always-running service. Existing shutdown and network controls were left intact.
 
 At `2026-10-27T23:53:37Z`, a guest-local Playwright capture also verified the
 desktop sign-in, desktop sign-up, and mobile sign-in pages. The actual screenshots
@@ -31,7 +40,7 @@ The production agent's optional Langfuse export remains disabled.
 
 ## Azure inventory
 
-The saved [VM response](assets/langfuse-pilot/2026-10-27/azure-vm.json) reports
+The historical [VM response](assets/langfuse-pilot/2026-10-27/azure-vm.json) reports
 `VM running`, SKU `Standard_D4s_v6` (4 vCPU, 16 GiB), Trusted Launch, Secure Boot,
 vTPM, and password authentication disabled. The public/private addresses are
 `20.96.32.65` and `10.90.0.4`. Its provisioning state was `Updating` while guest
@@ -78,6 +87,50 @@ with approximately 111 GiB available; available memory was 12,887 MiB.
 The dated asset directory groups this evidence session, including its checks
 after midnight; timestamps inside each response remain authoritative.
 
+## Synthetic OTLP verification
+
+With explicit synthetic-only approval, supported headless initialization created
+organization `fsi-synthetic-pilot`, project `fsi-synthetic-otel-pilot`, and one
+project API key. There were zero users before and after initialization.
+Credentials remain in `/opt/langfuse-pilot/.synthetic-project.env`, owned by
+`root:root` with mode `0600`; no key values were captured. The original secrets
+and Compose files were unchanged, and the temporary initialization configuration
+was removed after the web container returned to its baseline configuration.
+
+The [ingestion evidence](assets/langfuse-pilot/2026-10-28/ingestion-evidence.json)
+contains bootstrap authentication, emission metadata, and the actual authenticated
+observations API v2 response. The repository's unchanged metadata-only exporter
+emitted trace `4586d3e552f1bdc778a3002693642c25` using OpenTelemetry SDK and
+OTLP/HTTP exporter version `1.45.1`. Read-back returned HTTP 200 with these exact
+observations:
+
+| Observation | Span ID | Parent span ID |
+| --- | --- | --- |
+| `agent.request` | `51db8e92e94df806` | None |
+| `quote.INTAKE` | `725fd27a3ca2f941` | `51db8e92e94df806` |
+| `quote.REFERENCE_LOOKUP` | `2e3b37547cd2464c` | `51db8e92e94df806` |
+| `quote.COMPOSITION` | `5dcf76bd3f94194f` | `51db8e92e94df806` |
+
+Trace/span IDs and parent links matched emission. A fifth local span from an
+excluded scope did not arrive. Synthetic privacy canaries placed in prompts,
+responses, identities, tool arguments, resource metadata, and exception details
+were absent from the returned observations. Inputs and outputs were null,
+identity fields empty, and exception descriptions absent. The three stage spans
+were deliberately marked `ERROR` to verify status preservation without exporting
+exception content; they are not production workflow failures.
+
+No model usage or cost measurements were emitted. Langfuse returned empty model
+and usage details, numeric usage defaults of zero, and null total cost; those
+defaults must not be presented as measured token usage. The local original-span
+collector retained all five original spans and their events unchanged. This
+checks the projection locally, not ingestion by Application Insights.
+
+The authenticated management-channel transfer was checked against its guest
+SHA256 before extraction; the exporter source hash also matched the repository.
+The saved JSON uses explicit UTC offsets for some timestamps, representing the
+same UTC instants quoted here. No human account, dashboard project view, remote
+Foundry execution, Azure backend correlation, or judge workflow was verified.
+
 ## SSH access blocker
 
 Operator attempts using the existing private key and strict verification against
@@ -100,12 +153,24 @@ Between those writes, the operator explicitly approved restoring only the
 original TCP 22 rule from `76.65.61.229/32`, successfully written at
 `23:10:54 UTC`. SSH still failed after restoration. The later
 [NSG response](assets/langfuse-pilot/2026-10-27/azure-nsg.json) again has no
-custom rules. The controller's identity and intent remain unverified.
+custom rules.
+
+A subsequent read-only investigation identified the delegated writer as
+`MCAPSGovernance-AutomationApp`. Activity Log issuer, application, and object
+claims matched Azure Lighthouse registration
+`66482794-ff49-5d5b-9c20-59d14e281fc7`, named `MCAPSGovernanceAutomation`, in
+managing tenant `975f013f-7f24-47e8-a7d3-abc4752bf346`. Its Contributor
+authorization names the exact caller object above. The
+[identity handoff](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/64#issuecomment-6457443722)
+records both audit correlation IDs. The registration points to the
+[MCAPS governance support reference](https://aka.ms/fdpowiki). The identity is
+verified; the policy rationale for either write is not.
 
 Further rule restoration stopped as agreed. No broader CIDR, public web port,
 alternative SSH port, or security-policy override was introduced. The subscription
-owner must identify the external writer and agree a supported operator access
-path. Restoring the rule alone is not proven to resolve the connection reset.
+and governance owners must agree a supported operator access path. Do not remove
+the delegation, disable governance, or repeatedly restore the removed rule.
+Restoring the rule alone is not proven to resolve the connection reset.
 
 ## UI proof status
 
@@ -171,14 +236,57 @@ was empty. The VM, application containers, data volumes, protected environment
 file, network rules, and SSH keys were retained. No public ingress or identity
 permissions were added for evidence capture.
 
+The later [OTLP probe cleanup](assets/langfuse-pilot/2026-10-28/cleanup-evidence.json)
+at `2026-10-28T12:37:36Z` confirmed removal of the temporary Python client image,
+client containers, and guest probe directory. Initialization variables were
+absent from application containers. All six services were running, five had
+passing health checks, and the worker had no configured health check. Application
+health returned HTTP 200 and version `4.70.1`; only `127.0.0.1:3000` was published.
+Application volumes, original secrets, and root-only synthetic project keys were
+retained. No network changes or production export activation occurred.
+
+## On-demand demonstration operation
+
+An earlier unexpected deallocation interrupted the first cleanup attempt before
+its guest script ran. The bounded Activity Log query did not establish its cause;
+Azure policy or a schedule remains a hypothesis, not a verified attribution.
+The operator approved manual startup when needed for Langfuse demonstrations.
+After the bounded cleanup window, the VM was deliberately deallocated again.
+The [final power evidence](assets/langfuse-pilot/2026-10-28/power-evidence.json)
+records `PowerState/deallocated` at `2026-10-28T12:39:22Z`.
+
+For an approved demonstration or maintenance window, start only this VM:
+
+```powershell
+az vm start --subscription 64c3d212-40ed-4c6d-a825-6adfbdf25dad --resource-group rg-langfuse-synthetic-pilot --name langfuse-synthetic-pilot
+```
+
+Check guest application health through an approved management or private access
+path. Startup alone does not establish operator SSH access. Before a live UI
+demonstration, obtain a governance-approved access path and authorize human
+onboarding with access to the existing synthetic project. No human login or
+authenticated project-dashboard screenshot has been created by this verification.
+Do not expose a public web port or copy project secrets into chat or evidence.
+
+After the window, deallocate the VM rather than only shutting down its guest OS:
+
+```powershell
+az vm deallocate --subscription 64c3d212-40ed-4c6d-a825-6adfbdf25dad --resource-group rg-langfuse-synthetic-pilot --name langfuse-synthetic-pilot
+```
+
+Leave existing shutdown controls intact. Deallocation stops compute billing but
+does not remove disk or allocated public-IP charges, and persistent volumes are
+not a validated backup.
+
 ## Remaining limitations
 
 * Operator SSH and tunnel access remain blocked.
-* No account, organization, synthetic project, or project API keys have been verified.
-* No real Langfuse OTLP ingestion or matching Azure/Langfuse trace has been verified.
+* No human account or authenticated project-dashboard view has been verified.
+* VM-local synthetic OTLP ingestion is verified; matching Azure/Langfuse backend receipt is not.
+* The VM is intentionally deallocated between approved demonstration windows.
 * A remote Foundry hosted agent cannot reach the workstation's loopback tunnel.
 * Remote export needs separately approved routing, TLS, and secret injection.
-* This single-VM synthetic pilot has no HA, validated backup/restore, automatic expiry, or production-readiness approval.
+* This single-VM synthetic pilot has no HA, validated backup/restore, repository-configured automatic expiry, or production-readiness approval.
 
 The saved JSON responses are point-in-time Azure CLI evidence, not signed
 attestations. VM power state, HTTP health, rendered UI, user onboarding, and

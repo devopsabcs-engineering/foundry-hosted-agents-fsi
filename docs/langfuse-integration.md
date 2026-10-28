@@ -125,9 +125,11 @@ decisions. Use approved synthetic evaluation data for any later experiments.
 ## Single-VM Azure pilot
 
 > [!WARNING]
-> The separately approved synthetic pilot is deployed and its guest-local health
-> was verified. [Runtime evidence and access limitations](langfuse-pilot-evidence.md)
-> distinguish those checks from operator SSH, UI onboarding, and OTLP ingestion.
+> The separately approved synthetic pilot has verified guest-local health, rendered
+> sign-in/sign-up pages, and real VM-local synthetic OTLP ingestion. It is intentionally
+> deallocated between approved demonstration windows. [Evidence and access limitations](langfuse-pilot-evidence.md)
+> distinguish those checks from operator SSH, human onboarding, remote Foundry
+> delivery, and matching Azure backend receipt. Production export remains disabled.
 > Do not modify retained staging/production resources or bypass deployment gates.
 
 The standalone [Bicep template](../infra/langfuse-pilot.bicep) creates a VM,
@@ -178,15 +180,23 @@ not configured/enabled for this pilot.
    ssh -N -o ExitOnForwardFailure=yes -L 3000:127.0.0.1:3000 pilotadmin@<pilot-public-ip>
    ```
 
-6. Open <http://localhost:3000>, create the first user, organization, and a
-   synthetic-only project, then generate project API keys. There is no default
-   administrator login. Disable further signups by setting
+6. On a new instance, open <http://localhost:3000>, create the first user,
+  organization, and a synthetic-only project, then generate project API keys.
+  The deployed pilot already has a synthetic organization, project, and root-only
+  keys from approved headless initialization, but no human user. Authorize human
+  onboarding and grant access to that existing project before a dashboard demo;
+  do not assume that creating a user grants membership. There is no default
+  administrator login. After approved onboarding, disable further signups by setting
    `AUTH_DISABLE_SIGNUP=true` in the VM's protected environment file and rerunning
    `sudo /opt/langfuse-pilot/start.sh`.
 
 Use the tunnel only on a trusted workstation. Anyone with local access to its
-forwarded port can reach Langfuse's login/API. The network permits inbound SSH
-only from the supplied IPv4 as `/32`; there is no public web/OTLP ingress.
+forwarded port can reach Langfuse's login/API. The template's intended SSH rule
+allows only the supplied IPv4 as `/32`; the deployed pilot's rule was removed by
+delegated governance and operator SSH remains blocked. Follow the
+[on-demand startup and access requirements](langfuse-pilot-evidence.md#on-demand-demonstration-operation)
+without disabling governance or repeatedly restoring its removed rule.
+There is no public web/OTLP ingress.
 Outbound access is needed for Ubuntu packages, image registries, and any later
 explicitly configured judge/model connection.
 
