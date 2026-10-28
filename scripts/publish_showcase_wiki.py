@@ -21,6 +21,8 @@ PAGES = {
     "docs/wiki/operations.md": ("Operations", "Operations"),
     "docs/wiki/workflows.md": ("Workflows", "Workflows"),
     "docs/wiki/release-evidence.md": ("Release-Evidence", "Release evidence"),
+    "docs/langfuse-integration.md": ("Langfuse-and-Foundry", "Langfuse and Foundry"),
+    "docs/langfuse-pilot-evidence.md": ("Langfuse-Pilot-Evidence", "Langfuse pilot runtime evidence"),
     "docs/evaluation-guide.md": ("Evaluation-Engineering", "Evaluation engineering"),
     "docs/fr/evaluation-guide.md": ("Evaluation-Engineering-FR", "Ingénierie des évaluations"),
     "docs/labs/lab-19-evaluation-engineering.md": ("Lab-19-Evaluation-Engineering", "Lab 19 - Evaluation engineering"),
@@ -72,6 +74,19 @@ SCREENSHOTS = (
     "foundry-evaluator-groundedness-v18-2026-10-23.png",
     "foundry-evaluator-task-adherence-v17-2026-10-23.png",
 )
+LANGFUSE_SCREENSHOTS = (
+    "2026-10-27/sign-in-desktop.webp",
+    "2026-10-27/sign-up-desktop.webp",
+    "2026-10-27/sign-in-mobile.webp",
+    "2026-10-28/project-desktop.webp",
+    "2026-10-28/trace-desktop.webp",
+    "2026-10-28/project-mobile.webp",
+)
+ASSET_GROUPS = {
+    "evidence": SCREENSHOTS,
+    "architecture": DIAGRAM_IMAGES,
+    "langfuse-pilot": LANGFUSE_SCREENSHOTS,
+}
 
 
 def render(source: str, text: str, repository: str) -> str:
@@ -98,12 +113,10 @@ def render(source: str, text: str, repository: str) -> str:
             target = page_links.get(path, path) + separator + fragment
             if path.startswith(asset_base) and path.endswith((".pptx", ".jsonl")):
                 target = path.replace("/blob/main/", "/raw/refs/heads/main/", 1) + separator + fragment
-            for filename in SCREENSHOTS:
-                if target == f"https://github.com/{repository}/blob/main/docs/assets/evidence/{filename}":
-                    target = f"assets/evidence/{filename}"
-            for filename in DIAGRAM_IMAGES:
-                if target == f"https://github.com/{repository}/blob/main/docs/assets/architecture/{filename}":
-                    target = f"assets/architecture/{filename}"
+            for directory, filenames in ASSET_GROUPS.items():
+                for filename in filenames:
+                    if target == f"{asset_base}{directory}/{filename}":
+                        target = f"assets/{directory}/{filename}"
         return f"({target})"
 
     body = re.sub(r"(?<=\])\(([^)\s]+)\)", link, body)
@@ -138,11 +151,12 @@ def main(argv=None) -> int:
         rendered[home] = rendered[home].replace(deployment_section(rendered[home]), existing, 1)
     for path, content in rendered.items():
         path.write_text(content, encoding="utf-8")
-    for directory, filenames in (("evidence", SCREENSHOTS), ("architecture", DIAGRAM_IMAGES)):
+    for directory, filenames in ASSET_GROUPS.items():
         assets = args.wiki / "assets" / directory
-        assets.mkdir(parents=True, exist_ok=True)
         for filename in filenames:
-            shutil.copyfile(ROOT / "docs" / "assets" / directory / filename, assets / filename)
+            target = assets / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "docs" / "assets" / directory / filename, target)
     return 0
 
 

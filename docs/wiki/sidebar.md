@@ -14,6 +14,8 @@ description: Maintained bilingual wiki and workshop navigation.
 * [Fonctions natives FR](../fr/native-showcase.md)
 * [Evidence and screenshots](../showcase-evidence.md)
 * [Preuves et captures FR](../fr/showcase-evidence.md)
+* [Langfuse and Foundry](../langfuse-integration.md)
+* [Langfuse authenticated screenshots](../langfuse-pilot-evidence.md#authenticated-project-and-trace-views)
 * [Evaluation engineering](../evaluation-guide.md)
 * [Ingénierie des évaluations FR](../fr/evaluation-guide.md)
 * [Deep Lab 19](../labs/lab-19-evaluation-engineering.md)
