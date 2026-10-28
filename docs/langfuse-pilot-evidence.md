@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Langfuse pilot runtime evidence
-description: Timestamped runtime, UI, synthetic OTLP ingestion, cleanup, and on-demand operation evidence for the isolated Langfuse pilot.
+description: Timestamped runtime, authenticated UI, synthetic OTLP ingestion, onboarding, cleanup, and on-demand operation evidence for the isolated Langfuse pilot.
 nav_order: 24
 ---
 
@@ -30,6 +30,13 @@ desktop sign-in, desktop sign-up, and mobile sign-in pages. The actual screensho
 were transferred through authenticated Azure management, checked against their
 VM-generated SHA256 values, and visually inspected. This establishes rendered
 UI existence without claiming a working operator SSH tunnel.
+
+After explicit approval, the first human user was created and its existing
+organization owner membership verified at `2026-10-28T14:46:42Z`.
+Authenticated desktop/mobile project screens and the persisted synthetic trace
+were captured at `14:56 UTC`. Cleanup passed at `15:20:44 UTC`, and the VM was
+again confirmed deallocated at `15:22:31 UTC`. Network controls, production
+export, project keys, and baseline application configuration were unchanged.
 
 The implementation was merged in [PR 63](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/63)
 at commit `42c627cddba2cc14743f8120322634227d1f7366`.
@@ -128,8 +135,9 @@ checks the projection locally, not ingestion by Application Insights.
 The authenticated management-channel transfer was checked against its guest
 SHA256 before extraction; the exporter source hash also matched the repository.
 The saved JSON uses explicit UTC offsets for some timestamps, representing the
-same UTC instants quoted here. No human account, dashboard project view, remote
-Foundry execution, Azure backend correlation, or judge workflow was verified.
+same UTC instants quoted here. That ingestion-only phase did not verify a human
+account or dashboard view; later approved onboarding is recorded below. Remote
+Foundry execution, Azure backend correlation, and judge workflows remain unverified.
 
 ## SSH access blocker
 
@@ -221,6 +229,70 @@ Management-channel browser evidence proves guest-local UI rendering. It does
 not prove a functioning workstation SSH tunnel. Visiting the sign-up page does
 not create an account or project.
 
+## Approved human onboarding
+
+With separate approval for the supplied first-user email, supported headless
+initialization created one human account in the existing synthetic organization.
+The [user evidence](assets/langfuse-pilot/2026-10-28/user-evidence.json) records
+exactly one approved user, verified `OWNER` organization membership, and the
+existing project in that organization. Project/API-key counts remained one;
+existing project keys were not rotated or recreated. This organization role is
+not a claim of instance-wide administrator access.
+
+The randomly generated password remains only in
+`/opt/langfuse-pilot/.synthetic-user.env`, owned by `root:root` with mode `0600`.
+The temporary initialization override was removed and the web container restored
+to its baseline configuration, with no `LANGFUSE_INIT_*` variables remaining.
+Original application secrets, Compose configuration, and project credentials
+were unchanged. Signup configuration was not changed; disabling further signups
+remains an operator hardening action before widening access. No password, API key,
+cookie, or browser storage state was retained in the evidence.
+
+### Authenticated project and trace views
+
+The [authenticated capture manifest](assets/langfuse-pilot/2026-10-28/authenticated-ui-evidence.json)
+records an HTTP 200 session response matching the approved identity, rendered
+project pages, and the existing synthetic trace. Playwright `1.61.1` and Chromium
+`149.0.7827.55` ran on the guest against `http://localhost:3000`; this was not
+a workstation tunnel. The browser image was resolved to an immutable Linux AMD64
+digest recorded in the manifest.
+
+| View | Viewport | Artifact size | Captured UTC |
+| --- | --- | --- | --- |
+| Authenticated project | 1440 x 1000 | 33,802 bytes | `14:56:23.476` |
+| Persisted synthetic trace | 1440 x 1000 | 26,194 bytes | `14:56:24.948` |
+| Authenticated mobile project | 390 x 844 | 8,718 bytes | `14:56:26.507` |
+
+![Authenticated Langfuse project showing one trace and four observations](assets/langfuse-pilot/2026-10-28/project-desktop.webp)
+
+![Persisted trace showing agent.request and its three synthetic child stages with omitted inputs and outputs](assets/langfuse-pilot/2026-10-28/trace-desktop.webp)
+
+![Authenticated mobile project showing the synthetic trace count](assets/langfuse-pilot/2026-10-28/project-mobile.webp)
+
+The trace view contained `agent.request`, `quote.INTAKE`,
+`quote.REFERENCE_LOOKUP`, and `quote.COMPOSITION`. Its three error labels are
+the deliberately injected synthetic statuses described above. Empty model/cost
+panels and displayed zero-cost defaults are not measured model usage or billing.
+The approved email was masked in screenshots. No page exceptions or HTTP error
+responses were observed; ten `net::ERR_ABORTED` requests were recorded during
+navigation/shutdown and remain in the manifest rather than being filtered out.
+
+Native JPEG captures passed nonblank pixel checks. Chromium converted them to
+WebP for bounded management-channel transfer; original JPEG sizes/hashes and
+converted artifact sizes/hashes are retained in the manifest. The five-file,
+68,455-byte archive passed a credential-value scan and its complete SHA256 was
+verified locally before extraction:
+
+```text
+4b6b5e60421d879dda426a2ac169fcd387912b93c399e75f5f8782a22f9ce492
+```
+
+Every extracted screenshot hash matched, and all three converted images were
+visually inspected. Authenticated guest-local UI and membership are verified;
+interactive workstation access and secure operator password retrieval still
+require a governance-approved access path. Do not copy the password into chat,
+repository files, command output, or screenshots.
+
 ## Diagnostic cleanup
 
 The [guest cleanup response](assets/langfuse-pilot/2026-10-27/cleanup-response.json)
@@ -245,6 +317,14 @@ health returned HTTP 200 and version `4.70.1`; only `127.0.0.1:3000` was publish
 Application volumes, original secrets, and root-only synthetic project keys were
 retained. No network changes or production export activation occurred.
 
+The [onboarding cleanup evidence](assets/langfuse-pilot/2026-10-28/user-cleanup-evidence.json)
+at `2026-10-28T15:20:44Z` confirms six running services with zero restarts,
+five healthy checks, loopback-only publication, no initialization environment,
+and retained root-only user/project credentials. Task-owned browser containers,
+the downloaded browser image, and the guest verification directory were removed
+after local archive and screenshot verification. Account membership, application
+volumes, secrets, and existing governance/network controls were retained.
+
 ## On-demand demonstration operation
 
 An earlier unexpected deallocation interrupted the first cleanup attempt before
@@ -252,8 +332,10 @@ its guest script ran. The bounded Activity Log query did not establish its cause
 Azure policy or a schedule remains a hypothesis, not a verified attribution.
 The operator approved manual startup when needed for Langfuse demonstrations.
 After the bounded cleanup window, the VM was deliberately deallocated again.
-The [final power evidence](assets/langfuse-pilot/2026-10-28/power-evidence.json)
-records `PowerState/deallocated` at `2026-10-28T12:39:22Z`.
+The [initial cleanup power evidence](assets/langfuse-pilot/2026-10-28/power-evidence.json)
+records `PowerState/deallocated` at `2026-10-28T12:39:22Z`. After the separately
+approved onboarding window, the [latest power evidence](assets/langfuse-pilot/2026-10-28/user-power-evidence.json)
+again confirms deallocation at `2026-10-28T15:22:31Z`.
 
 For an approved demonstration or maintenance window, start only this VM:
 
@@ -263,10 +345,11 @@ az vm start --subscription 64c3d212-40ed-4c6d-a825-6adfbdf25dad --resource-group
 
 Check guest application health through an approved management or private access
 path. Startup alone does not establish operator SSH access. Before a live UI
-demonstration, obtain a governance-approved access path and authorize human
-onboarding with access to the existing synthetic project. No human login or
-authenticated project-dashboard screenshot has been created by this verification.
-Do not expose a public web port or copy project secrets into chat or evidence.
+demonstration from a workstation, obtain a governance-approved access path and
+securely retrieve the approved user's VM-root-only password. Human membership,
+login, and authenticated project/trace screenshots are already verified through
+guest-local management-channel testing; do not recreate the account or project.
+Do not expose a public web port or copy credentials into chat or evidence.
 
 After the window, deallocate the VM rather than only shutting down its guest OS:
 
@@ -281,7 +364,8 @@ not a validated backup.
 ## Remaining limitations
 
 * Operator SSH and tunnel access remain blocked.
-* No human account or authenticated project-dashboard view has been verified.
+* Human onboarding and authenticated guest-local UI are verified, not workstation access or secure password delivery.
+* Signup configuration remains unchanged; disable further signups before widening access.
 * VM-local synthetic OTLP ingestion is verified; matching Azure/Langfuse backend receipt is not.
 * The VM is intentionally deallocated between approved demonstration windows.
 * A remote Foundry hosted agent cannot reach the workstation's loopback tunnel.

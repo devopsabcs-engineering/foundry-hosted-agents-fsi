@@ -126,9 +126,10 @@ decisions. Use approved synthetic evaluation data for any later experiments.
 
 > [!WARNING]
 > The separately approved synthetic pilot has verified guest-local health, rendered
-> sign-in/sign-up pages, and real VM-local synthetic OTLP ingestion. It is intentionally
+> sign-in/sign-up pages, approved human membership/login, authenticated project/trace
+> screens, and real VM-local synthetic OTLP ingestion. It is intentionally
 > deallocated between approved demonstration windows. [Evidence and access limitations](langfuse-pilot-evidence.md)
-> distinguish those checks from operator SSH, human onboarding, remote Foundry
+> distinguish those checks from operator SSH, remote Foundry
 > delivery, and matching Azure backend receipt. Production export remains disabled.
 > Do not modify retained staging/production resources or bypass deployment gates.
 
@@ -183,10 +184,13 @@ not configured/enabled for this pilot.
 6. On a new instance, open <http://localhost:3000>, create the first user,
   organization, and a synthetic-only project, then generate project API keys.
   The deployed pilot already has a synthetic organization, project, and root-only
-  keys from approved headless initialization, but no human user. Authorize human
-  onboarding and grant access to that existing project before a dashboard demo;
-  do not assume that creating a user grants membership. There is no default
-  administrator login. After approved onboarding, disable further signups by setting
+  keys from approved headless initialization. Separately approved human onboarding
+  verified owner membership in that existing organization, login, and project/trace
+  UI access. The password remains in the VM-root-only `.synthetic-user.env` file;
+  retrieve it through an approved operator path, never chat or evidence. Do not
+  recreate the account/project or assume other users inherit membership. There is
+  no default administrator login. Signup configuration was not changed during
+  verification; disable further signups before widening access by setting
    `AUTH_DISABLE_SIGNUP=true` in the VM's protected environment file and rerunning
    `sudo /opt/langfuse-pilot/start.sh`.
 

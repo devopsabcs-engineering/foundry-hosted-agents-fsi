@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-10-28T15:20:44.895183+00:00",
+  "services": [
+    {
+      "service": "clickhouse",
+      "state": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "publishedPorts": {}
+    },
+    {
+      "service": "langfuse-web",
+      "state": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "publishedPorts": {
+        "3000/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "3000"
+          }
+        ]
+      }
+    },
+    {
+      "service": "langfuse-worker",
+      "state": "running",
+      "health": null,
+      "restartCount": 0,
+      "publishedPorts": {}
+    },
+    {
+      "service": "minio",
+      "state": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "publishedPorts": {}
+    },
+    {
+      "service": "postgres",
+      "state": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "publishedPorts": {}
+    },
+    {
+      "service": "redis",
+      "state": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "publishedPorts": {}
+    }
+  ],
+  "health": {
+    "status": "OK",
+    "version": "4.70.1"
+  },
+  "humanAccountRetained": true,
+  "ownerMembershipVerified": true,
+  "applicationDataRetained": true,
+  "initializationEnvironmentRemoved": true,
+  "projectCredentialMode": "600:root:root",
+  "userCredentialMode": "600:root:root",
+  "credentialFile": "/opt/langfuse-pilot/.synthetic-user.env",
+  "credentialsDisclosed": false,
+  "networkChanged": false,
+  "productionExportEnabled": false,
+  "operatorSshVerified": false,
+  "verifiedTransferredBundleSha256": "4b6b5e60421d879dda426a2ac169fcd387912b93c399e75f5f8782a22f9ce492",
+  "temporaryClientContainersRemoved": true,
+  "taskOwnedBrowserImageRemoved": true,
+  "temporaryProbeDirectoryRemoved": true
+}

@@ -1,0 +1,137 @@
+{
+  "capturedAtUtc": "2026-10-28T14:56:18.946Z",
+  "access": "VM host network, loopback HTTP; Azure Run Command orchestration",
+  "projectId": "fsi-synthetic-otel-pilot",
+  "traceId": "4586d3e552f1bdc778a3002693642c25",
+  "authenticated": true,
+  "screenshots": [
+    {
+      "file": "project-desktop.webp",
+      "capturedAtUtc": "2026-10-28T14:56:23.476Z",
+      "path": "/project/fsi-synthetic-otel-pilot",
+      "status": 200,
+      "title": "Home | Langfuse",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 33802,
+      "sha256": "8c73a7f6f9e8e81dc656d7cb09b0b27086209916cdef5eeb01ab7bf639996c4a",
+      "requiredLabels": [
+        "Synthetic OTLP Verification"
+      ],
+      "pixelStandardDeviation": 20.40595149972572,
+      "uiValidated": true,
+      "source": {
+        "file": "project-desktop.jpg",
+        "bytes": 100980,
+        "sha256": "355a01d3b2dc01708e413ea9c738737bf52cf31fc2b1510e361f5873d7a1b61a"
+      }
+    },
+    {
+      "file": "trace-desktop.webp",
+      "capturedAtUtc": "2026-10-28T14:56:24.948Z",
+      "path": "/project/fsi-synthetic-otel-pilot/traces/4586d3e552f1bdc778a3002693642c25",
+      "status": 200,
+      "title": "Tracing | Langfuse",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 26194,
+      "sha256": "9693c9de281a201d5cc294b3048c1055f86f4429d1b9ce97e479fc009a8b50a2",
+      "requiredLabels": [
+        "agent.request",
+        "quote.INTAKE",
+        "quote.REFERENCE_LOOKUP",
+        "quote.COMPOSITION"
+      ],
+      "pixelStandardDeviation": 15.62243231866432,
+      "uiValidated": true,
+      "source": {
+        "file": "trace-desktop.jpg",
+        "bytes": 69884,
+        "sha256": "f5eb7e893f6aac5945ad50cb71d1250f219416d676ce5ac7f7f8462d8f68cbf2"
+      }
+    },
+    {
+      "file": "project-mobile.webp",
+      "capturedAtUtc": "2026-10-28T14:56:26.507Z",
+      "path": "/project/fsi-synthetic-otel-pilot",
+      "status": 200,
+      "title": "Home | Langfuse",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "bytes": 8718,
+      "sha256": "a3c98c6cb2dbdb557eb49a4fc3aecd9dbd54650efcdac837a72e2eda318cec32",
+      "requiredLabels": [
+        "Synthetic OTLP Verification"
+      ],
+      "pixelStandardDeviation": 18.430168907740015,
+      "uiValidated": true,
+      "source": {
+        "file": "project-mobile.jpg",
+        "bytes": 23602,
+        "sha256": "8a879fa29a03f2f3d1eea6c85e7528b54883667c1ee1c8ececeac9a41b93aedd"
+      }
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    {
+      "path": "/github/stars/langfuse/langfuse",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/project/fsi-synthetic-otel-pilot/visit",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/project/fsi-synthetic-otel-pilot/visit",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/trpc/annotationQueues.byObjectId",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/trpc/datasets.allDatasetMeta",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/trpc/llmApiKey.effective",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/_next/static/chunks/20uo05c1-y6kg.js",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/_next/static/chunks/212mnxsamozez.js",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/_next/static/chunks/1nfsf9s799551.js",
+      "reason": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/project/fsi-synthetic-otel-pilot/visit",
+      "reason": "net::ERR_ABORTED"
+    }
+  ],
+  "failedResponses": [],
+  "credentialsDisclosed": false,
+  "sessionArtifactsSaved": false,
+  "networkChanged": false,
+  "productionExportEnabled": false,
+  "operatorSshVerified": false,
+  "browser": "149.0.7827.55",
+  "playwright": "1.61.1",
+  "sessionStatus": 200,
+  "approvedIdentityMatched": true,
+  "completed": true,
+  "browserImage": "mcr.microsoft.com/playwright:v1.61.1-noble@sha256:cf0daee9b994042e011bc29f20cdff1a9f682a039b43fcd738f7d8a9d3bcd9d6",
+  "artifactConversion": "Chromium JPEG-to-WebP, quality 0.65; source hashes retained"
+}
