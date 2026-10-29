@@ -1,11 +1,23 @@
 """Session-2 bilingual navigation and native capability documentation stay paired."""
 
 from pathlib import Path
+import json
 import re
+from urllib.parse import unquote, urlsplit
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+DOCUMENTATION = sorted({
+    *ROOT.glob("*.md"),
+    *(ROOT / "docs").rglob("*.md"),
+    *(ROOT / "scripts").glob("*.md"),
+    *(ROOT / "infra").rglob("README*.md"),
+})
+PAIRED_GUIDES = sorted(
+    path for path in (ROOT / "docs").rglob("*.md")
+    if path.relative_to(ROOT / "docs").parts[0] not in {"fr", "wiki"}
+)
 NATIVE_LABS = {
     "lab-15-native-files-generation.md": (
         "fixture-export", "file-upload", "generation-submit", "generation-status",
@@ -31,6 +43,105 @@ def powershell_blocks(text):
     return re.findall(r"```powershell\n(.*?)```", text, flags=re.DOTALL)
 
 
+def heading_ids(text):
+    """GitHub-style IDs for maintained headings, excluding fenced examples."""
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    anchors = set(re.findall(r'<a\s+(?:id|name)="([^"]+)"', text))
+    counts = {}
+    for heading in re.findall(r"^#{1,6}\s+(.+?)\s*#*$", text, re.MULTILINE):
+        slug = re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+        count = counts.get(slug, 0)
+        counts[slug] = count + 1
+        anchors.add(slug + (f"-{count}" if count else ""))
+    return anchors
+
+
+@pytest.mark.parametrize("path", DOCUMENTATION, ids=lambda path: path.relative_to(ROOT).as_posix())
+def test_repository_documentation_metadata_and_local_navigation(path):
+    text = path.read_text(encoding="utf-8")
+    frontmatter = re.match(r"\A---\n(.*?)\n---\n", text, re.DOTALL)
+    assert frontmatter, f"{path} lacks frontmatter"
+    for field in ("title", "description"):
+        assert re.search(rf"^{field}:\s+\S", frontmatter[1], re.MULTILINE)
+    if path.is_relative_to(ROOT / "docs/fr"):
+        assert "lang: fr" in frontmatter[1]
+    for target in re.findall(r"\[[^\]\n]+\]\(([^)\s]+)\)", text):
+        link = urlsplit(target)
+        if link.scheme or link.netloc:
+            continue
+        destination = path.parent / unquote(link.path) if link.path else path
+        assert destination.exists(), f"{path.relative_to(ROOT)} links to missing {target}"
+        if link.fragment and destination.is_file() and destination.suffix == ".md":
+            assert unquote(link.fragment) in heading_ids(destination.read_text(encoding="utf-8")), (
+                f"{path.relative_to(ROOT)} links to missing heading {target}"
+            )
+
+
+@pytest.mark.parametrize("english", PAIRED_GUIDES, ids=lambda path: path.relative_to(ROOT).as_posix())
+def test_all_paired_guides_preserve_technical_commands_and_evidence(english):
+    french = ROOT / "docs/fr" / english.relative_to(ROOT / "docs")
+    assert french.is_file(), f"Missing translation: {french}"
+    texts = [path.read_text(encoding="utf-8") for path in (english, french)]
+    patterns = (
+        r"evalrun_[a-f0-9]+|resp_[A-Za-z0-9]+|actions/runs/\d+|sha256:[a-f0-9]+",
+        r"scripts[/\\][\w.-]+\.(?:py|ps1)",
+    )
+    for pattern in patterns:
+        assert set(re.findall(pattern, texts[0])) == set(re.findall(pattern, texts[1])), (
+            f"Technical provenance/command mismatch: {english.relative_to(ROOT)}"
+        )
+
+
+@pytest.mark.parametrize("source", [
+    "docs/index.md", "docs/fr/index.md",
+    "docs/architecture.md", "docs/fr/architecture.md",
+    "docs/evaluation-guide.md", "docs/fr/evaluation-guide.md",
+    "docs/native-showcase.md", "docs/fr/native-showcase.md",
+    "docs/labs/index.md", "docs/fr/labs/index.md",
+])
+def test_langfuse_is_discoverable_from_both_language_paths_without_implying_remote_export(source):
+    text = (ROOT / source).read_text(encoding="utf-8")
+    prefix = "../" if "/labs/" in source else ""
+    assert f"]({prefix}langfuse-integration.md)" in text
+    assert re.search(rf"\]\({re.escape(prefix)}langfuse-pilot-evidence\.md(?:#[^)]+)?\)", text)
+    assert re.search(
+        r"(?:[Pp]roduction (?:Langfuse )?export(?: remains)?|"
+        r"export (?:Langfuse )?de production(?: reste)?)\s+(?:disabled|désactivé)|"
+        r"disabled by default|Désactivé par défaut",
+        text,
+    )
+
+
+@pytest.mark.parametrize("source", [
+    "README.md", "README.fr.md", "docs/index.md", "docs/fr/index.md",
+    "docs/architecture.md", "docs/fr/architecture.md",
+    "docs/native-showcase.md", "docs/fr/native-showcase.md",
+    "docs/labs/index.md", "docs/fr/labs/index.md",
+    "docs/showcase-evidence.md", "docs/fr/showcase-evidence.md",
+    "docs/wiki/home.md", "docs/wiki/operations.md", "docs/wiki/release-evidence.md",
+    "infra/README.md",
+])
+def test_release_summaries_reference_latest_approved_source_not_historical_screenshots(source):
+    text = (ROOT / source).read_text(encoding="utf-8")
+    assert "42c627c" in text
+    assert "40567253202" in text or source in {"docs/index.md", "docs/fr/index.md"}
+
+
+@pytest.mark.parametrize("source", ["docs/showcase-evidence.md", "docs/fr/showcase-evidence.md"])
+def test_latest_release_evidence_does_not_relabel_earlier_revision_screenshots(source):
+    text = (ROOT / source).read_text(encoding="utf-8")
+    current, historical = text.split(
+        "## Earlier approved revision-workflow release" if "/fr/" not in source
+        else "## Livraison antérieure du parcours de révision", 1
+    )
+    for token in ("42c627cddba2cc14743f8120322634227d1f7366", "968", "50",
+                  "evalrun_b78c38b8505a438a91bef59309b0d075",
+                  "evalrun_8922edc672e24be6a5deb252399f1001", "LANGFUSE_*"):
+        assert token in current
+    assert "revision-production-completed-en.png" not in current
+    assert "39527950931" in historical and "revision-production-completed-en.png" in historical
+
+
 def test_root_readmes_have_reciprocal_languages_and_native_showcase_entry():
     for filename, peer, runbook in [
         ("README.md", "README.fr.md", "docs/native-showcase.md"),
@@ -39,6 +150,63 @@ def test_root_readmes_have_reciprocal_languages_and_native_showcase_entry():
         content = (ROOT / filename).read_text(encoding="utf-8")
         assert f"]({peer})" in content
         assert f"]({runbook})" in content
+
+
+@pytest.mark.parametrize("filename,folder,gallery", [
+    ("README.md", "docs", "Langfuse-Pilot-Evidence#authenticated-project-and-trace-views"),
+    ("README.fr.md", "docs/fr", "Langfuse-Pilot-Evidence-FR#projet-et-trace"),
+])
+def test_root_readmes_link_verified_langfuse_evidence_and_latest_release(filename, folder, gallery):
+    text = (ROOT / filename).read_text(encoding="utf-8")
+    for token in (
+        f"]({folder}/langfuse-integration.md)", f"]({folder}/langfuse-pilot-evidence.md#",
+        f"/wiki/{gallery}", "40567253202", "v8",
+    ):
+        assert token in text, f"{filename} omits {token}"
+    assert "These authored\nfiles are not evidence" not in text
+
+
+def test_top_level_workshop_guides_are_paired():
+    english = {path.name for path in (ROOT / "docs").glob("*.md")}
+    french = {path.name for path in (ROOT / "docs/fr").glob("*.md")}
+    assert english == french
+
+
+@pytest.mark.parametrize("filename", ["langfuse-integration.md", "langfuse-pilot-evidence.md"])
+def test_langfuse_translations_share_commands_evidence_and_reciprocal_links(filename):
+    english = (ROOT / "docs" / filename).read_text(encoding="utf-8")
+    french = (ROOT / "docs/fr" / filename).read_text(encoding="utf-8")
+    assert f"](fr/{filename})" in english
+    assert f"](../{filename})" in french
+    assert "lang: fr" in french.split("---", 2)[1]
+    assert powershell_blocks(english) == powershell_blocks(french)
+    assert len(re.findall(r"^#{2,3} ", english, re.MULTILINE)) == len(re.findall(r"^#{2,3} ", french, re.MULTILINE))
+    for text, directory in [(english, "docs"), (french, "docs/fr")]:
+        for token in ("AUTH_DISABLE_SIGNUP=true", "4.70.1", "127.0.0.1:3000", "0600"):
+            assert token in text
+        for target in re.findall(r"\[[^\]]+\]\(([^)\s]+)\)", text):
+            if not target.startswith(("https://", "http://", "#")):
+                assert (ROOT / directory / target.split("#")[0]).exists(), (directory, target)
+    assets = lambda text: set(re.findall(r"assets/langfuse-pilot/([^\s)]+)", text))
+    assert assets(english) == assets(french)
+
+
+def test_signup_hardening_evidence_preserves_single_membership_and_final_deallocation():
+    assets = ROOT / "docs/assets/langfuse-pilot/2026-10-28"
+    result = json.loads((assets / "signup-hardening-evidence.json").read_text(encoding="utf-8"))
+    power = json.loads((assets / "signup-hardening-power-evidence.json").read_text(encoding="utf-8"))
+    assert result["signupDisabledInWebAndWorker"] is True
+    assert result["retainedAccountAndOwnerMembershipVerified"] is True
+    assert set(result["counts"].values()) == {1}
+    assert len(result["services"]) == 6
+    assert sum(service["health"] == "healthy" for service in result["services"]) == 5
+    assert result["credentialsDisclosed"] is False
+    assert result["cleanupMarker"] == "TASK_OWNED_TEMPORARY_DIRECTORY_REMOVED"
+    assert any(status["code"] == "PowerState/deallocated" for status in power["statuses"])
+    for folder in ("docs", "docs/fr"):
+        text = (ROOT / folder / "langfuse-pilot-evidence.md").read_text(encoding="utf-8")
+        for token in ("2026-10-28T20:31:57.939369Z", power["observedAt"], "signup-hardening-evidence.json"):
+            assert token in text
 
 
 @pytest.mark.parametrize("source", ["docs/native-showcase.md", "docs/fr/native-showcase.md"])

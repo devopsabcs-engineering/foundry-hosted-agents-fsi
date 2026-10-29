@@ -4,7 +4,7 @@ title: "Lab 02 - The Deterministic Calculator"
 description: "Trace the pure calculate_quote function and prove it never invents an amount for input it cannot resolve."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-02-calculator)**
+> 🇫🇷 **[Version française](../fr/labs/lab-02-calculator.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

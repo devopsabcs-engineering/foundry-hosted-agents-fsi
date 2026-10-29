@@ -10,6 +10,13 @@ nav_order: 21
 [PowerPoint FR](../assets/decks/foundry-evaluation-engineering-fr.pptx) |
 [PowerPoint EN](../assets/decks/foundry-evaluation-engineering-en.pptx)
 
+Pour comparer l'observabilité facultative, consultez [Langfuse et Foundry](langfuse-integration.md).
+L'export OTLP ne synchronise ni jeux de données, ni prompts, ni scores, ni
+contrôles de livraison. Les [preuves du pilote synthétique](langfuse-pilot-evidence.md)
+vérifient l'ingestion locale à la VM, pas l'export depuis Foundry distant,
+la corrélation Azure ni des juges en ligne. L'export de production reste
+désactivé; conservez les contrôles natifs existants.
+
 ## Choisir la preuve avant l'évaluateur
 
 Une évaluation mesure un contrat explicite; elle n'exige pas nécessairement

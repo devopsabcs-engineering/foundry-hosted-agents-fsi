@@ -5,7 +5,7 @@ title: "Atelier 10 - Provisionner la fondation Azure"
 description: "Lire les modèles Bicep qui soutiennent le pilote, les compiler hors ligne et comprendre pourquoi la fondation réseau est déployée séparément du reste."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-10-azure-foundation)**
+> 🇬🇧 **[English version](../../labs/lab-10-azure-foundation.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

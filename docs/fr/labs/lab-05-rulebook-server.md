@@ -5,7 +5,7 @@ title: "Atelier 05 - Le serveur MCP de référentiel"
 description: "Exécuter le serveur de référentiel en lecture seule et confirmer qu'il ne sert que la table de tarifs synthétique épinglée."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-05-rulebook-server)**
+> 🇬🇧 **[English version](../../labs/lab-05-rulebook-server.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

@@ -19,9 +19,16 @@ Les ateliers 00 à 09 s'exécutent entièrement sur votre poste de travail. Les 
 Les ateliers 15 à 18 ajoutent des exercices natifs isolés avec des contrôles
 de preuve explicites. Certains exigent des prérequis approuvés ou des artefacts
 natifs conservés; consignez les prérequis manquants comme bloqués sans inventer
-de résultats. Conservez la livraison approuvée staging v6 et production v7.
+de résultats. Conservez la livraison consignée staging v7 et production v8 sur
+`42c627c` (livraison `40567253202`).
 Consultez les [preuves](../showcase-evidence.md#livraison-approuvée-actuelle)
 et l'[architecture](../architecture.md) avant d'utiliser les surfaces réelles.
+
+Le [guide Langfuse facultatif](../langfuse-integration.md) et les
+[preuves du pilote](../langfuse-pilot-evidence.md) sont distincts des contrôles
+natifs du programme. L'ingestion capturée est synthétique et locale à la VM,
+pas un export depuis Foundry distant ni une réception correspondante dans Azure.
+L'export de production reste désactivé.
 
 ### Fondations locales
 

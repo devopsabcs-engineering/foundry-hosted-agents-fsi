@@ -4,7 +4,7 @@ title: "Lab 06 - The LangGraph Agent"
 description: "Trace the supervisor and three sequential specialists: intake, reference lookup, and composition."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-06-agent-graph)**
+> 🇫🇷 **[Version française](../fr/labs/lab-06-agent-graph.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

@@ -73,8 +73,10 @@ configured `WIKI_PUSH_TOKEN` and does not invoke Azure provisioning.
 
 [publish_showcase_wiki.py](../../scripts/publish_showcase_wiki.py) renders
 source-backed Home, navigation, architecture, operations, workflow and release
-guides plus paired native runbooks/evidence. PNG screenshots are copied
-byte-for-byte. Test trends retain their own artifact-driven generator/history.
+guides plus paired native runbooks/evidence, Langfuse integration/pilot evidence,
+evaluation guides and Lab 19. PNG and Langfuse WebP screenshots are copied
+byte-for-byte. JSON evidence stays linked to repository sources rather than
+being copied into the wiki. Test trends retain their own artifact-driven generator/history.
 Actual staging/production deployment-link fragments replace the marked Home
 section only when supplied; missing new artifacts preserve the last section.
 This prevents a docs-only run from erasing live customer links.
@@ -90,6 +92,46 @@ the images with the existing Mermaid CLI available on your PATH:
 The checked-in manifest binds each image to its diagram source and PNG hash.
 CI verifies these hashes and copies the images unchanged; it does not install
 or invoke a renderer during wiki publication.
+
+### Local generation and approved publication
+
+Generate and inspect a disposable local preview without touching an existing wiki
+clone or publishing anything:
+
+```powershell
+$preview = Join-Path ([System.IO.Path]::GetTempPath()) ('fsi-wiki-preview-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $preview | Out-Null
+python scripts/publish_showcase_wiki.py --wiki $preview --repository devopsabcs-engineering/foundry-hosted-agents-fsi
+python -m pytest eval/tests/test_native_showcase_docs.py eval/tests/test_publish_showcase_wiki.py -q
+```
+
+The script generates files only; it never commits or pushes. For approved
+publication, the existing **Publish test trends** workflow
+(`publish-test-trends.yml`) runs after a successful trusted main validation.
+It clones the wiki, generates maintained pages and trends, merges supplied
+deployment artifacts, then commits/pushes with its scoped token. A manual push
+of preview files would bypass that artifact-driven process.
+
+An approved operator can also repair publication from a completed, successful
+main-branch validation/release run. Use the run ID for the merged documentation
+revision, not an old run that predates these sources:
+
+```powershell
+gh workflow run publish-test-trends.yml --ref main -f run_id=<completed-successful-main-run-id>
+gh run list --workflow publish-test-trends.yml --limit 3
+```
+
+These are publication commands, not local validation. Run them only after the
+publishing approval; they were not executed as part of this synchronization.
+
+Pour une prévisualisation locale, utilisez les commandes ci-dessus dans un
+répertoire temporaire, pas dans le clone wiki existant. Le script ne publie
+rien. Après approbation et fusion, le workflow **Publish test trends** publie
+les pages bilingues, les captures et les tendances depuis les artefacts vérifiés.
+Il préserve les liens de déploiement en l'absence de nouveaux artefacts.
+La commande `gh workflow run` ci-dessus permet une réparation approuvée depuis
+une exécution main terminée avec succès contenant les sources fusionnées.
+Elle publie réellement; elle n'a pas été exécutée pendant cette synchronisation.
 
 See [Microsoft Foundry](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents)
 and the [evidence guide](release-evidence.md) for platform and provenance limits.

@@ -4,7 +4,7 @@ title: "Lab 14 - Pilot Operations"
 description: "Run the validation pipeline locally, read the evaluation gate, and walk the teardown workflow that protects shared infrastructure."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-14-pilot-operations)**
+> 🇫🇷 **[Version française](../fr/labs/lab-14-pilot-operations.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

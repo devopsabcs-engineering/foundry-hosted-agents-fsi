@@ -9,6 +9,12 @@ nav_order: 21
 [PowerPoint EN](assets/decks/foundry-evaluation-engineering-en.pptx) |
 [PowerPoint FR](assets/decks/foundry-evaluation-engineering-fr.pptx)
 
+For the optional observability comparison, read [Langfuse and Foundry](langfuse-integration.md).
+OTLP export does not synchronize datasets, prompts, scores or release gates.
+The [synthetic pilot evidence](langfuse-pilot-evidence.md) verifies VM-local
+ingestion, not remote Foundry delivery, Azure backend correlation or online
+judges. Production export remains disabled; use the existing native gates.
+
 ## Choose the evidence before the evaluator
 
 An evaluation is a measurement against a stated contract, not necessarily an

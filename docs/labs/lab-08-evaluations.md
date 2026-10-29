@@ -4,7 +4,7 @@ title: "Lab 08 - Evaluation Suite"
 description: "Explore the golden dataset and deterministic checks that gate arithmetic, approval, and language-parity behavior."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-08-evaluations)**
+> 🇫🇷 **[Version française](../fr/labs/lab-08-evaluations.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

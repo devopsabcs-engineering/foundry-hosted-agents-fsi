@@ -5,7 +5,7 @@ title: "Atelier 12 - Identité et accès du réviseur"
 description: "Enregistrer l'application de révision, accorder le rôle Reviewer via un groupe de sécurité et calculer les URI de redirection avant le déploiement de l'application."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-12-reviewer-identity)**
+> 🇬🇧 **[English version](../../labs/lab-12-reviewer-identity.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

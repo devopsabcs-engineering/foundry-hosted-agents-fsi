@@ -9,6 +9,33 @@ description: Verified release outcomes and explicit limits on native showcase ev
 
 ## Current approved production release
 
+[Release 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+succeeded on 2026-10-27 UTC at approved source `42c627c`: staging agent v7,
+production v8. The protected production job followed successful staging
+evaluation. The [paired release evidence](../showcase-evidence.md#current-approved-release)
+([French](../fr/showcase-evidence.md#livraison-approuvée-actuelle)) links the
+production definition, JUnit and evaluation artifacts: 968 passed tests,
+50 conditional skips, deterministic 13/13, and five cases per locale passing
+all three judge criteria without failed or errored items.
+
+* English: `evalrun_b78c38b8505a438a91bef59309b0d075`
+* French: `evalrun_8922edc672e24be6a5deb252399f1001`
+
+The recorded production definition has no `LANGFUSE_*` environment settings.
+Production export remains disabled. The [Langfuse pilot evidence](../langfuse-pilot-evidence.md)
+([French](../fr/langfuse-pilot-evidence.md)) establishes synthetic VM-local
+ingestion and UI, not remote Foundry delivery or matching Azure backend receipt.
+No new v7/v8 application screenshots were captured in this documentation update.
+The older revision-flow proof below is not relabeled as the latest runtime.
+
+La livraison `40567253202` sur `42c627c` consigne staging v7/production v8,
+968 tests réussis, 50 exclusions, 13/13 déterministe et cinq cas par langue
+réussis sur les trois critères sans erreur. Les captures de révision ci-dessous
+restent historiques. L'export Langfuse de production reste désactivé; les preuves
+du pilote établissent l'ingestion locale synthétique, pas une réception distante.
+
+## Earlier revision-workflow release
+
 [Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
 succeeded at approved source `2c3f13b`: staging agent v6 and production v7.
 Production used the protected reviewer gate and the exact evaluated staging

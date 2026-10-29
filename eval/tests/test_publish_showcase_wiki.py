@@ -88,14 +88,17 @@ def test_evidence_images_and_peer_pages_stay_local_to_wiki(source):
     assert f"]({peer})" in rendered
 
 
-def test_langfuse_gallery_publishes_all_six_images_without_changing_bytes(tmp_path):
+@pytest.mark.parametrize("suffix", ["", "-FR"])
+def test_langfuse_gallery_publishes_all_six_images_without_changing_bytes(tmp_path, suffix):
     assert wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"]) == 0
-    evidence = (tmp_path / "Langfuse-Pilot-Evidence.md").read_text(encoding="utf-8")
-    assert (tmp_path / "Langfuse-and-Foundry.md").is_file()
-    assert "](Langfuse-and-Foundry)" in evidence
-    assert "Production export remains disabled" in (
-        tmp_path / "Langfuse-and-Foundry.md"
-    ).read_text(encoding="utf-8")
+    evidence = (tmp_path / f"Langfuse-Pilot-Evidence{suffix}.md").read_text(encoding="utf-8")
+    assert f"](Langfuse-and-Foundry{suffix})" in evidence
+    guide = (tmp_path / f"Langfuse-and-Foundry{suffix}.md").read_text(encoding="utf-8")
+    assert ("L'export de production reste" if suffix else "Production export remains disabled") in guide
+    assert "AUTH_DISABLE_SIGNUP=true" in guide
+    peer = "" if suffix else "-FR"
+    assert f"](Langfuse-Pilot-Evidence{peer})" in evidence
+    assert f"](Langfuse-and-Foundry{peer})" in guide
     expected_images = {
         "2026-10-27/sign-in-desktop.webp",
         "2026-10-27/sign-up-desktop.webp",
@@ -111,7 +114,7 @@ def test_langfuse_gallery_publishes_all_six_images_without_changing_bytes(tmp_pa
         assert expected.startswith(b"RIFF") and expected[8:12] == b"WEBP"
         assert (tmp_path / "assets/langfuse-pilot" / image).read_bytes() == expected
     assert "blob/main/docs/assets/langfuse-pilot/2026-10-28/ingestion-evidence.json" in evidence
-    assert "Operator SSH and tunnel access remain blocked" in evidence
+    assert ("SSH opérateur et tunnel restent bloqués" if suffix else "Operator SSH and tunnel access remain blocked") in evidence
     assert not (tmp_path / "assets/langfuse-pilot/2026-10-28/ingestion-evidence.json").exists()
 
 
@@ -120,6 +123,41 @@ def test_langfuse_wiki_navigation_opens_authenticated_gallery(source):
     rendered = wiki.render(source, (wiki.ROOT / source).read_text(encoding="utf-8"), "owner/repo")
     assert "](Langfuse-and-Foundry)" in rendered
     assert "](Langfuse-Pilot-Evidence#authenticated-project-and-trace-views)" in rendered
+    assert "](Langfuse-and-Foundry-FR)" in rendered
+    assert "](Langfuse-Pilot-Evidence-FR#projet-et-trace)" in rendered
+
+
+def test_generated_wiki_internal_links_fragments_and_copied_assets_resolve(tmp_path):
+    """Validate the rendered graph, not only individual source substitutions."""
+    assert wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"]) == 0
+    for path in tmp_path.glob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        for target in re.findall(r"\[[^\]\n]+\]\(([^)\s]+)\)", text):
+            link = urlsplit(target)
+            if link.scheme or link.netloc:
+                continue
+            destination = tmp_path / link.path if link.path else path
+            if link.path and not link.path.startswith("assets/"):
+                destination = destination.with_suffix(".md")
+            assert destination.is_file(), (path.name, target)
+            if link.fragment:
+                body = re.sub(r"```.*?```", "", destination.read_text(encoding="utf-8"), flags=re.DOTALL)
+                headings = {
+                    re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+                    for heading in re.findall(r"^#{1,6}\s+(.+?)\s*#*$", body, re.MULTILINE)
+                }
+                assert link.fragment in headings, (path.name, target)
+
+
+@pytest.mark.parametrize("suffix", ["", "-FR"])
+def test_langfuse_hardening_evidence_and_links_survive_wiki_rendering(tmp_path, suffix):
+    assert wiki.main(["--wiki", str(tmp_path), "--repository", "owner/repo"]) == 0
+    text = (tmp_path / f"Langfuse-Pilot-Evidence{suffix}.md").read_text(encoding="utf-8")
+    for name in ("signup-hardening-evidence.json", "signup-hardening-power-evidence.json"):
+        target = f"https://github.com/owner/repo/blob/main/docs/assets/langfuse-pilot/2026-10-28/{name}"
+        assert f"]({target})" in text
+    assert "2026-10-28T20:34:18.3798186Z" in text
+    assert "AUTH_DISABLE_SIGNUP=true" in text
 
 
 @pytest.mark.parametrize("source", [
@@ -169,6 +207,7 @@ def test_all_maintained_wiki_pages_are_source_backed():
         "Native-Foundry-Evidence-FR", "Evaluation-Engineering", "Evaluation-Engineering-FR",
         "Lab-19-Evaluation-Engineering", "Lab-19-Evaluation-Engineering-FR",
         "Langfuse-and-Foundry", "Langfuse-Pilot-Evidence",
+        "Langfuse-and-Foundry-FR", "Langfuse-Pilot-Evidence-FR",
     }
 
 

@@ -4,7 +4,7 @@ title: "Lab 13 - The Reviewer UI"
 description: "Seed a local case queue, sign in as a reviewer, approve a case, and read the audit trail the decision leaves behind."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-13-reviewer-ui)**
+> 🇫🇷 **[Version française](../fr/labs/lab-13-reviewer-ui.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

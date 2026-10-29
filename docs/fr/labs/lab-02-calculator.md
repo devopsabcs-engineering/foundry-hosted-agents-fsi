@@ -5,7 +5,7 @@ title: "Atelier 02 - Le calculateur déterministe"
 description: "Retracer la fonction pure calculate_quote et prouver qu'elle n'invente jamais un montant pour une entrée qu'elle ne peut résoudre."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-02-calculator)**
+> 🇬🇧 **[English version](../../labs/lab-02-calculator.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

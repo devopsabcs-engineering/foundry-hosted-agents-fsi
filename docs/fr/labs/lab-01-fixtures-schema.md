@@ -5,7 +5,7 @@ title: "Atelier 01 - Données et schéma"
 description: "Explorer les données synthétiques de préparation de soumission et le schéma JSON draft-07 qui encadre leurs formes de calcul et de flux de travail."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-01-fixtures-schema)**
+> 🇬🇧 **[English version](../../labs/lab-01-fixtures-schema.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

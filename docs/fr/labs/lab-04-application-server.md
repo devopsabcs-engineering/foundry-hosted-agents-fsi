@@ -5,7 +5,7 @@ title: "Atelier 04 - Le serveur MCP d'application"
 description: "Exécuter le serveur d'application en lecture seule et confirmer qu'il n'expose que get_application, en rejetant les identifiants de données inconnus."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-04-application-server)**
+> 🇬🇧 **[English version](../../labs/lab-04-application-server.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

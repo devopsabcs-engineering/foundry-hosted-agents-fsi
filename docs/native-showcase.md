@@ -18,16 +18,21 @@ Both staging and production switch back before refreshing the native credential.
 
 ## Keep the restored customer demo available
 
-The current verified staging agent is version 6; production is version 7.
-[Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
-deployed approved runtime source `2c3f13b`, with independently verified,
-matching reviewer and MCP digests in both environments. Chat retains its
-previous verified image. The production revision/correction flow and both
-reviewer identities' invocation200/memory403 controls passed. The earlier
+The latest recorded staging agent is version 7; production is version 8.
+[Release 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+deployed approved runtime source `42c627c`, with production Langfuse export
+disabled. The [release evidence](showcase-evidence.md#current-approved-release)
+separates that release from the retained v6/v7 revision/correction screenshots
+and reviewer invocation200/memory403 checks. Chat rollout remains separate. The earlier
 [release 39293980605, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 restored the v2/v3 baseline. Both environments remain deployed. Do not run teardown,
 replace agent identities, change `quote-tools`, or infer production from the
 historical `-poc` suffix. Use the [deployment links](../README.md#deployment-links).
+
+For optional observability, use the [Langfuse integration guide](langfuse-integration.md)
+and [pilot evidence](langfuse-pilot-evidence.md). The captured ingestion is
+VM-local and synthetic-only; remote Foundry export and matching Azure backend
+receipt are not verified. Do not enable export in retained environments for a demo.
 
 This guide addresses the [session-2 follow-ups](../assets/session2.md).
 The additional showcase is isolated from the running quote workflow. Authored

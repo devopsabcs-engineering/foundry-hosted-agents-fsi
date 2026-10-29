@@ -110,6 +110,29 @@ générées par `scripts/build-workshop-deck.js` et `scripts/build-evaluation-de
 La publication exige une fusion et des tâches Pages/wiki réussies; modifier la
 documentation ne redéploie pas l'agent.
 
+## Pilote Langfuse facultatif
+
+Le [guide d'intégration Langfuse et Foundry](docs/fr/langfuse-integration.md)
+compare les traces, évaluations, contrôles et jeux de données natifs aux fonctions
+complémentaires de gestion des prompts, d'annotation et d'expérimentation Langfuse.
+L'exportateur OTLP facultatif, limité aux métadonnées, réutilise le fournisseur
+existant sans remplacer Foundry/Application Insights. Il est désactivé par défaut.
+Le pilote Azure sur une VM distincte, approuvé séparément, dispose de preuves de
+santé locale, d'ingestion OTLP synthétique et d'interface authentifiée sur ordinateur
+et mobile. Consultez les
+[preuves et captures](docs/fr/langfuse-pilot-evidence.md#projet-et-trace)
+ou la [galerie publiée du wiki](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Langfuse-Pilot-Evidence-FR#projet-et-trace).
+La VM est désallouée entre les démonstrations approuvées. L'accès SSH et le tunnel
+opérateur restent bloqués; la livraison depuis Foundry distant et la réception
+corrélée dans Azure ne sont pas vérifiées. L'export en production reste désactivé.
+Cette intégration n'exporte ni prompts, ni réponses, ni mesures d'utilisation de
+modèle ou de coût.
+
+La [livraison protégée](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+a promu l'agent de production v8 avec l'exportateur facultatif désactivé. La livraison
+v6/v7 ci-dessous reste une preuve historique, pas la dernière version de production
+ni une garantie de disponibilité continue.
+
 ## Essayer l'interface de clavardage
 
 Pour la démonstration client de la séance 2, consultez le
@@ -134,12 +157,14 @@ Conservez les deux environnements déployés.
 Consultez les [preuves actuelles et captures](docs/fr/showcase-evidence.md)
 pour les remplacements réussis des deux générations échouées et la distinction
 entre les images publiées et les versions réellement déployées. La livraison
-approuvée [`39527950931`, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
-a déployé la révision `2c3f13b` en staging v6 et production v7, avec les
-interfaces de clavardage/révision et les deux services MCP prêts dans chaque
-environnement. La correction de révision 2 en production, le journal actuel
-et le refus d'auto-approbation ont réussi. Les deux identités reviewer ont
-réussi invocation200/mémoire403. Le chat conserve son image vérifiée.
+approuvée [`40567253202`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+a déployé la révision `42c627c` en staging v7 et production v8.
+La définition de production enregistrée omet les paramètres Langfuse facultatifs;
+l'export de production reste désactivé. La livraison antérieure `39527950931`,
+tentative 2, fournit les captures conservées de correction de révision 2,
+journal, refus d'auto-approbation et invocation200/mémoire403 des reviewers.
+Ces captures v6/v7 sont historiques, pas de nouveaux contrôles applicatifs v7/v8.
+Le déploiement du chat reste distinct.
 Le juge des messages au
 demandeur a réussi 5/5 dans chaque langue sur les trois critères, sans erreur;
 l'ancien résultat 0/10 relève d'un autre contrat et reste conservé.

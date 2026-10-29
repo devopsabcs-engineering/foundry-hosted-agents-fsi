@@ -5,7 +5,7 @@ description: Timestamped runtime, authenticated UI, synthetic OTLP ingestion, on
 nav_order: 24
 ---
 
-[Integration guide](langfuse-integration.md) | [Workshop home](index.md)
+[Français](fr/langfuse-pilot-evidence.md) | [Integration guide](langfuse-integration.md) | [Workshop home](index.md)
 
 ## Verified outcome
 
@@ -41,9 +41,15 @@ export, project keys, and baseline application configuration were unchanged.
 The implementation was merged in [PR 63](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/pull/63)
 at commit `42c627cddba2cc14743f8120322634227d1f7366`.
 The [protected release](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
-promoted production agent version 8. This pilot evidence follow-up is tracked in
+evaluated staging agent version 7 and promoted production agent version 8.
+This pilot evidence follow-up is tracked in
 [issue 64](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/64).
 The production agent's optional Langfuse export remains disabled.
+
+Approved maintenance at `2026-10-28T20:31:57Z` verified disabled signup in both
+Langfuse containers and retained account/project state. The VM was confirmed
+deallocated again at `20:34:18 UTC`. See [signup hardening](#signup-hardening)
+for the exact checks and limits; no fresh login or signup API denial was tested.
 
 ## Azure inventory
 
@@ -204,6 +210,9 @@ returned HTTP 200 with `{"status":"OK","version":"4.70.1"}`.
 
 ### Desktop sign-up
 
+This historical capture predates the approved signup hardening below; it does
+not describe the current signup configuration.
+
 ![Langfuse desktop sign-up page with name, email, and password fields](assets/langfuse-pilot/2026-10-27/sign-up-desktop.webp)
 
 ### Mobile sign-in
@@ -244,8 +253,8 @@ The randomly generated password remains only in
 The temporary initialization override was removed and the web container restored
 to its baseline configuration, with no `LANGFUSE_INIT_*` variables remaining.
 Original application secrets, Compose configuration, and project credentials
-were unchanged. Signup configuration was not changed; disabling further signups
-remains an operator hardening action before widening access. No password, API key,
+were unchanged. Signup was unchanged during onboarding and was disabled in the
+later approved maintenance below. No password, API key,
 cookie, or browser storage state was retained in the evidence.
 
 ### Authenticated project and trace views
@@ -293,6 +302,29 @@ interactive workstation access and secure operator password retrieval still
 require a governance-approved access path. Do not copy the password into chat,
 repository files, command output, or screenshots.
 
+## Signup hardening
+
+The operator approved a bounded startup to disable further signups, verify the
+existing account, clean up, and deallocate without changing networking or
+production export. The [sanitized guest result](assets/langfuse-pilot/2026-10-28/signup-hardening-evidence.json)
+at `2026-10-28T20:31:57.939369Z` records:
+
+* `AUTH_DISABLE_SIGNUP=true` in the protected `.env` and both Langfuse containers
+* Exactly one user, matching `emmanuel@devopsabcs.com`, with the existing organization's `OWNER` membership
+* Exactly one organization, project, and API key; the project still belongs to that organization
+* Six running services, five passing health checks, and no configured worker health check
+* HTTP 200 application health with `{"status":"OK","version":"4.70.1"}`
+* Only web port `127.0.0.1:3000` published
+* Unchanged hashes for Compose, user credentials, and project credentials; unchanged other environment settings
+* All three protected environment files still `0600 root:root`, with initialization variables absent from application containers
+* Task-owned temporary directory removed; no credentials disclosed
+
+This verifies the effective signup configuration and retained database
+membership, not a new sign-in, a signup API denial, or public access. No user,
+project, or key was recreated. No NSG, identity, governance, or production export
+change was requested. The [final power observation](assets/langfuse-pilot/2026-10-28/signup-hardening-power-evidence.json)
+confirmed `PowerState/deallocated` at `2026-10-28T20:34:18.3798186Z`.
+
 ## Diagnostic cleanup
 
 The [guest cleanup response](assets/langfuse-pilot/2026-10-27/cleanup-response.json)
@@ -334,8 +366,10 @@ The operator approved manual startup when needed for Langfuse demonstrations.
 After the bounded cleanup window, the VM was deliberately deallocated again.
 The [initial cleanup power evidence](assets/langfuse-pilot/2026-10-28/power-evidence.json)
 records `PowerState/deallocated` at `2026-10-28T12:39:22Z`. After the separately
-approved onboarding window, the [latest power evidence](assets/langfuse-pilot/2026-10-28/user-power-evidence.json)
-again confirms deallocation at `2026-10-28T15:22:31Z`.
+approved onboarding window, the [onboarding power evidence](assets/langfuse-pilot/2026-10-28/user-power-evidence.json)
+again confirms deallocation at `2026-10-28T15:22:31Z`. After signup hardening,
+the [latest power evidence](assets/langfuse-pilot/2026-10-28/signup-hardening-power-evidence.json)
+confirms deallocation at `2026-10-28T20:34:18.3798186Z`.
 
 For an approved demonstration or maintenance window, start only this VM:
 
@@ -365,7 +399,7 @@ not a validated backup.
 
 * Operator SSH and tunnel access remain blocked.
 * Human onboarding and authenticated guest-local UI are verified, not workstation access or secure password delivery.
-* Signup configuration remains unchanged; disable further signups before widening access.
+* Signup is disabled in the deployed pilot's effective configuration; no new signup API denial or fresh login was tested during hardening.
 * VM-local synthetic OTLP ingestion is verified; matching Azure/Langfuse backend receipt is not.
 * The VM is intentionally deallocated between approved demonstration windows.
 * A remote Foundry hosted agent cannot reach the workstation's loopback tunnel.

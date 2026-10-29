@@ -5,7 +5,7 @@ description: Optional metadata-only OTLP integration, an Azure single-VM synthet
 nav_order: 23
 ---
 
-[Workshop home](index.md) | [Evaluation guide](evaluation-guide.md) | [Root README](../README.md)
+[Français](fr/langfuse-integration.md) | [Workshop home](index.md) | [Evaluation guide](evaluation-guide.md) | [Root README](../README.md)
 
 ## Recommendation
 
@@ -189,10 +189,12 @@ not configured/enabled for this pilot.
   UI access. The password remains in the VM-root-only `.synthetic-user.env` file;
   retrieve it through an approved operator path, never chat or evidence. Do not
   recreate the account/project or assume other users inherit membership. There is
-  no default administrator login. Signup configuration was not changed during
-  verification; disable further signups before widening access by setting
-   `AUTH_DISABLE_SIGNUP=true` in the VM's protected environment file and rerunning
-   `sudo /opt/langfuse-pilot/start.sh`.
+  no default administrator login. Approved maintenance on 2026-10-28 set
+  `AUTH_DISABLE_SIGNUP=true` in the deployed VM's protected environment file and
+  verified that setting in both Langfuse containers, retaining the existing
+  account, owner membership, project, and keys. The checked-in template still
+  requires this explicit post-onboarding hardening on a new instance. See the
+  [hardening evidence](langfuse-pilot-evidence.md#signup-hardening).
 
 Use the tunnel only on a trusted workstation. Anyone with local access to its
 forwarded port can reach Langfuse's login/API. The template's intended SSH rule

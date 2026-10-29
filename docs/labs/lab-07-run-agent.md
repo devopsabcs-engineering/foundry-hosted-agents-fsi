@@ -4,7 +4,7 @@ title: "Lab 07 - Run the Agent End to End"
 description: "Run the local agent against a fixture, read its bounded bilingual applicant message, then act as the human reviewer in code."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-07-run-agent)**
+> 🇫🇷 **[Version française](../fr/labs/lab-07-run-agent.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

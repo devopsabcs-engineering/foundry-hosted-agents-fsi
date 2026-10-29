@@ -53,7 +53,7 @@ For the retained Azure demo and session-2 follow-ups, see the
 [native Foundry showcase](native-showcase.md).
 
 The [release evidence](showcase-evidence.md#current-approved-release) records
-the approved staging v6/production v7 release and keeps historical failures
+the approved staging v7/production v8 release at `42c627c` and keeps historical failures
 separate from current checks. The full curriculum lives in [Labs](labs/):
 local foundations 00–09, controlled pilot surfaces 10–14, and isolated native
 exercises 15–18. Keep the retained environments deployed.
@@ -71,3 +71,13 @@ For the separate portal practice path, download the authored synthetic
 [English JSONL](assets/datasets/portal-practice-en-CA.jsonl) or
 [French JSONL](assets/datasets/portal-practice-fr-CA.jsonl). These are controls,
 not captured agent responses; uploads and paid submissions need separate approval.
+
+## Optional Langfuse observability
+
+The [Langfuse and Foundry guide](langfuse-integration.md) compares the native
+observability/evaluation path with the optional metadata-only OTLP exporter.
+The [pilot evidence](langfuse-pilot-evidence.md#authenticated-project-and-trace-views)
+contains authenticated screenshots and VM-local synthetic ingestion, not remote
+Foundry delivery or matching Azure backend receipt. Production export remains
+disabled. The last captured power check confirmed deallocation at
+`2026-10-28T20:34:18Z`; it is not a fresh health check.

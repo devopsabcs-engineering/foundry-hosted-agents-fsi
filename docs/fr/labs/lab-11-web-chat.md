@@ -5,7 +5,7 @@ title: "Atelier 11 - L'interface de clavardage du demandeur"
 description: "Exécuter localement le clavardage destiné au demandeur, lire sa barrière d'accès et retracer le contrat borné sans prime."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-11-web-chat)**
+> 🇬🇧 **[English version](../../labs/lab-11-web-chat.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

@@ -5,7 +5,7 @@ title: "Atelier 03 - Dépôt d'approbation et machine à états"
 description: "Parcourir la machine à états DRAFT à PENDING_REVIEW à APPROVED/REJECTED et prouver que l'auto-approbation est impossible."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-03-approval-repository)**
+> 🇬🇧 **[English version](../../labs/lab-03-approval-repository.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

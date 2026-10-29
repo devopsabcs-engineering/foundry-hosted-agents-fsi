@@ -4,7 +4,7 @@ title: "Lab 05 - The Rulebook MCP Server"
 description: "Run the read-only rulebook-server and confirm it serves only the pinned synthetic rate table."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-05-rulebook-server)**
+> 🇫🇷 **[Version française](../fr/labs/lab-05-rulebook-server.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

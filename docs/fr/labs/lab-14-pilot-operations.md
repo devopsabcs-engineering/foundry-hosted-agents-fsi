@@ -5,7 +5,7 @@ title: "Atelier 14 - Exploitation du pilote"
 description: "Exécuter localement le pipeline de validation, lire la porte d'évaluation et parcourir le flux de démantèlement qui protège l'infrastructure partagée."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-14-pilot-operations)**
+> 🇬🇧 **[English version](../../labs/lab-14-pilot-operations.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

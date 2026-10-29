@@ -4,7 +4,7 @@ title: "Lab 01 - Fixtures and Schema"
 description: "Explore the synthetic quote-preparation fixtures and the draft-07 JSON Schema that binds their calculation and workflow shapes."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-01-fixtures-schema)**
+> 🇫🇷 **[Version française](../fr/labs/lab-01-fixtures-schema.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.
