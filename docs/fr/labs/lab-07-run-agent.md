@@ -5,7 +5,7 @@ title: "Atelier 07 - Exécuter l'agent de bout en bout"
 description: "Exécuter l'agent local contre une donnée synthétique, lire son message bilingue borné destiné au demandeur, puis agir comme réviseur humain dans le code."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-07-run-agent)**
+> 🇬🇧 **[English version](../../labs/lab-07-run-agent.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

@@ -5,7 +5,7 @@ title: "Atelier 00 - Configuration"
 description: "Créer un environnement virtuel Python, installer les dépendances de chaque composant et confirmer que les suites de tests existantes réussissent."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-00-setup)**
+> 🇬🇧 **[English version](../../labs/lab-00-setup.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

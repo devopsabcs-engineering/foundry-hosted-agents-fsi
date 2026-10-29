@@ -4,7 +4,7 @@ title: "Lab 10 - Provision the Azure Foundation"
 description: "Read the Bicep templates that back the pilot, compile them offline, and understand why the network foundation is deployed separately from everything else."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-10-azure-foundation)**
+> 🇫🇷 **[Version française](../fr/labs/lab-10-azure-foundation.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

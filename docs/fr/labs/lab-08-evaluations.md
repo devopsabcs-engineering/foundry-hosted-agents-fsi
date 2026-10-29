@@ -5,7 +5,7 @@ title: "Atelier 08 - Suite d'évaluation"
 description: "Explorer le jeu de données de référence et les vérifications déterministes qui contrôlent l'arithmétique, l'approbation et la parité linguistique."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-08-evaluations)**
+> 🇬🇧 **[English version](../../labs/lab-08-evaluations.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

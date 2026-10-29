@@ -4,7 +4,7 @@ title: "Lab 04 - The Application MCP Server"
 description: "Run the read-only application-server and confirm it exposes only get_application, rejecting unknown fixture IDs."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-04-application-server)**
+> 🇫🇷 **[Version française](../fr/labs/lab-04-application-server.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

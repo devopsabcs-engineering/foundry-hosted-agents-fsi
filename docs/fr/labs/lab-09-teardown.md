@@ -5,7 +5,7 @@ title: "Atelier 09 - Démantèlement"
 description: "Arrêter les processus locaux démarrés, nettoyer tout état sur disque et confirmer que les ateliers locaux n'ont rien provisionné dans Azure."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-09-teardown)**
+> 🇬🇧 **[English version](../../labs/lab-09-teardown.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

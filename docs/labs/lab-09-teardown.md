@@ -4,7 +4,7 @@ title: "Lab 09 - Teardown"
 description: "Stop the local processes you started, clean up any on-disk state, and confirm the local labs provisioned nothing in Azure."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-09-teardown)**
+> 🇫🇷 **[Version française](../fr/labs/lab-09-teardown.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

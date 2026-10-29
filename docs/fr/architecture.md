@@ -1,5 +1,6 @@
 ---
 layout: default
+lang: fr
 title: Architecture
 description: Agent Foundry déployé, traitement déterministe, validation humaine et isolation des démonstrations natives.
 ---
@@ -9,8 +10,8 @@ description: Agent Foundry déployé, traitement déterministe, validation humai
 ## État déployé
 
 La livraison vérifiée utilise le véritable hôte Responses de Foundry :
-agent staging **v6**, production **v7**, source approuvée `2c3f13b`,
-[livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931).
+agent staging **v7**, production **v8**, source approuvée `42c627c`,
+[livraison 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202).
 Le suffixe `-poc` du compte/projet désigne la production. Les deux chats, les
 deux applications de révision et les quatre services MCP sont déployés.
 Les digests reviewer et MCP correspondent aux images évaluées en staging.
@@ -19,7 +20,15 @@ Ces versions constituent une observation datée, pas des paramètres de routage.
 Les anciens avertissements « author-only » ne décrivent plus cet inventaire.
 Toute nouvelle modification d'infrastructure reste soumise à approbation.
 
-La resoumission après correction décrite ci-dessous est suivie dans
+L'[exporteur Langfuse facultatif](langfuse-integration.md) ajoute des copies
+limitées aux métadonnées nettoyées au fournisseur de traçage du SDK, sans
+remplacer l'export Azure. Désactivé par défaut, il est absent des paramètres
+d'environnement de production enregistrés. Les [preuves du pilote isolé](langfuse-pilot-evidence.md)
+établissent une ingestion synthétique locale à la VM, pas un export depuis
+Foundry distant ni une réception correspondante dans Application Insights.
+Langfuse n'est pas une dépendance du parcours de soumission.
+
+La preuve conservée v6/v7 de resoumission après correction précède cette livraison et est suivie dans
 [l'issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
 Le test authentifié de production a vérifié la nouvelle préparation native
 de révision 2, sa visibilité dans les files active/brouillon, le journal actuel

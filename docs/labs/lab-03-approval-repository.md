@@ -4,7 +4,7 @@ title: "Lab 03 - Approval Repository and State Machine"
 description: "Walk the DRAFT to PENDING_REVIEW to APPROVED/REJECTED state machine and prove self-approval is impossible."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-03-approval-repository)**
+> 🇫🇷 **[Version française](../fr/labs/lab-03-approval-repository.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

@@ -57,7 +57,7 @@ Pour la démo Azure conservée et les suivis de la séance 2, consultez les
 [fonctions natives Foundry](native-showcase.md).
 
 Les [preuves de livraison](showcase-evidence.md#livraison-approuvée-actuelle)
-consignent la livraison approuvée staging v6/production v7 sans remplacer les
+consignent la livraison approuvée staging v7/production v8 sur `42c627c` sans remplacer les
 échecs historiques. Le programme complet se trouve dans [Ateliers](labs/) :
 fondations locales 00–09, surfaces pilotes contrôlées 10–14 et exercices
 natifs isolés 15–18. Conservez les environnements déployés.
@@ -75,3 +75,13 @@ Pour le parcours de pratique distinct, téléchargez les contrôles synthétique
 rédigés [français](../assets/datasets/portal-practice-fr-CA.jsonl) ou
 [anglais](../assets/datasets/portal-practice-en-CA.jsonl), pas des réponses agent
 capturées. Téléversement et soumission payante exigent une autorisation distincte.
+
+## Observabilité Langfuse facultative
+
+Le [guide Langfuse et Foundry](langfuse-integration.md) compare le parcours natif
+d'observabilité/évaluation à l'exporteur OTLP facultatif limité aux métadonnées.
+Les [preuves du pilote](langfuse-pilot-evidence.md#projet-et-trace) contiennent
+des captures authentifiées et une ingestion synthétique locale à la VM, pas un
+export depuis Foundry distant ni une réception correspondante dans Azure.
+L'export de production reste désactivé. La dernière observation d'alimentation
+confirme la désallocation à `2026-10-28T20:34:18Z`, pas une nouvelle vérification de santé.

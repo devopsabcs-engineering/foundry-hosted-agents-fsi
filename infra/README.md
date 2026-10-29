@@ -10,7 +10,8 @@ group that holds both the staging and production environments.
 See the [architecture](../docs/architecture.md)
 ([French](../docs/fr/architecture.md)) for component and identity boundaries.
 The [approved release evidence](../docs/showcase-evidence.md#current-approved-release)
-records runtime `01af1fb`, staging v5 and production v6. Preserve these retained
+records runtime `42c627c`, staging v7 and production v8 in release `40567253202`.
+These are recorded release versions, not a fresh health check. Preserve these retained
 environments; compiling a template is not permission to deploy or tear it down.
 
 > [!NOTE]
@@ -61,6 +62,27 @@ user-profile/chat-summary extraction and service-default procedural extraction.
 Positive and cross-scope checks and the reviewer workload's HTTP 403 are
 distinct retrieval and caller-role controls, not a per-agent ACL. Memory is
 not attached to the quote agent and does not replace the Cosmos approval store.
+
+## Isolated Langfuse pilot
+
+[`langfuse-pilot.bicep`](langfuse-pilot.bicep) and its
+[cloud-init](langfuse-pilot/cloud-init.yaml)/[Compose](langfuse-pilot/docker-compose.yml)
+files are outside the main deployment graph. The template defaults to
+`Standard_D4s_v5`; the captured pilot inventory records `Standard_D4s_v6`.
+The six-service, digest-pinned Langfuse 4.70.1 stack publishes only web on
+`127.0.0.1:3000`. Follow the [English integration guide](../docs/langfuse-integration.md)
+or [French guide](../docs/fr/langfuse-integration.md) for separate approval,
+cost, onboarding, operator access and explicit post-onboarding
+`AUTH_DISABLE_SIGNUP=true` hardening on a new instance.
+
+The [captured pilot evidence](../docs/langfuse-pilot-evidence.md)
+([French](../docs/fr/langfuse-pilot-evidence.md)) proves VM-local synthetic
+ingestion and retained account/project state. The last captured power check
+confirmed deallocation at `2026-10-28T20:34:18Z`. Operator SSH remains blocked
+in the recorded access evidence; do not restore governance-removed rules.
+Remote Foundry delivery and matching Azure backend receipt are unverified.
+Production export remains disabled. No pilot deployment or startup is part of
+documentation generation.
 
 ## Modules
 

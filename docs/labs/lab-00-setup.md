@@ -4,7 +4,7 @@ title: "Lab 00 - Setup"
 description: "Create a Python virtual environment, install every component's dependencies, and confirm the existing test suites pass."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-00-setup)**
+> 🇫🇷 **[Version française](../fr/labs/lab-00-setup.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

@@ -19,17 +19,23 @@ Staging et production rétablissent le mode natif avant de renouveler le jeton.
 
 ## Conserver la démo restaurée
 
-L'agent actuellement vérifié utilise la version 6 en staging et la version 7
-en production. La [livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
-a déployé le code approuvé `2c3f13b`, avec des digests reviewer et MCP
-identiques entre les environnements, vérifiés indépendamment. Le chat conserve
-son image vérifiée précédente. Le parcours de correction en production et les
-contrôles invocation200/mémoire403 des deux identités reviewer ont réussi.
+La dernière version consignée est la version 7 en staging et la version 8
+en production. La [livraison 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+a déployé le code approuvé `42c627c`, avec l'export Langfuse de production
+désactivé. Les [preuves de livraison](showcase-evidence.md#livraison-approuvée-actuelle)
+distinguent cette livraison des captures v6/v7 de correction et des contrôles
+invocation200/mémoire403 des reviewers. Le déploiement du chat reste distinct.
 La [livraison 39293980605, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39293980605)
 avait restauré la référence v2/v3. Les deux environnements restent
 déployés. Ne lancez aucun démantèlement, ne remplacez pas les identités et ne
 modifiez pas `quote-tools`. Le suffixe historique `-poc` désigne la production.
 Consultez les [liens de déploiement](../../README.fr.md#liens-de-déploiement).
+
+Pour l'observabilité facultative, consultez le [guide Langfuse](langfuse-integration.md)
+et les [preuves du pilote](langfuse-pilot-evidence.md). L'ingestion capturée est
+locale à la VM et synthétique; export depuis Foundry distant et réception
+correspondante dans Azure ne sont pas vérifiés. N'activez pas l'export dans les
+environnements conservés pour une démonstration.
 
 Ce guide répond aux [suivis de la séance 2](../../assets/session2.md).
 Les ajouts sont isolés du parcours de soumission existant. Du code écrit,

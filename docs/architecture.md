@@ -9,21 +9,28 @@ description: Deployed Foundry agent, deterministic workflow, employee review, na
 ## Current implementation and deployed baseline
 
 The verified release runs a real Microsoft Foundry Responses host:
-staging agent **v6**, production **v7**, approved runtime source `2c3f13b`,
-[release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931).
+staging agent **v7**, production **v8**, approved runtime source `42c627c`,
+[release 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202).
 The `-poc` Foundry account/project suffix identifies production, not staging.
 Both chat apps, both reviewer apps and four MCP apps are deployed. Reviewer
 and MCP images match their evaluated staging digests. Chat retains its
 previous verified image; it was not rebuilt by this release.
 Version numbers are a dated observation, not invocation-routing parameters.
 
-The revision-resubmission implementation below is tracked in
+The retained v6/v7 revision-resubmission proof predates that release and is tracked in
 [issue #28](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/issues/28).
 Authenticated production testing verified native revision-2 resubmission,
 active/draft queue visibility, current audit and self-approval denial.
 The actual reviewer identities in both environments passed invocation 200
 and operator-memory denial 403. See the [bilingual revision proof](showcase-evidence.md)
 for response provenance, native judge runs and historical checkpoints.
+
+The [optional Langfuse exporter](langfuse-integration.md) adds sanitized
+metadata-only copies to the SDK-owned tracing provider without replacing Azure
+export. It is disabled by default and absent from the recorded production
+environment settings. The isolated [pilot evidence](langfuse-pilot-evidence.md)
+proves VM-local synthetic ingestion, not remote Foundry delivery or matching
+Application Insights receipt. Langfuse is not a quote-workflow dependency.
 
 All data, rates and outputs are synthetic training material. No actual
 insurance quote, delivery, customer policy or automatic approval is represented.

@@ -5,7 +5,7 @@ title: "Atelier 13 - L'interface de révision"
 description: "Alimenter une file de dossiers locale, se connecter comme réviseur, approuver un dossier et lire la piste de vérification laissée par la décision."
 ---
 
-> 🇬🇧 **[English version](../../labs/lab-13-reviewer-ui)**
+> 🇬🇧 **[English version](../../labs/lab-13-reviewer-ui.md)**
 
 > [!IMPORTANT]
 > Chaque donnée, règle et résultat de calcul de ce laboratoire est synthétique et non contraignant. Rien ici ne représente un produit, un tarif ou une police Desjardins réel, et aucun organisme de réglementation ni assureur n'a révisé ou approuvé ce contenu.

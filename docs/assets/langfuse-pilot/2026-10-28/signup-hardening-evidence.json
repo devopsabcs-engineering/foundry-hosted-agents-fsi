@@ -1,0 +1,31 @@
+{
+  "provenance": "Sanitized guest JSON and cleanup marker returned by authenticated Azure RunShellScript; not a signed attestation.",
+  "timestamp": "2026-10-28T20:31:57.939369+00:00",
+  "signupDisabledInWebAndWorker": true,
+  "retainedAccountAndOwnerMembershipVerified": true,
+  "counts": {
+    "users": 1,
+    "approvedUsers": 1,
+    "organizations": 1,
+    "projects": 1,
+    "apiKeys": 1,
+    "ownerMemberships": 1,
+    "projectInOrg": 1
+  },
+  "services": [
+    {"service": "clickhouse", "running": true, "health": "healthy"},
+    {"service": "langfuse-web", "running": true, "health": "healthy"},
+    {"service": "langfuse-worker", "running": true, "health": null},
+    {"service": "minio", "running": true, "health": "healthy"},
+    {"service": "postgres", "running": true, "health": "healthy"},
+    {"service": "redis", "running": true, "health": "healthy"}
+  ],
+  "health": {"status": "OK", "version": "4.70.1"},
+  "onlyLoopbackWebPortPublished": true,
+  "composeUserAndProjectFilesUnchanged": true,
+  "otherEnvironmentSettingsUnchanged": true,
+  "protectedFilesMode": "0600 root:root",
+  "initializationEnvironmentAbsent": true,
+  "credentialsDisclosed": false,
+  "cleanupMarker": "TASK_OWNED_TEMPORARY_DIRECTORY_REMOVED"
+}

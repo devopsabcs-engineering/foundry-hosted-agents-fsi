@@ -4,7 +4,7 @@ title: "Lab 12 - Reviewer Identity and Access"
 description: "Register the reviewer application, grant the Reviewer role through a security group, and compute redirect URIs before the app is deployed."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-12-reviewer-identity)**
+> 🇫🇷 **[Version française](../fr/labs/lab-12-reviewer-identity.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

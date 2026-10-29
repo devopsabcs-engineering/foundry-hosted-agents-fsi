@@ -9,8 +9,8 @@ description: Safe operation and troubleshooting of the retained synthetic demo e
 
 ## Retained environment
 
-Release [39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
-is the current verified baseline: staging v6, production v7, source `2c3f13b`.
+Release [40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+is the latest recorded baseline: staging v7, production v8, source `42c627c`.
 Both environments are retained without teardown. Home contains actual app and
 Foundry links; `-poc` identifies production.
 
@@ -32,6 +32,27 @@ Before a customer demo:
    Expired markers are not evidence of an application regression.
 7. Use [Lab 18](../labs/lab-18-native-evaluation-traces.md) for real trace export
    and synthetic replay. Never invent ingestion when a query is empty.
+
+## Optional Langfuse pilot
+
+Use the [integration guide](../langfuse-integration.md)
+([French](../fr/langfuse-integration.md)) and [captured pilot evidence](../langfuse-pilot-evidence.md)
+([French](../fr/langfuse-pilot-evidence.md)) before planning a demonstration.
+The last captured power check confirmed deallocation at `2026-10-28T20:34:18Z`.
+Guest-local authenticated UI, synthetic OTLP ingestion, retained membership and
+`AUTH_DISABLE_SIGNUP=true` are recorded, not continuously monitored.
+Operator SSH/tunnel access remains blocked in the access evidence.
+Do not bypass governance, restore removed NSG rules, expose web publicly,
+or reveal the root-only credentials. Startup and secure operator access
+require separate approval. Remote Foundry export and matching Azure backend
+receipt remain unverified; production export remains disabled.
+
+Consultez les guides français ci-dessus pour le pilote synthétique sur demande.
+La désallocation, l'interface locale authentifiée et les inscriptions désactivées
+sont des observations datées. SSH opérateur reste bloqué; démarrage et accès
+sécurisé exigent une approbation distincte. Ne contournez pas la gouvernance.
+Export depuis Foundry distant et réception Azure restent non vérifiés;
+l'export de production reste désactivé.
 
 ## Troubleshooting by boundary
 

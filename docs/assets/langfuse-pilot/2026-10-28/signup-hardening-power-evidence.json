@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-28T20:34:18.3798186Z",
+  "vm": "langfuse-synthetic-pilot",
+  "statuses": [
+    {
+      "code": "ProvisioningState/succeeded",
+      "displayStatus": "Provisioning succeeded",
+      "level": "Info",
+      "time": "2026-10-28T20:32:47.6267896Z"
+    },
+    {
+      "code": "PowerState/deallocated",
+      "displayStatus": "VM deallocated",
+      "level": "Info"
+    }
+  ]
+}

@@ -110,9 +110,19 @@ compares native tracing, evaluation, monitoring, and trace-to-dataset workflows
 with Langfuse's complementary prompt, annotation, and experiment workflows.
 An optional metadata-only OTLP exporter reuses the hosted agent's existing
 provider without replacing Foundry/Application Insights. Export is off by default.
-The standalone Azure single-VM pilot is synthetic-data-only, accessed through
-an SSH tunnel, and requires separate deployment and cost approval. These authored
-files are not evidence of a deployed or operational Langfuse instance.
+The separately approved Azure single-VM pilot has verified guest-local health,
+synthetic OTLP ingestion, and authenticated desktop/mobile UI evidence. Open the
+[evidence and screenshot gallery](docs/langfuse-pilot-evidence.md#authenticated-project-and-trace-views)
+or the [published wiki gallery](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/wiki/Langfuse-Pilot-Evidence#authenticated-project-and-trace-views).
+It is deallocated between approved demonstration windows. Operator SSH/tunnel
+access remains blocked; remote Foundry delivery and matching Azure backend receipt
+are unverified. Production export remains disabled. No prompts, responses, model
+usage, or cost measurements are exported by this metadata-only integration.
+
+The [protected release](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+promoted production agent v8 with the optional exporter disabled. The v6/v7 release
+below is retained historical evidence, not the latest production version or a
+continuous availability guarantee.
 
 ## Try the web chatbot
 
@@ -137,11 +147,13 @@ that limitation rather than claiming a quality pass. Keep both environments depl
 See [current release evidence and screenshots](docs/showcase-evidence.md) for
 the successful replacements of both failed generation jobs and the distinction
 between published images and deployed runtime versions. Approved release
-[`39527950931`, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
-deployed runtime revision `2c3f13b` as staging v6 and production v7, with
-both chat/reviewer UIs and both MCP services ready. Production revision-2
-correction, current audit and self-approval denial passed; both actual reviewer
-identities passed invocation200/memory403. Chat retains its verified image.
+[`40567253202`](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+deployed runtime revision `42c627c` as staging v7 and production v8.
+Its recorded production definition omits the optional Langfuse settings;
+production export remains disabled. The earlier `39527950931`, attempt 2,
+supplies the retained production revision-2 correction, audit, self-approval
+denial and reviewer invocation200/memory403 screenshots. Those v6/v7 captures
+are historical proof, not fresh v7/v8 application checks. Chat rollout is separate.
 Native applicant-message judging passed 5/5 in each language on all
 three criteria without errors; the historical 0/10 result belongs to a
 different contract and remains preserved. These retained results are not

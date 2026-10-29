@@ -1,5 +1,6 @@
 ---
 layout: default
+lang: fr
 title: Preuves de la démonstration native
 description: Reprise des générations natives, versions réellement exécutées et captures des applications déployées.
 ---
@@ -10,9 +11,38 @@ description: Reprise des générations natives, versions réellement exécutées
 
 ## Livraison approuvée actuelle
 
+La [livraison 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+a réussi le 2026-10-27 UTC sur la source approuvée
+`42c627cddba2cc14743f8120322634227d1f7366` : agent staging **v7**, production
+**v8**. La tâche de production protégée a réussi après le contrôle staging.
+L'[artefact de version de production](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12765726184)
+enregistre `quote-preparation-agent:8`, statut `active`, sans paramètres
+d'environnement `LANGFUSE_*`. L'export facultatif de production reste désactivé;
+livrer l'exporteur ne prouve pas une ingestion distante dans le pilote Langfuse.
+
+L'[artefact de tests hors ligne](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12762874081)
+consigne **968 tests réussis et 50 exclusions conditionnelles** dans trois
+rapports JUnit. L'[artefact d'évaluation](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12763419953)
+consigne le contrôle déterministe **13/13** et cinq cas par langue réussissant
+coherence, groundedness et task adherence, sans échec ni erreur de juge :
+
+* Anglais : `evalrun_b78c38b8505a438a91bef59309b0d075`
+* Français : `evalrun_8922edc672e24be6a5deb252399f1001`
+
+Les artefacts GitHub suivent la politique de conservation du dépôt; téléchargez-les
+par un parcours autorisé avant expiration si une conservation prolongée est requise.
+Ces observations de livraison conservées ne sont pas un suivi continu.
+Aucune nouvelle capture applicative v7/v8 n'a été produite pour cette mise à jour.
+Les captures de révision et digests ci-dessous restent associés à leurs
+livraisons d'origine. Les [preuves Langfuse](langfuse-pilot-evidence.md) consignent
+séparément ingestion synthétique locale à la VM, interface authentifiée,
+désactivation des inscriptions et désallocation, pas une réception correspondante dans Azure.
+
+## Livraison antérieure du parcours de révision
+
 La [livraison 39527950931, tentative 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
 a réussi le 2026-10-21 UTC sur le code explicitement approuvé
-`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. L'agent actif utilise la version
+`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. L'agent utilisait la version
 **6 en staging** et **7 en production**. La promotion a conservé l'approbation
 GitHub obligatoire et les images exactes évaluées en staging.
 Les deux environnements restent déployés, sans démantèlement ni vidage de file.

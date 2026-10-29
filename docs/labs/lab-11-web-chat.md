@@ -4,7 +4,7 @@ title: "Lab 11 - The Applicant Web Chat UI"
 description: "Run the applicant-facing chat locally, read its access gate, and trace the bounded no-premium message contract."
 ---
 
-> 🇫🇷 **[Version française](../fr/labs/lab-11-web-chat)**
+> 🇫🇷 **[Version française](../fr/labs/lab-11-web-chat.md)**
 
 > [!IMPORTANT]
 > Every fixture, rulebook, and calculator output in this lab is synthetic and non-binding. Nothing here represents an actual Desjardins product, rate, or policy, and no regulator or insurer has reviewed or endorsed this material.

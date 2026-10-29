@@ -18,9 +18,15 @@ Labs 00 through 09 run entirely on your laptop. Labs 10 through 14 add the pilot
 Labs 15 through 18 add isolated native showcase exercises with explicit evidence
 checks. Some exercises require approved service prerequisites or retained native
 artifacts; record missing prerequisites as blocked rather than inventing results.
-Keep the approved staging v6 and production v7 deployment available when
+Keep the recorded staging v7 and production v8 deployment at `42c627c`
+(release `40567253202`) available when
 continuing. Check the [release evidence](../showcase-evidence.md#current-approved-release)
 and [architecture](../architecture.md) before using live surfaces.
+
+The optional [Langfuse guide](../langfuse-integration.md) and
+[pilot evidence](../langfuse-pilot-evidence.md) are separate from the curriculum's
+native gates. Captured ingestion is synthetic and VM-local, not remote Foundry
+delivery or matching Azure backend receipt. Production export remains disabled.
 
 ### Local Foundations
 

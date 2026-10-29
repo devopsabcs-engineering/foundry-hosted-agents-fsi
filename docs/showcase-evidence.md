@@ -10,9 +10,38 @@ description: Recorded native generation recovery, running demo versions and auth
 
 ## Current approved release
 
+[Release 40567253202](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202)
+succeeded on 2026-10-27 UTC at approved source
+`42c627cddba2cc14743f8120322634227d1f7366`: staging agent **v7** and production
+**v8**. The protected production job succeeded after the staging evaluation gate.
+The [production-version artifact](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12765726184)
+records `quote-preparation-agent:8`, status `active`, and no `LANGFUSE_*`
+environment settings. Optional production export remains disabled; shipping the
+exporter does not prove remote delivery to the isolated Langfuse pilot.
+
+The [offline-test artifact](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12762874081)
+records **968 passed tests and 50 conditional skips** across three JUnit reports.
+The [evaluation artifact](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/40567253202/artifacts/12763419953)
+records deterministic **13/13** and five cases per locale passing coherence,
+groundedness and task adherence, with no failed or errored judge items:
+
+* English: `evalrun_b78c38b8505a438a91bef59309b0d075`
+* French: `evalrun_8922edc672e24be6a5deb252399f1001`
+
+GitHub artifacts follow the repository's retention policy; download them through
+an authorized workflow before expiry if longer evidence retention is required.
+These are retained release observations, not continuous monitoring. No new
+v7/v8 application screenshots were captured for this documentation update.
+The older revision-flow screenshots and image digests below remain attributed
+to their original releases. The [Langfuse evidence](langfuse-pilot-evidence.md)
+separately records synthetic VM-local ingestion, authenticated UI, signup
+hardening and deallocation; it does not verify matching Azure backend receipt.
+
+## Earlier approved revision-workflow release
+
 [Release 39527950931, attempt 2](https://github.com/devopsabcs-engineering/foundry-hosted-agents-fsi/actions/runs/39527950931)
 succeeded on 2026-10-21 UTC at explicitly approved source
-`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. The active hosted agent is
+`2c3f13b8b589c8f911edf061bcbc7c842d10d7d3`. The hosted agent was
 version **6 in staging** and **7 in production**. Production used the normal
 required-reviewer approval and promoted the exact evaluated staging images.
 Both environments remain deployed; no teardown or queue clearing occurred.
